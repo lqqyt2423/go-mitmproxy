@@ -7,5 +7,8 @@ import (
 )
 
 func main() {
-	log.Fatal(proxy.NewProxy().Start())
+	opts := &proxy.Options{
+		Addr: ":8080",
+	}
+	log.Fatal(proxy.NewProxy(opts).Start())
 }
