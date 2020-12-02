@@ -3,14 +3,14 @@ package main
 import (
 	"log"
 
-	proxy "github.com/lqqyt2423/go-mitmproxy"
+	"github.com/lqqyt2423/go-mitmproxy/proxy"
 )
 
 func main() {
 	log.SetFlags(log.LstdFlags | log.Lshortfile)
 
 	opts := &proxy.Options{
-		Addr: ":8080",
+		Addr: ":9080",
 	}
 	log.Fatal(proxy.NewProxy(opts).Start())
 }
