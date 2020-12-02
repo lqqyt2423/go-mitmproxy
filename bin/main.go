@@ -7,6 +7,8 @@ import (
 )
 
 func main() {
+	log.SetFlags(log.LstdFlags | log.Lshortfile)
+
 	opts := &proxy.Options{
 		Addr: ":8080",
 	}

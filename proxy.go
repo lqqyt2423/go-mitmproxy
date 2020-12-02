@@ -17,7 +17,7 @@ type Proxy struct {
 }
 
 func (proxy *Proxy) Start() error {
-	log.Printf("Proxy start listen at :8080")
+	log.Printf("Proxy start listen at %v\n", proxy.Server.Addr)
 	return proxy.Server.ListenAndServe()
 }
 
@@ -31,7 +31,7 @@ func (proxy *Proxy) ServeHTTP(res http.ResponseWriter, req *http.Request) {
 		res.WriteHeader(400)
 		_, err := io.WriteString(res, "此为代理服务器，不能直接发起请求")
 		if err != nil {
-			log.Printf("error: %v", err)
+			log.Printf("error: %v, url: %v\n", err, req.URL.String())
 		}
 		return
 	}
@@ -40,7 +40,7 @@ func (proxy *Proxy) ServeHTTP(res http.ResponseWriter, req *http.Request) {
 
 	proxyReq, err := http.NewRequest(req.Method, req.URL.String(), req.Body)
 	if err != nil {
-		log.Printf("error: %v", err)
+		log.Printf("error: %v, url: %v\n", err, req.URL.String())
 		res.WriteHeader(502)
 		return
 	}
@@ -51,7 +51,7 @@ func (proxy *Proxy) ServeHTTP(res http.ResponseWriter, req *http.Request) {
 	}
 	proxyRes, err := http.DefaultClient.Do(proxyReq)
 	if err != nil {
-		log.Printf("error: %v", err)
+		log.Printf("error: %v, url: %v\n", err, req.URL.String())
 		res.WriteHeader(502)
 		return
 	}
@@ -63,7 +63,7 @@ func (proxy *Proxy) ServeHTTP(res http.ResponseWriter, req *http.Request) {
 	res.WriteHeader(proxyRes.StatusCode)
 	_, err = io.Copy(res, proxyRes.Body)
 	if err != nil {
-		log.Printf("error: %v", err)
+		log.Printf("error: %v, url: %v\n", err, req.URL.String())
 		return
 	}
 
@@ -75,7 +75,7 @@ func (proxy *Proxy) handleConnect(res http.ResponseWriter, req *http.Request) {
 
 	conn, err := net.Dial("tcp", req.Host)
 	if err != nil {
-		log.Printf("error: %v", err)
+		log.Printf("error: %v, host: %v\n", err, req.Host)
 		res.WriteHeader(502)
 		return
 	}
@@ -83,7 +83,7 @@ func (proxy *Proxy) handleConnect(res http.ResponseWriter, req *http.Request) {
 
 	cconn, _, err := res.(http.Hijacker).Hijack()
 	if err != nil {
-		log.Printf("error: %v", err)
+		log.Printf("error: %v, host: %v\n", err, req.Host)
 		res.WriteHeader(502)
 		return
 	}
@@ -91,7 +91,7 @@ func (proxy *Proxy) handleConnect(res http.ResponseWriter, req *http.Request) {
 
 	_, err = io.WriteString(cconn, "HTTP/1.1 200 Connection Established\r\n\r\n")
 	if err != nil {
-		log.Printf("error: %v", err)
+		log.Printf("error: %v, host: %v\n", err, req.Host)
 		return
 	}
 
@@ -99,14 +99,14 @@ func (proxy *Proxy) handleConnect(res http.ResponseWriter, req *http.Request) {
 	go func() {
 		_, err := io.Copy(conn, cconn)
 		if err != nil {
-			log.Printf("error: %v", err)
+			log.Printf("error: %v, host: %v\n", err, req.Host)
 		}
 		ch <- true
 	}()
 
 	_, err = io.Copy(cconn, conn)
 	if err != nil {
-		log.Printf("error: %v", err)
+		log.Printf("error: %v, host: %v\n", err, req.Host)
 	}
 
 	<-ch
