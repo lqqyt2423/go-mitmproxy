@@ -17,6 +17,10 @@ import (
 	"time"
 )
 
+// reference
+// https://docs.mitmproxy.org/stable/concepts-certificates/
+// https://github.com/mitmproxy/mitmproxy/blob/master/mitmproxy/certs.py
+
 var caErrNotFound = errors.New("ca not found")
 
 type CA struct {

@@ -9,3 +9,7 @@ testserver:
 .PHONY: clean
 clean:
 	rm -f mitmproxy testserver
+
+.PHONY: test
+test:
+	go test ./...
