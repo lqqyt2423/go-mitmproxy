@@ -1,7 +1,7 @@
 package proxy
 
 import (
-	"fmt"
+	"os"
 	"testing"
 )
 
@@ -20,5 +20,9 @@ func TestNewCA(t *testing.T) {
 	if err != nil {
 		t.Error(err)
 	}
-	fmt.Println(ca)
+
+	err = ca.saveTo(os.Stdout)
+	if err != nil {
+		t.Error(err)
+	}
 }

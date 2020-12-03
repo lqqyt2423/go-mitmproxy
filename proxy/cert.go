@@ -6,6 +6,7 @@ import (
 	"encoding/pem"
 	"errors"
 	"fmt"
+	"io"
 	"io/ioutil"
 	"os"
 	"path/filepath"
@@ -124,5 +125,28 @@ func (ca *CA) load() error {
 }
 
 func (ca *CA) create() error {
+	return nil
+}
+
+func (ca *CA) saveTo(out io.Writer) error {
+	keyBytes, err := x509.MarshalPKCS8PrivateKey(&ca.PrivateKey)
+	if err != nil {
+		return err
+	}
+	err = pem.Encode(out, &pem.Block{Type: "PRIVATE KEY", Bytes: keyBytes})
+	if err != nil {
+		return err
+	}
+
+	err = pem.Encode(out, &pem.Block{Type: "CERTIFICATE", Bytes: ca.RootCert.Raw})
+	if err != nil {
+		return err
+	}
+
+	return nil
+}
+
+func (ca *CA) save() error {
+
 	return nil
 }
