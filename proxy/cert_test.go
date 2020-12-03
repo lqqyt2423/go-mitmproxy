@@ -1,28 +1,42 @@
 package proxy
 
 import (
-	"os"
+	"bytes"
+	"io/ioutil"
+	"reflect"
 	"testing"
 )
 
 func TestGetStorePath(t *testing.T) {
 	path, err := getStorePath("")
 	if err != nil {
-		t.Error(err)
+		t.Fatal(err)
 	}
 	if path == "" {
-		t.Errorf("should have path")
+		t.Fatal("should have path")
 	}
 }
 
 func TestNewCA(t *testing.T) {
 	ca, err := NewCA("")
 	if err != nil {
-		t.Error(err)
+		t.Fatal(err)
 	}
 
-	err = ca.saveTo(os.Stdout)
+	data := make([]byte, 0)
+	buf := bytes.NewBuffer(data)
+
+	err = ca.saveTo(buf)
 	if err != nil {
-		t.Error(err)
+		t.Fatal(err)
+	}
+
+	fileContent, err := ioutil.ReadFile(ca.caFile())
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	if !reflect.DeepEqual(fileContent, buf.Bytes()) {
+		t.Fatal("pem content should equal")
 	}
 }
