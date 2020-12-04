@@ -3,6 +3,7 @@ package proxy
 import (
 	"crypto/rand"
 	"crypto/rsa"
+	"crypto/tls"
 	"crypto/x509"
 	"crypto/x509/pkix"
 	"encoding/pem"
@@ -228,4 +229,32 @@ func (ca *CA) saveCert() error {
 	defer file.Close()
 
 	return ca.saveCertTo(file)
+}
+
+// TODO: 是否应该支持多个 SubjectAltName
+func (ca *CA) DummyCert(commonName string) (*tls.Certificate, error) {
+	template := &x509.Certificate{
+		SerialNumber: big.NewInt(time.Now().UnixNano() / 100000),
+		Subject: pkix.Name{
+			CommonName:   commonName,
+			Organization: []string{"mitmproxy"},
+		},
+		NotBefore:          time.Now().Add(-time.Hour * 48),
+		NotAfter:           time.Now().Add(time.Hour * 24 * 365),
+		SignatureAlgorithm: x509.SHA256WithRSA,
+		ExtKeyUsage:        []x509.ExtKeyUsage{x509.ExtKeyUsageServerAuth, x509.ExtKeyUsageClientAuth},
+		DNSNames:           []string{commonName},
+	}
+
+	certBytes, err := x509.CreateCertificate(rand.Reader, template, &ca.RootCert, &ca.PrivateKey.PublicKey, &ca.PrivateKey)
+	if err != nil {
+		return nil, err
+	}
+
+	cert := &tls.Certificate{
+		Certificate: [][]byte{certBytes},
+		PrivateKey:  ca.PrivateKey,
+	}
+
+	return cert, nil
 }
