@@ -253,7 +253,7 @@ func (ca *CA) DummyCert(commonName string) (*tls.Certificate, error) {
 
 	cert := &tls.Certificate{
 		Certificate: [][]byte{certBytes},
-		PrivateKey:  ca.PrivateKey,
+		PrivateKey:  &ca.PrivateKey,
 	}
 
 	return cert, nil

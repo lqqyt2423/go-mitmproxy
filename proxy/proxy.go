@@ -1,11 +1,14 @@
 package proxy
 
 import (
+	"crypto/tls"
 	"io"
 	"log"
 	"net"
 	"net/http"
 	"time"
+
+	"github.com/lqqyt2423/go-mitmproxy/cert"
 )
 
 type Options struct {
@@ -14,9 +17,25 @@ type Options struct {
 
 type Proxy struct {
 	Server *http.Server
+
+	ca               *cert.CA
+	extraNetListener net.Listener
+	extraServer      *http.Server
 }
 
 func (proxy *Proxy) Start() error {
+	ln, err := net.Listen("tcp", "127.0.0.1:") // port number is automatically chosen
+	if err != nil {
+		return err
+	}
+	proxy.extraNetListener = ln
+	proxy.extraServer.Addr = ln.Addr().String()
+	log.Printf("Proxy extraServer Addr is %v\n", proxy.extraServer.Addr)
+	go func() {
+		defer ln.Close()
+		log.Fatal(proxy.extraServer.ServeTLS(ln, "", ""))
+	}()
+
 	log.Printf("Proxy start listen at %v\n", proxy.Server.Addr)
 	return proxy.Server.ListenAndServe()
 }
@@ -26,6 +45,8 @@ func (proxy *Proxy) ServeHTTP(res http.ResponseWriter, req *http.Request) {
 		proxy.handleConnect(res, req)
 		return
 	}
+
+	log.Printf("url: %v\n", req.URL.String())
 
 	if !req.URL.IsAbs() || req.URL.Host == "" {
 		res.WriteHeader(400)
@@ -73,7 +94,12 @@ func (proxy *Proxy) ServeHTTP(res http.ResponseWriter, req *http.Request) {
 func (proxy *Proxy) handleConnect(res http.ResponseWriter, req *http.Request) {
 	log.Printf("CONNECT: %v\n", req.Host)
 
-	conn, err := net.Dial("tcp", req.Host)
+	// 直接转发
+	// conn, err := net.Dial("tcp", req.Host)
+
+	// 内部解析 HTTPS
+	conn, err := net.Dial("tcp", proxy.extraServer.Addr)
+
 	if err != nil {
 		log.Printf("error: %v, host: %v\n", err, req.Host)
 		res.WriteHeader(502)
@@ -118,5 +144,22 @@ func NewProxy(opts *Options) *Proxy {
 		Addr:    opts.Addr,
 		Handler: proxy,
 	}
+
+	ca, err := cert.NewCA("")
+	if err != nil {
+		panic(err)
+	}
+	proxy.ca = ca
+	proxy.extraServer = &http.Server{
+		Handler: proxy,
+		TLSConfig: &tls.Config{
+			PreferServerCipherSuites: true,
+			GetCertificate: func(chi *tls.ClientHelloInfo) (*tls.Certificate, error) {
+				log.Printf("GetCertificate ServerName: %v\n", chi.ServerName)
+				return proxy.ca.DummyCert(chi.ServerName)
+			},
+		},
+	}
+
 	return proxy
 }
