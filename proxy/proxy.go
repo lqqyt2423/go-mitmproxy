@@ -1,14 +1,10 @@
 package proxy
 
 import (
-	"crypto/tls"
 	"io"
 	"log"
-	"net"
 	"net/http"
 	"time"
-
-	"github.com/lqqyt2423/go-mitmproxy/cert"
 )
 
 type Options struct {
@@ -17,23 +13,16 @@ type Options struct {
 
 type Proxy struct {
 	Server *http.Server
-
-	ca               *cert.CA
-	extraNetListener net.Listener
-	extraServer      *http.Server
+	Mitm   Mitm
 }
 
 func (proxy *Proxy) Start() error {
-	ln, err := net.Listen("tcp", "127.0.0.1:") // port number is automatically chosen
-	if err != nil {
-		return err
-	}
-	proxy.extraNetListener = ln
-	proxy.extraServer.Addr = ln.Addr().String()
-	log.Printf("Proxy extraServer Addr is %v\n", proxy.extraServer.Addr)
 	go func() {
-		defer ln.Close()
-		log.Fatal(proxy.extraServer.ServeTLS(ln, "", ""))
+		err := proxy.Mitm.Start()
+		if err != nil {
+			// TODO
+			log.Fatal(err)
+		}
 	}()
 
 	log.Printf("Proxy start listen at %v\n", proxy.Server.Addr)
@@ -45,8 +34,6 @@ func (proxy *Proxy) ServeHTTP(res http.ResponseWriter, req *http.Request) {
 		proxy.handleConnect(res, req)
 		return
 	}
-
-	log.Printf("url: %v\n", req.URL.String())
 
 	if !req.URL.IsAbs() || req.URL.Host == "" {
 		res.WriteHeader(400)
@@ -92,13 +79,9 @@ func (proxy *Proxy) ServeHTTP(res http.ResponseWriter, req *http.Request) {
 }
 
 func (proxy *Proxy) handleConnect(res http.ResponseWriter, req *http.Request) {
-	log.Printf("CONNECT: %v\n", req.Host)
+	// log.Printf("CONNECT: %v\n", req.Host)
 
-	// 直接转发
-	// conn, err := net.Dial("tcp", req.Host)
-
-	// 内部解析 HTTPS
-	conn, err := net.Dial("tcp", proxy.extraServer.Addr)
+	conn, err := proxy.Mitm.Dial(req.Host)
 
 	if err != nil {
 		log.Printf("error: %v, host: %v\n", err, req.Host)
@@ -138,28 +121,19 @@ func (proxy *Proxy) handleConnect(res http.ResponseWriter, req *http.Request) {
 	<-ch
 }
 
-func NewProxy(opts *Options) *Proxy {
+func NewProxy(opts *Options) (*Proxy, error) {
 	proxy := new(Proxy)
 	proxy.Server = &http.Server{
 		Addr:    opts.Addr,
 		Handler: proxy,
 	}
 
-	ca, err := cert.NewCA("")
+	mitm, err := NewMitmServer(proxy)
 	if err != nil {
-		panic(err)
-	}
-	proxy.ca = ca
-	proxy.extraServer = &http.Server{
-		Handler: proxy,
-		TLSConfig: &tls.Config{
-			PreferServerCipherSuites: true,
-			GetCertificate: func(chi *tls.ClientHelloInfo) (*tls.Certificate, error) {
-				log.Printf("GetCertificate ServerName: %v\n", chi.ServerName)
-				return proxy.ca.DummyCert(chi.ServerName)
-			},
-		},
+		return nil, err
 	}
 
-	return proxy
+	proxy.Mitm = mitm
+
+	return proxy, nil
 }

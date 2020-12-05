@@ -12,5 +12,11 @@ func main() {
 	opts := &proxy.Options{
 		Addr: ":9080",
 	}
-	log.Fatal(proxy.NewProxy(opts).Start())
+
+	p, err := proxy.NewProxy(opts)
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	log.Fatal(p.Start())
 }
