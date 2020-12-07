@@ -6,7 +6,9 @@
 
 - [x] http handler
 - [x] http connect
-- [ ] cert
-- [ ] https handler
+- [x] cert
+- [x] https handler
 - [ ] http2
 - [ ] logger
+- [ ] 经内存转发 https 流量
+- [ ] 忽略某些错误例如：broken pipe, reset by peer, timeout

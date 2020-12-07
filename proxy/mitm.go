@@ -53,7 +53,7 @@ func NewMitmServer(proxy *Proxy) (Mitm, error) {
 		TLSConfig: &tls.Config{
 			GetCertificate: func(chi *tls.ClientHelloInfo) (*tls.Certificate, error) {
 				// log.Printf("MitmServer GetCertificate ServerName: %v\n", chi.ServerName)
-				return ca.DummyCert(chi.ServerName)
+				return ca.GetCert(chi.ServerName)
 			},
 		},
 	}

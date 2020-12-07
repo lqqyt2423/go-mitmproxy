@@ -16,6 +16,8 @@ import (
 	"os"
 	"path/filepath"
 	"time"
+
+	"github.com/golang/groupcache/lru"
 )
 
 // reference
@@ -28,6 +30,7 @@ type CA struct {
 	rsa.PrivateKey
 	RootCert  x509.Certificate
 	StorePath string
+	cache     *lru.Cache
 }
 
 func NewCA(path string) (*CA, error) {
@@ -36,7 +39,10 @@ func NewCA(path string) (*CA, error) {
 		return nil, err
 	}
 
-	ca := &CA{StorePath: storePath}
+	ca := &CA{
+		StorePath: storePath,
+		cache:     lru.New(100),
+	}
 
 	if err := ca.load(); err != nil {
 		if err != caErrNotFound {
@@ -229,6 +235,20 @@ func (ca *CA) saveCert() error {
 	defer file.Close()
 
 	return ca.saveCertTo(file)
+}
+
+func (ca *CA) GetCert(commonName string) (*tls.Certificate, error) {
+	if val, ok := ca.cache.Get(commonName); ok {
+		return val.(*tls.Certificate), nil
+	}
+
+	cert, err := ca.DummyCert(commonName)
+	if err != nil {
+		return cert, err
+	}
+
+	ca.cache.Add(commonName, cert)
+	return cert, err
 }
 
 // TODO: 是否应该支持多个 SubjectAltName
