@@ -5,6 +5,7 @@ import (
 	"log"
 	"net"
 	"net/http"
+	"time"
 
 	"github.com/lqqyt2423/go-mitmproxy/cert"
 )
@@ -26,6 +27,7 @@ func (m *MitmForward) Dial(host string) (net.Conn, error) {
 }
 
 // 内部解析 https 流量
+// 每个连接都会消耗掉两个文件描述符，可能会达到打开文件上限
 type MitmServer struct {
 	Proxy    *Proxy
 	CA       *cert.CA
@@ -45,6 +47,7 @@ func NewMitmServer(proxy *Proxy) (Mitm, error) {
 	}
 
 	server := &http.Server{
+		IdleTimeout:  time.Millisecond * 100, // 尽快关闭内部的连接，释放文件描述符
 		Handler:      m,
 		TLSNextProto: make(map[string]func(*http.Server, *tls.Conn, http.Handler)), // disable http2
 		TLSConfig: &tls.Config{
