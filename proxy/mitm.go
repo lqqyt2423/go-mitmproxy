@@ -45,7 +45,8 @@ func NewMitmServer(proxy *Proxy) (Mitm, error) {
 	}
 
 	server := &http.Server{
-		Handler: m,
+		Handler:      m,
+		TLSNextProto: make(map[string]func(*http.Server, *tls.Conn, http.Handler)), // disable http2
 		TLSConfig: &tls.Config{
 			GetCertificate: func(chi *tls.ClientHelloInfo) (*tls.Certificate, error) {
 				// log.Printf("MitmServer GetCertificate ServerName: %v\n", chi.ServerName)

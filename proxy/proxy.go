@@ -1,9 +1,13 @@
 package proxy
 
 import (
+	"crypto/tls"
 	"io"
 	"log"
+	"net"
 	"net/http"
+	"os"
+	"sync"
 	"time"
 )
 
@@ -13,6 +17,7 @@ type Options struct {
 
 type Proxy struct {
 	Server *http.Server
+	Client *http.Client
 	Mitm   Mitm
 }
 
@@ -53,11 +58,12 @@ func (proxy *Proxy) ServeHTTP(res http.ResponseWriter, req *http.Request) {
 		return
 	}
 
-	// TODO: handle Proxy- header
 	for key, value := range req.Header {
-		proxyReq.Header[key] = value
+		for _, v := range value {
+			proxyReq.Header.Add(key, v)
+		}
 	}
-	proxyRes, err := http.DefaultClient.Do(proxyReq)
+	proxyRes, err := proxy.Client.Do(proxyReq)
 	if err != nil {
 		log.Printf("error: %v, url: %v\n", err, req.URL.String())
 		res.WriteHeader(502)
@@ -66,7 +72,9 @@ func (proxy *Proxy) ServeHTTP(res http.ResponseWriter, req *http.Request) {
 	defer proxyRes.Body.Close()
 
 	for key, value := range proxyRes.Header {
-		res.Header()[key] = value
+		for _, v := range value {
+			res.Header().Add(key, v)
+		}
 	}
 	res.WriteHeader(proxyRes.StatusCode)
 	_, err = io.Copy(res, proxyRes.Body)
@@ -128,6 +136,27 @@ func NewProxy(opts *Options) (*Proxy, error) {
 		Handler: proxy,
 	}
 
+	proxy.Client = &http.Client{
+		Transport: &http.Transport{
+			Proxy: http.ProxyFromEnvironment,
+			DialContext: (&net.Dialer{
+				Timeout:   30 * time.Second,
+				KeepAlive: 30 * time.Second,
+				DualStack: true,
+			}).DialContext,
+			MaxIdleConns:          100,
+			IdleConnTimeout:       90 * time.Second,
+			TLSHandshakeTimeout:   10 * time.Second,
+			ExpectContinueTimeout: 1 * time.Second,
+
+			ForceAttemptHTTP2:  false, // disable http2
+			DisableCompression: true,
+			TLSClientConfig: &tls.Config{
+				KeyLogWriter: GetTlsKeyLogWriter(),
+			},
+		},
+	}
+
 	mitm, err := NewMitmServer(proxy)
 	if err != nil {
 		return nil, err
@@ -136,4 +165,26 @@ func NewProxy(opts *Options) (*Proxy, error) {
 	proxy.Mitm = mitm
 
 	return proxy, nil
+}
+
+var tlsKeyLogWriter io.Writer
+var tlsKeyLogOnce sync.Once
+
+// Wireshark 解析 https 设置
+func GetTlsKeyLogWriter() io.Writer {
+	tlsKeyLogOnce.Do(func() {
+		logfile := os.Getenv("SSLKEYLOGFILE")
+		if logfile == "" {
+			return
+		}
+
+		writer, err := os.OpenFile(logfile, os.O_WRONLY|os.O_CREATE|os.O_APPEND, 0666)
+		if err != nil {
+			log.Printf("GetTlsKeyLogWriter error: %v\n", err)
+			return
+		}
+
+		tlsKeyLogWriter = writer
+	})
+	return tlsKeyLogWriter
 }

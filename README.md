@@ -8,3 +8,4 @@
 - [x] http connect
 - [ ] cert
 - [ ] https handler
+- [ ] http2
