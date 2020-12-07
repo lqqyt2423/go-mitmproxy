@@ -11,14 +11,16 @@ import (
 	"fmt"
 	"io"
 	"io/ioutil"
-	"log"
 	"math/big"
 	"os"
 	"path/filepath"
 	"time"
 
 	"github.com/golang/groupcache/lru"
+	_log "github.com/sirupsen/logrus"
 )
+
+var log = _log.WithField("at", "cert")
 
 // reference
 // https://docs.mitmproxy.org/stable/concepts-certificates/
@@ -49,13 +51,14 @@ func NewCA(path string) (*CA, error) {
 			return nil, err
 		}
 	} else {
+		log.Debug("load root ca")
 		return ca, nil
 	}
 
-	log.Println("begin create ca")
 	if err := ca.create(); err != nil {
 		return nil, err
 	}
+	log.Debug("create root ca")
 
 	return ca, nil
 }

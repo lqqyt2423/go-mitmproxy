@@ -3,13 +3,35 @@ package proxy
 import (
 	"crypto/tls"
 	"io"
-	"log"
 	"net"
 	"net/http"
 	"os"
+	"strings"
 	"sync"
 	"time"
+
+	_log "github.com/sirupsen/logrus"
 )
+
+var log = _log.WithField("at", "proxy")
+
+var ignoreErr = func(log *_log.Entry, err error) bool {
+	errs := err.Error()
+	strs := []string{
+		"read: connection reset by peer",
+		"write: broken pipe",
+		"i/o timeout",
+	}
+
+	for _, str := range strs {
+		if strings.Contains(errs, str) {
+			log.Debug(str)
+			return true
+		}
+	}
+
+	return false
+}
 
 type Options struct {
 	Addr string
@@ -30,7 +52,7 @@ func (proxy *Proxy) Start() error {
 		}
 	}()
 
-	log.Printf("Proxy start listen at %v\n", proxy.Server.Addr)
+	log.Infof("Proxy start listen at %v\n", proxy.Server.Addr)
 	return proxy.Server.ListenAndServe()
 }
 
@@ -40,11 +62,16 @@ func (proxy *Proxy) ServeHTTP(res http.ResponseWriter, req *http.Request) {
 		return
 	}
 
+	log := log.WithFields(_log.Fields{
+		"in":  "ServeHTTP",
+		"url": req.URL,
+	})
+
 	if !req.URL.IsAbs() || req.URL.Host == "" {
 		res.WriteHeader(400)
 		_, err := io.WriteString(res, "此为代理服务器，不能直接发起请求")
 		if err != nil {
-			log.Printf("error: %v, url: %v\n", err, req.URL.String())
+			log.Error(err)
 		}
 		return
 	}
@@ -53,7 +80,7 @@ func (proxy *Proxy) ServeHTTP(res http.ResponseWriter, req *http.Request) {
 
 	proxyReq, err := http.NewRequest(req.Method, req.URL.String(), req.Body)
 	if err != nil {
-		log.Printf("error: %v, url: %v\n", err, req.URL.String())
+		log.Error(err)
 		res.WriteHeader(502)
 		return
 	}
@@ -65,7 +92,9 @@ func (proxy *Proxy) ServeHTTP(res http.ResponseWriter, req *http.Request) {
 	}
 	proxyRes, err := proxy.Client.Do(proxyReq)
 	if err != nil {
-		log.Printf("error: %v, url: %v\n", err, req.URL.String())
+		if !ignoreErr(log, err) {
+			log.Error(err)
+		}
 		res.WriteHeader(502)
 		return
 	}
@@ -78,21 +107,26 @@ func (proxy *Proxy) ServeHTTP(res http.ResponseWriter, req *http.Request) {
 	}
 	res.WriteHeader(proxyRes.StatusCode)
 	_, err = io.Copy(res, proxyRes.Body)
-	if err != nil {
-		log.Printf("error: %v, url: %v\n", err, req.URL.String())
+	if err != nil && !ignoreErr(log, err) {
+		log.Error(err)
 		return
 	}
 
-	log.Printf("%v %v %v - %v ms", req.Method, req.URL.String(), proxyRes.StatusCode, time.Since(start).Milliseconds())
+	log.Infof("%v %v %v - %v ms", req.Method, req.URL.String(), proxyRes.StatusCode, time.Since(start).Milliseconds())
 }
 
 func (proxy *Proxy) handleConnect(res http.ResponseWriter, req *http.Request) {
-	// log.Printf("CONNECT: %v\n", req.Host)
+	log := log.WithFields(_log.Fields{
+		"in":   "handleConnect",
+		"host": req.Host,
+	})
+
+	log.Debug("CONNECT")
 
 	conn, err := proxy.Mitm.Dial(req.Host)
 
 	if err != nil {
-		log.Printf("error: %v, host: %v\n", err, req.Host)
+		log.Error(err)
 		res.WriteHeader(502)
 		return
 	}
@@ -100,7 +134,7 @@ func (proxy *Proxy) handleConnect(res http.ResponseWriter, req *http.Request) {
 
 	cconn, _, err := res.(http.Hijacker).Hijack()
 	if err != nil {
-		log.Printf("error: %v, host: %v\n", err, req.Host)
+		log.Error(err)
 		res.WriteHeader(502)
 		return
 	}
@@ -108,22 +142,22 @@ func (proxy *Proxy) handleConnect(res http.ResponseWriter, req *http.Request) {
 
 	_, err = io.WriteString(cconn, "HTTP/1.1 200 Connection Established\r\n\r\n")
 	if err != nil {
-		log.Printf("error: %v, host: %v\n", err, req.Host)
+		log.Error(err)
 		return
 	}
 
 	ch := make(chan bool)
 	go func() {
 		_, err := io.Copy(conn, cconn)
-		if err != nil {
-			log.Printf("error: %v, host: %v\n", err, req.Host)
+		if err != nil && !ignoreErr(log, err) {
+			log.Error(err)
 		}
 		ch <- true
 	}()
 
 	_, err = io.Copy(cconn, conn)
-	if err != nil {
-		log.Printf("error: %v, host: %v\n", err, req.Host)
+	if err != nil && !ignoreErr(log, err) {
+		log.Error(err)
 	}
 
 	<-ch
@@ -180,7 +214,7 @@ func GetTlsKeyLogWriter() io.Writer {
 
 		writer, err := os.OpenFile(logfile, os.O_WRONLY|os.O_CREATE|os.O_APPEND, 0666)
 		if err != nil {
-			log.Printf("GetTlsKeyLogWriter error: %v\n", err)
+			log.WithField("in", "GetTlsKeyLogWriter").Debug(err)
 			return
 		}
 

@@ -2,7 +2,6 @@ package proxy
 
 import (
 	"crypto/tls"
-	"log"
 	"net"
 	"net/http"
 	"time"
@@ -52,7 +51,7 @@ func NewMitmServer(proxy *Proxy) (Mitm, error) {
 		TLSNextProto: make(map[string]func(*http.Server, *tls.Conn, http.Handler)), // disable http2
 		TLSConfig: &tls.Config{
 			GetCertificate: func(chi *tls.ClientHelloInfo) (*tls.Certificate, error) {
-				// log.Printf("MitmServer GetCertificate ServerName: %v\n", chi.ServerName)
+				log.Debugf("MitmServer GetCertificate ServerName: %v\n", chi.ServerName)
 				return ca.GetCert(chi.ServerName)
 			},
 		},
@@ -70,7 +69,7 @@ func (m *MitmServer) Start() error {
 	}
 	m.Listener = ln
 	m.Server.Addr = ln.Addr().String()
-	log.Printf("MitmServer Server Addr is %v\n", m.Server.Addr)
+	log.Infof("MitmServer Server Addr is %v\n", m.Server.Addr)
 	defer ln.Close()
 
 	return m.Server.ServeTLS(ln, "", "")

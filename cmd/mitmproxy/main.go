@@ -1,13 +1,19 @@
 package main
 
 import (
-	"log"
+	"os"
 
 	"github.com/lqqyt2423/go-mitmproxy/proxy"
+	log "github.com/sirupsen/logrus"
 )
 
 func main() {
-	log.SetFlags(log.LstdFlags | log.Lshortfile)
+	log.SetLevel(log.InfoLevel)
+	log.SetReportCaller(false)
+	log.SetOutput(os.Stdout)
+	log.SetFormatter(&log.TextFormatter{
+		FullTimestamp: true,
+	})
 
 	opts := &proxy.Options{
 		Addr: ":9080",
