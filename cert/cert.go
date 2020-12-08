@@ -17,6 +17,7 @@ import (
 	"time"
 
 	"github.com/golang/groupcache/lru"
+	"github.com/golang/groupcache/singleflight"
 	_log "github.com/sirupsen/logrus"
 )
 
@@ -32,7 +33,9 @@ type CA struct {
 	rsa.PrivateKey
 	RootCert  x509.Certificate
 	StorePath string
-	cache     *lru.Cache
+
+	cache *lru.Cache
+	group *singleflight.Group
 }
 
 func NewCA(path string) (*CA, error) {
@@ -44,6 +47,7 @@ func NewCA(path string) (*CA, error) {
 	ca := &CA{
 		StorePath: storePath,
 		cache:     lru.New(100),
+		group:     new(singleflight.Group),
 	}
 
 	if err := ca.load(); err != nil {
@@ -242,20 +246,28 @@ func (ca *CA) saveCert() error {
 
 func (ca *CA) GetCert(commonName string) (*tls.Certificate, error) {
 	if val, ok := ca.cache.Get(commonName); ok {
+		log.WithField("commonName", commonName).Debug("GetCert")
 		return val.(*tls.Certificate), nil
 	}
 
-	cert, err := ca.DummyCert(commonName)
-	if err != nil {
+	val, err := ca.group.Do(commonName, func() (interface{}, error) {
+		cert, err := ca.DummyCert(commonName)
+		if err == nil {
+			ca.cache.Add(commonName, cert)
+		}
 		return cert, err
+	})
+
+	if err != nil {
+		return nil, err
 	}
 
-	ca.cache.Add(commonName, cert)
-	return cert, err
+	return val.(*tls.Certificate), nil
 }
 
 // TODO: 是否应该支持多个 SubjectAltName
 func (ca *CA) DummyCert(commonName string) (*tls.Certificate, error) {
+	log.WithField("commonName", commonName).Debug("DummyCert")
 	template := &x509.Certificate{
 		SerialNumber: big.NewInt(time.Now().UnixNano() / 100000),
 		Subject: pkix.Name{
