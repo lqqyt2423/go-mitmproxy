@@ -4,7 +4,6 @@ import (
 	"crypto/tls"
 	"net"
 	"net/http"
-	"time"
 
 	"github.com/lqqyt2423/go-mitmproxy/cert"
 )
@@ -46,7 +45,6 @@ func NewMitmServer(proxy *Proxy) (Mitm, error) {
 	}
 
 	server := &http.Server{
-		IdleTimeout:  time.Millisecond * 100, // 尽快关闭内部的连接，释放文件描述符
 		Handler:      m,
 		TLSNextProto: make(map[string]func(*http.Server, *tls.Conn, http.Handler)), // disable http2
 		TLSConfig: &tls.Config{
@@ -56,6 +54,9 @@ func NewMitmServer(proxy *Proxy) (Mitm, error) {
 			},
 		},
 	}
+
+	// 尽快关闭内部的连接，释放文件描述符
+	server.SetKeepAlivesEnabled(false)
 
 	m.Server = server
 
