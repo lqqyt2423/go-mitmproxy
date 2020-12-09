@@ -10,5 +10,5 @@
 - [x] https handler
 - [ ] http2
 - [x] logger
-- [ ] 经内存转发 https 流量
+- [x] 经内存转发 https 流量
 - [x] 忽略某些错误例如：broken pipe, reset by peer, timeout

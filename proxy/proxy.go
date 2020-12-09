@@ -63,8 +63,9 @@ func (proxy *Proxy) ServeHTTP(res http.ResponseWriter, req *http.Request) {
 	}
 
 	log := log.WithFields(_log.Fields{
-		"in":  "ServeHTTP",
-		"url": req.URL,
+		"in":     "ServeHTTP",
+		"url":    req.URL,
+		"method": req.Method,
 	})
 
 	if !req.URL.IsAbs() || req.URL.Host == "" {
@@ -112,7 +113,7 @@ func (proxy *Proxy) ServeHTTP(res http.ResponseWriter, req *http.Request) {
 		return
 	}
 
-	log.Infof("%v %v %v - %v ms", req.Method, req.URL.String(), proxyRes.StatusCode, time.Since(start).Milliseconds())
+	log.Infof("status code: %v cost %v ms\n", proxyRes.StatusCode, time.Since(start).Milliseconds())
 }
 
 func (proxy *Proxy) handleConnect(res http.ResponseWriter, req *http.Request) {
@@ -191,7 +192,7 @@ func NewProxy(opts *Options) (*Proxy, error) {
 		},
 	}
 
-	mitm, err := NewMitmServer(proxy)
+	mitm, err := NewMitmMemory(proxy)
 	if err != nil {
 		return nil, err
 	}
