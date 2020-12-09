@@ -56,7 +56,7 @@ func (c *conn) Read(data []byte) (int, error) {
 	}
 
 	resChan := make(chan *ioRes)
-	done := make(chan bool)
+	done := make(chan struct{})
 	defer close(done)
 
 	go func() {

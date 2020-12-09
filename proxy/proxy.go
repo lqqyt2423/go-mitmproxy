@@ -21,6 +21,8 @@ var ignoreErr = func(log *_log.Entry, err error) bool {
 		"read: connection reset by peer",
 		"write: broken pipe",
 		"i/o timeout",
+		"net/http: TLS handshake timeout",
+		"io: read/write on closed pipe",
 	}
 
 	for _, str := range strs {
@@ -44,16 +46,21 @@ type Proxy struct {
 }
 
 func (proxy *Proxy) Start() error {
+	errChan := make(chan error)
+
 	go func() {
-		err := proxy.Mitm.Start()
-		if err != nil {
-			// TODO
-			log.Fatal(err)
-		}
+		log.Infof("Proxy start listen at %v\n", proxy.Server.Addr)
+		err := proxy.Server.ListenAndServe()
+		errChan <- err
 	}()
 
-	log.Infof("Proxy start listen at %v\n", proxy.Server.Addr)
-	return proxy.Server.ListenAndServe()
+	go func() {
+		err := proxy.Mitm.Start()
+		errChan <- err
+	}()
+
+	err := <-errChan
+	return err
 }
 
 func (proxy *Proxy) ServeHTTP(res http.ResponseWriter, req *http.Request) {
@@ -147,13 +154,13 @@ func (proxy *Proxy) handleConnect(res http.ResponseWriter, req *http.Request) {
 		return
 	}
 
-	ch := make(chan bool)
+	done := make(chan struct{})
 	go func() {
 		_, err := io.Copy(conn, cconn)
 		if err != nil && !ignoreErr(log, err) {
 			log.Error(err)
 		}
-		ch <- true
+		close(done)
 	}()
 
 	_, err = io.Copy(cconn, conn)
@@ -161,7 +168,7 @@ func (proxy *Proxy) handleConnect(res http.ResponseWriter, req *http.Request) {
 		log.Error(err)
 	}
 
-	<-ch
+	<-done
 }
 
 func NewProxy(opts *Options) (*Proxy, error) {
