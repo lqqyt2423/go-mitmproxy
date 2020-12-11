@@ -39,19 +39,35 @@ var ignoreErr = func(log *_log.Entry, err error) bool {
 
 func transfer(log *_log.Entry, a, b io.ReadWriter) {
 	done := make(chan struct{})
-	go func() {
-		_, err := io.Copy(a, b)
-		if err != nil && !ignoreErr(log, err) {
-			log.Error(err)
-		}
-		close(done)
-	}()
+	defer close(done)
 
-	_, err := io.Copy(b, a)
-	if err != nil && !ignoreErr(log, err) {
-		log.Error(err)
+	forward := func(dst io.Writer, src io.Reader, ec chan<- error) {
+		_, err := io.Copy(dst, src)
+
+		if v, ok := dst.(*conn); ok {
+			// 避免内存泄漏的关键
+			_ = v.Writer.CloseWithError(nil)
+		}
+
+		select {
+		case <-done:
+			return
+		case ec <- err:
+		}
 	}
-	<-done
+
+	errChan := make(chan error)
+	go forward(a, b, errChan)
+	go forward(b, a, errChan)
+
+	for i := 0; i < 2; i++ {
+		if err := <-errChan; err != nil {
+			if !ignoreErr(log, err) {
+				log.Error(err)
+			}
+			return // 如果有错误，直接返回
+		}
+	}
 }
 
 type Options struct {
