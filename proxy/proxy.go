@@ -27,12 +27,29 @@ var ignoreErr = func(log *_log.Entry, err error) bool {
 
 	for _, str := range strs {
 		if strings.Contains(errs, str) {
-			log.Debug(str)
+			log.Debug(err)
 			return true
 		}
 	}
 
 	return false
+}
+
+func transfer(log *_log.Entry, a, b io.ReadWriter) {
+	done := make(chan struct{})
+	go func() {
+		_, err := io.Copy(a, b)
+		if err != nil && !ignoreErr(log, err) {
+			log.Error(err)
+		}
+		close(done)
+	}()
+
+	_, err := io.Copy(b, a)
+	if err != nil && !ignoreErr(log, err) {
+		log.Error(err)
+	}
+	<-done
 }
 
 type Options struct {
@@ -70,10 +87,12 @@ func (proxy *Proxy) ServeHTTP(res http.ResponseWriter, req *http.Request) {
 	}
 
 	log := log.WithFields(_log.Fields{
-		"in":     "ServeHTTP",
+		"in":     "Proxy.ServeHTTP",
 		"url":    req.URL,
 		"method": req.Method,
 	})
+
+	log.Debug("receive request")
 
 	if !req.URL.IsAbs() || req.URL.Host == "" {
 		res.WriteHeader(400)
@@ -125,11 +144,11 @@ func (proxy *Proxy) ServeHTTP(res http.ResponseWriter, req *http.Request) {
 
 func (proxy *Proxy) handleConnect(res http.ResponseWriter, req *http.Request) {
 	log := log.WithFields(_log.Fields{
-		"in":   "handleConnect",
+		"in":   "Proxy.handleConnect",
 		"host": req.Host,
 	})
 
-	log.Debug("CONNECT")
+	log.Debug("receive connect")
 
 	conn, err := proxy.Mitm.Dial(req.Host)
 
@@ -154,21 +173,7 @@ func (proxy *Proxy) handleConnect(res http.ResponseWriter, req *http.Request) {
 		return
 	}
 
-	done := make(chan struct{})
-	go func() {
-		_, err := io.Copy(conn, cconn)
-		if err != nil && !ignoreErr(log, err) {
-			log.Error(err)
-		}
-		close(done)
-	}()
-
-	_, err = io.Copy(cconn, conn)
-	if err != nil && !ignoreErr(log, err) {
-		log.Error(err)
-	}
-
-	<-done
+	transfer(log, conn, cconn)
 }
 
 func NewProxy(opts *Options) (*Proxy, error) {
