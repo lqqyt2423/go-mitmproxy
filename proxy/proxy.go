@@ -202,6 +202,10 @@ func NewProxy(opts *Options) (*Proxy, error) {
 				KeyLogWriter: GetTlsKeyLogWriter(),
 			},
 		},
+		CheckRedirect: func(req *http.Request, via []*http.Request) error {
+			// 禁止自动重定向
+			return http.ErrUseLastResponse
+		},
 	}
 
 	mitm, err := NewMitmMemory(proxy)
