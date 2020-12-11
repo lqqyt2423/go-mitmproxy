@@ -23,6 +23,8 @@ var ignoreErr = func(log *_log.Entry, err error) bool {
 		"i/o timeout",
 		"net/http: TLS handshake timeout",
 		"io: read/write on closed pipe",
+		"connect: connection refused",
+		"connect: connection reset by peer",
 	}
 
 	for _, str := range strs {
