@@ -12,6 +12,6 @@
 - [x] 经内存转发 https 流量
 - [x] 忽略某些错误例如：broken pipe, reset by peer, timeout
 - [x] websocket
+- [x] 插件机制
 - [ ] support get method with body
 - [ ] http2
-- [ ] 插件机制

@@ -1,6 +1,7 @@
 package proxy
 
 import (
+	"bytes"
 	"crypto/tls"
 	"io"
 	"net"
@@ -10,6 +11,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/lqqyt2423/go-mitmproxy/flow"
 	_log "github.com/sirupsen/logrus"
 )
 
@@ -75,9 +77,15 @@ type Options struct {
 }
 
 type Proxy struct {
-	Server *http.Server
-	Client *http.Client
-	Mitm   Mitm
+	Server            *http.Server
+	Client            *http.Client
+	Mitm              Mitm
+	StreamLargeBodies int64
+	Addons            []flow.Addon
+}
+
+func (proxy *Proxy) AddAddon(addon flow.Addon) {
+	proxy.Addons = append(proxy.Addons, addon)
 }
 
 func (proxy *Proxy) Start() error {
@@ -121,16 +129,92 @@ func (proxy *Proxy) ServeHTTP(res http.ResponseWriter, req *http.Request) {
 		return
 	}
 
-	start := time.Now()
+	endRes := func(response *flow.Response, body io.Reader) {
+		if response.Header != nil {
+			for key, value := range response.Header {
+				for _, v := range value {
+					res.Header().Add(key, v)
+				}
+			}
+		}
+		res.WriteHeader(response.StatusCode)
 
-	proxyReq, err := http.NewRequest(req.Method, req.URL.String(), req.Body)
+		if body != nil {
+			_, err := io.Copy(res, body)
+			if err != nil && !ignoreErr(log, err) {
+				log.Error(err)
+			}
+		} else if response.Body != nil && len(response.Body) > 0 {
+			_, err := res.Write(response.Body)
+			if err != nil && !ignoreErr(log, err) {
+				log.Error(err)
+			}
+		}
+	}
+
+	// when addons panic
+	defer func() {
+		if err := recover(); err != nil {
+			log.Warnf("Recovered: %v\n", err)
+		}
+	}()
+
+	flo := flow.NewFlow()
+	flo.Request = &flow.Request{
+		Method: req.Method,
+		URL:    req.URL,
+		Proto:  req.Proto,
+		Header: req.Header,
+	}
+	defer flo.Finish()
+
+	// trigger addon event Requestheaders
+	for _, addon := range proxy.Addons {
+		addon.Requestheaders(flo)
+		if flo.Response != nil {
+			endRes(flo.Response, nil)
+			return
+		}
+	}
+
+	// 读 request body
+	var reqBody io.Reader = req.Body
+	if !flo.Stream {
+		reqBuf, r, err := ReaderToBuffer(req.Body, proxy.StreamLargeBodies)
+		reqBody = r
+		if err != nil {
+			log.Error(err)
+			res.WriteHeader(502)
+			return
+		}
+		if reqBuf == nil {
+			log.Warnf("request body size >= %v\n", proxy.StreamLargeBodies)
+			flo.Stream = true
+		} else {
+			flo.Request.Body = reqBuf
+		}
+
+		// trigger addon event Request
+		if !flo.Stream {
+			for _, addon := range proxy.Addons {
+				addon.Request(flo)
+				if flo.Response != nil {
+					endRes(flo.Response, nil)
+					return
+				}
+			}
+			reqBody = bytes.NewReader(flo.Request.Body)
+		}
+	}
+
+	proxyReq, err := http.NewRequest(flo.Request.Method, flo.Request.URL.String(), reqBody)
 	if err != nil {
 		log.Error(err)
 		res.WriteHeader(502)
 		return
 	}
 
-	for key, value := range req.Header {
+	for key, value := range flo.Request.Header {
 		for _, v := range value {
 			proxyReq.Header.Add(key, v)
 		}
@@ -145,19 +229,46 @@ func (proxy *Proxy) ServeHTTP(res http.ResponseWriter, req *http.Request) {
 	}
 	defer proxyRes.Body.Close()
 
-	for key, value := range proxyRes.Header {
-		for _, v := range value {
-			res.Header().Add(key, v)
-		}
-	}
-	res.WriteHeader(proxyRes.StatusCode)
-	_, err = io.Copy(res, proxyRes.Body)
-	if err != nil && !ignoreErr(log, err) {
-		log.Error(err)
-		return
+	flo.Response = &flow.Response{
+		StatusCode: proxyRes.StatusCode,
+		Header:     proxyRes.Header,
 	}
 
-	log.Infof("status code: %v cost %v ms\n", proxyRes.StatusCode, time.Since(start).Milliseconds())
+	// trigger addon event Responseheaders
+	for _, addon := range proxy.Addons {
+		addon.Responseheaders(flo)
+		if flo.Response.Body != nil {
+			endRes(flo.Response, nil)
+			return
+		}
+	}
+
+	// 读 response body
+	var resBody io.Reader = proxyRes.Body
+	if !flo.Stream {
+		resBuf, r, err := ReaderToBuffer(proxyRes.Body, proxy.StreamLargeBodies)
+		resBody = r
+		if err != nil {
+			log.Error(err)
+			res.WriteHeader(502)
+			return
+		}
+		if resBuf == nil {
+			log.Warnf("response body size >= %v\n", proxy.StreamLargeBodies)
+			flo.Stream = true
+		} else {
+			flo.Response.Body = resBuf
+		}
+
+		// trigger addon event Response
+		if !flo.Stream {
+			for _, addon := range proxy.Addons {
+				addon.Response(flo)
+			}
+		}
+	}
+
+	endRes(flo.Response, resBody)
 }
 
 func (proxy *Proxy) handleConnect(res http.ResponseWriter, req *http.Request) {
@@ -232,6 +343,10 @@ func NewProxy(opts *Options) (*Proxy, error) {
 	}
 
 	proxy.Mitm = mitm
+
+	proxy.StreamLargeBodies = 1024 * 1024 * 5 // 5mb
+	proxy.Addons = make([]flow.Addon, 0)
+	proxy.AddAddon(&flow.LogAddon{})
 
 	return proxy, nil
 }
