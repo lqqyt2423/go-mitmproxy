@@ -13,5 +13,7 @@
 - [x] 忽略某些错误例如：broken pipe, reset by peer, timeout
 - [x] websocket
 - [x] 插件机制
+- [x] 命令行参数控制 dump 至文件
+- [ ] dump level
 - [ ] support get method with body
 - [ ] http2

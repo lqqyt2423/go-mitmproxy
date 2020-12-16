@@ -3,11 +3,7 @@ package flow
 import (
 	"net/http"
 	"net/url"
-
-	_log "github.com/sirupsen/logrus"
 )
-
-var log = _log.WithField("at", "flow")
 
 type Request struct {
 	Method string
@@ -15,6 +11,22 @@ type Request struct {
 	Proto  string
 	Header http.Header
 	Body   []byte
+
+	raw *http.Request
+}
+
+func NewRequest(req *http.Request) *Request {
+	return &Request{
+		Method: req.Method,
+		URL:    req.URL,
+		Proto:  req.Proto,
+		Header: req.Header,
+		raw:    req,
+	}
+}
+
+func (r *Request) Raw() *http.Request {
+	return r.raw
 }
 
 type Response struct {

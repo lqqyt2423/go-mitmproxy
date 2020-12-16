@@ -155,12 +155,7 @@ func (proxy *Proxy) ServeHTTP(res http.ResponseWriter, req *http.Request) {
 	}()
 
 	f := flow.NewFlow()
-	f.Request = &flow.Request{
-		Method: req.Method,
-		URL:    req.URL,
-		Proto:  req.Proto,
-		Header: req.Header,
-	}
+	f.Request = flow.NewRequest(req)
 	defer f.Finish()
 
 	// trigger addon event Requestheaders
