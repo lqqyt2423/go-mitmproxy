@@ -73,14 +73,15 @@ func transfer(log *_log.Entry, a, b io.ReadWriter) {
 }
 
 type Options struct {
-	Addr string
+	Addr              string
+	StreamLargeBodies int64
 }
 
 type Proxy struct {
 	Server            *http.Server
 	Client            *http.Client
 	Mitm              Mitm
-	StreamLargeBodies int64
+	StreamLargeBodies int64 // 当请求或响应体大于此字节时，转为 stream 模式
 	Addons            []flow.Addon
 }
 
@@ -344,7 +345,11 @@ func NewProxy(opts *Options) (*Proxy, error) {
 
 	proxy.Mitm = mitm
 
-	proxy.StreamLargeBodies = 1024 * 1024 * 5 // 5mb
+	if opts.StreamLargeBodies > 0 {
+		proxy.StreamLargeBodies = opts.StreamLargeBodies
+	} else {
+		proxy.StreamLargeBodies = 1024 * 1024 * 5 // default: 5mb
+	}
 	proxy.Addons = make([]flow.Addon, 0)
 	proxy.AddAddon(&flow.LogAddon{})
 

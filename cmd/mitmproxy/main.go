@@ -16,7 +16,8 @@ func main() {
 	})
 
 	opts := &proxy.Options{
-		Addr: ":9080",
+		Addr:              ":9080",
+		StreamLargeBodies: 1024 * 1024 * 5,
 	}
 
 	p, err := proxy.NewProxy(opts)
