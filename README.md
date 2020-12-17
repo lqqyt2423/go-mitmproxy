@@ -11,9 +11,15 @@
 - 性能优势
     - Golang 天生的性能优势
     - 在进程内存中转发解析 HTTPS 流量，不需通过 tcp端口 或 unix socket 等进程间通信
-    - 不同域名证书时使用 LRU 缓存，避免重复计算
+    - 生成不同域名证书时使用 LRU 缓存，避免重复计算
 - 通过环境变量 `SSLKEYLOGFILE` 支持 `Wireshark` 解析分析流量
 - 上传/下载大文件时支持流式传输
+
+## 安装
+
+```
+go get github.com/lqqyt2423/go-mitmproxy/cmd/mitmproxy
+```
 
 ## 命令行使用
 
@@ -51,3 +57,7 @@ Usage of mitmproxy:
 - [ ] http2
 - [ ] websocket 解析
 - [ ] web 界面
+
+## License
+
+[MIT License](./LICENSE)
