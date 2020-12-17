@@ -10,8 +10,9 @@ import (
 )
 
 type Config struct {
-	addr string
-	dump string // dump filename
+	addr      string
+	dump      string // dump filename
+	dumpLevel int    // dump level
 }
 
 func loadConfig() *Config {
@@ -19,6 +20,7 @@ func loadConfig() *Config {
 
 	flag.StringVar(&config.addr, "addr", ":9080", "proxy listen addr")
 	flag.StringVar(&config.dump, "dump", "", "dump filename")
+	flag.IntVar(&config.dumpLevel, "dump_level", 0, "dump level: 0 - header, 1 - header + body")
 	flag.Parse()
 
 	return config
@@ -45,7 +47,7 @@ func main() {
 	}
 
 	if config.dump != "" {
-		dumper := addon.NewDumperWithFile(config.dump)
+		dumper := addon.NewDumper(config.dump, config.dumpLevel)
 		p.AddAddon(dumper)
 	}
 

@@ -14,6 +14,6 @@
 - [x] websocket
 - [x] 插件机制
 - [x] 命令行参数控制 dump 至文件
-- [ ] dump level
+- [x] dump level
 - [ ] support get method with body
 - [ ] http2

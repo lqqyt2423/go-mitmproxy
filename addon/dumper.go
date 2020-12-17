@@ -7,21 +7,28 @@ import (
 	"net/http"
 	"os"
 	"strings"
+	"unicode"
 
 	"github.com/lqqyt2423/go-mitmproxy/flow"
 )
 
 type Dumper struct {
 	Base
-	Out io.Writer
+	level int // 0: header 1: header + body
+	Out   io.Writer
 }
 
-func NewDumperWithFile(file string) *Dumper {
+func NewDumper(file string, level int) *Dumper {
 	out, err := os.OpenFile(file, os.O_WRONLY|os.O_CREATE|os.O_APPEND, 0666)
 	if err != nil {
 		panic(err)
 	}
-	return &Dumper{Out: out}
+
+	if level != 0 && level != 1 {
+		level = 0
+	}
+
+	return &Dumper{Out: out, level: level}
 }
 
 func (d *Dumper) Requestheaders(f *flow.Flow) {
@@ -48,6 +55,11 @@ func (d *Dumper) Requestheaders(f *flow.Flow) {
 		}
 		buf.WriteString("\r\n")
 
+		if d.level == 1 && f.Request.Body != nil && len(f.Request.Body) > 0 && CanPrint(f.Request.Body) {
+			buf.Write(f.Request.Body)
+			buf.WriteString("\r\n\r\n")
+		}
+
 		if f.Response != nil {
 			fmt.Fprintf(buf, "%v %v %v\r\n", f.Request.Proto, f.Response.StatusCode, http.StatusText(f.Response.StatusCode))
 			err = f.Response.Header.WriteSubset(buf, nil)
@@ -55,11 +67,27 @@ func (d *Dumper) Requestheaders(f *flow.Flow) {
 				log.Error(err)
 			}
 			buf.WriteString("\r\n")
+
+			if d.level == 1 && f.Response.Body != nil && len(f.Response.Body) > 0 && CanPrint(f.Response.Body) {
+				buf.Write(f.Response.Body)
+				buf.WriteString("\r\n\r\n")
+			}
 		}
+
+		buf.WriteString("\r\n\r\n")
 
 		_, err = d.Out.Write(buf.Bytes())
 		if err != nil {
 			log.Error(err)
 		}
 	}()
+}
+
+func CanPrint(content []byte) bool {
+	for _, c := range string(content) {
+		if !unicode.IsPrint(c) && !unicode.IsSpace(c) {
+			return false
+		}
+	}
+	return true
 }
