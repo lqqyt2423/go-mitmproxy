@@ -73,7 +73,7 @@ func getStorePath(path string) (string, error) {
 		if err != nil {
 			return "", err
 		}
-		path = filepath.Join(homeDir, ".go_mitmproxy")
+		path = filepath.Join(homeDir, ".mitmproxy")
 	}
 
 	if !filepath.IsAbs(path) {
