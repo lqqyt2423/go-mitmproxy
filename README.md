@@ -57,6 +57,7 @@ Usage of mitmproxy:
 - [ ] http2
 - [ ] websocket 解析
 - [ ] web 界面
+- [ ] Content-Encoding 相关
 
 ## License
 

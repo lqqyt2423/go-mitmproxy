@@ -48,9 +48,8 @@ func NewProxy(opts *Options) (*Proxy, error) {
 			IdleConnTimeout:       90 * time.Second,
 			TLSHandshakeTimeout:   10 * time.Second,
 			ExpectContinueTimeout: 1 * time.Second,
-
-			ForceAttemptHTTP2:  false, // disable http2
-			DisableCompression: true,
+			ForceAttemptHTTP2:     false, // disable http2
+			DisableCompression:    true,  // To get the original response from the server, set Transport.DisableCompression to true.
 			TLSClientConfig: &tls.Config{
 				KeyLogWriter: GetTlsKeyLogWriter(),
 			},

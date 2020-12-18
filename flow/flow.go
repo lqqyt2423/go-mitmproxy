@@ -3,7 +3,11 @@ package flow
 import (
 	"net/http"
 	"net/url"
+
+	_log "github.com/sirupsen/logrus"
 )
+
+var log = _log.WithField("at", "flow")
 
 type Request struct {
 	Method string
@@ -33,6 +37,10 @@ type Response struct {
 	StatusCode int
 	Header     http.Header
 	Body       []byte
+
+	decodedBody []byte
+	decoded     bool // decoded reports whether the response was sent compressed but was decoded to decodedBody.
+	decodedErr  error
 }
 
 type Flow struct {

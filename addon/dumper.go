@@ -68,9 +68,12 @@ func (d *Dumper) Requestheaders(f *flow.Flow) {
 			}
 			buf.WriteString("\r\n")
 
-			if d.level == 1 && f.Response.Body != nil && len(f.Response.Body) > 0 && CanPrint(f.Response.Body) {
-				buf.Write(f.Response.Body)
-				buf.WriteString("\r\n\r\n")
+			if d.level == 1 && f.Response.Body != nil && len(f.Response.Body) > 0 {
+				body, _ := f.Response.DecodedBody()
+				if len(body) > 0 && CanPrint(body) {
+					buf.Write(body)
+					buf.WriteString("\r\n\r\n")
+				}
 			}
 		}
 
