@@ -12,6 +12,7 @@ import (
 	"io"
 	"io/ioutil"
 	"math/big"
+	"net"
 	"os"
 	"path/filepath"
 	"time"
@@ -278,7 +279,13 @@ func (ca *CA) DummyCert(commonName string) (*tls.Certificate, error) {
 		NotAfter:           time.Now().Add(time.Hour * 24 * 365),
 		SignatureAlgorithm: x509.SHA256WithRSA,
 		ExtKeyUsage:        []x509.ExtKeyUsage{x509.ExtKeyUsageServerAuth, x509.ExtKeyUsageClientAuth},
-		DNSNames:           []string{commonName},
+	}
+
+	ip := net.ParseIP(commonName)
+	if ip != nil {
+		template.IPAddresses = []net.IP{ip}
+	} else {
+		template.DNSNames = []string{commonName}
 	}
 
 	certBytes, err := x509.CreateCertificate(rand.Reader, template, &ca.RootCert, &ca.PrivateKey.PublicKey, &ca.PrivateKey)
