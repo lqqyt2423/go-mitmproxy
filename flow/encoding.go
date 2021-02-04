@@ -53,7 +53,7 @@ func (r *Response) DecodedBody() ([]byte, error) {
 	}
 
 	enc := r.Header.Get("Content-Encoding")
-	if enc == "" {
+	if enc == "" || enc == "identity" {
 		r.decodedBody = r.Body
 		return r.decodedBody, nil
 	}
