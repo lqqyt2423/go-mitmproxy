@@ -6,6 +6,8 @@ import (
 	"errors"
 	"io"
 	"strings"
+
+	"github.com/andybalholm/brotli"
 )
 
 // handle http header: content-encoding
@@ -85,6 +87,14 @@ func Decode(enc string, body []byte) ([]byte, error) {
 			return nil, err
 		}
 		err = zr.Close()
+		if err != nil {
+			return nil, err
+		}
+		return buf.Bytes(), nil
+	} else if enc == "br" {
+		brr := brotli.NewReader(bytes.NewReader(body))
+		buf := bytes.NewBuffer(make([]byte, 0))
+		_, err := io.Copy(buf, brr)
 		if err != nil {
 			return nil, err
 		}
