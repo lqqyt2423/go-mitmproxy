@@ -15,6 +15,7 @@ import (
 	"net"
 	"os"
 	"path/filepath"
+	"sync"
 	"time"
 
 	"github.com/golang/groupcache/lru"
@@ -37,6 +38,8 @@ type CA struct {
 
 	cache *lru.Cache
 	group *singleflight.Group
+
+	cacheMu sync.Mutex
 }
 
 func NewCA(path string) (*CA, error) {
@@ -246,15 +249,20 @@ func (ca *CA) saveCert() error {
 }
 
 func (ca *CA) GetCert(commonName string) (*tls.Certificate, error) {
+	ca.cacheMu.Lock()
 	if val, ok := ca.cache.Get(commonName); ok {
+		ca.cacheMu.Unlock()
 		log.WithField("commonName", commonName).Debug("GetCert")
 		return val.(*tls.Certificate), nil
 	}
+	ca.cacheMu.Unlock()
 
 	val, err := ca.group.Do(commonName, func() (interface{}, error) {
 		cert, err := ca.DummyCert(commonName)
 		if err == nil {
+			ca.cacheMu.Lock()
 			ca.cache.Add(commonName, cert)
+			ca.cacheMu.Unlock()
 		}
 		return cert, err
 	})

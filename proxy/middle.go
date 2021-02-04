@@ -8,6 +8,7 @@ import (
 	"net/http"
 	"os"
 	"strings"
+	"sync"
 	"time"
 
 	mock_conn "github.com/jordwest/mock-conn"
@@ -34,11 +35,12 @@ type conn struct {
 	// connection: keep-alive 相关
 	readCanCancel bool        // 是否可取消 Read
 	firstRead     bool        // 首次调用 Read 初始化
-	pendingRead   bool        // 当前是否有 Read 操作在阻塞中
 	readErrChan   chan error  // Read 方法提前返回时的错误，总是 os.ErrDeadlineExceeded
 	readErr       error       // 底层 End 返回的错误
 	readDeadline  time.Time   // SetReadDeadline 设置的时间
 	chunk         chan []byte // Read 和 beginRead 的交互 channel
+
+	readDeadlineMu sync.RWMutex
 }
 
 var connUnexpected = errors.New("unexpected read error")
@@ -86,19 +88,18 @@ func (c *conn) Read(data []byte) (int, error) {
 	}
 	c.firstRead = true
 
+	c.readDeadlineMu.RLock()
 	if !c.readDeadline.Equal(time.Time{}) {
 		if !c.readDeadline.After(time.Now()) {
+			c.readDeadlineMu.RUnlock()
 			return 0, os.ErrDeadlineExceeded
 		} else {
+			c.readDeadlineMu.RUnlock()
 			log.WithField("host", c.host).Warnf("c.readDeadline is future %v\n", c.readDeadline)
 			return 0, connUnexpected
 		}
 	}
-
-	c.pendingRead = true
-	defer func() {
-		c.pendingRead = false
-	}()
+	c.readDeadlineMu.RUnlock()
 
 	select {
 	case err := <-c.readErrChan:
@@ -117,10 +118,13 @@ func (c *conn) SetDeadline(t time.Time) error {
 	return connUnexpected
 }
 
-// http server 标准库实现时，当多个 http 复用底层 socke 时，会调用此方法
+// http server 标准库实现时，当多个 http 复用底层 socket 时，会调用此方法
 func (c *conn) SetReadDeadline(t time.Time) error {
+	c.readDeadlineMu.Lock()
 	c.readDeadline = t
-	if c.pendingRead && !t.Equal(time.Time{}) && !t.After(time.Now()) {
+	c.readDeadlineMu.Unlock()
+
+	if !t.Equal(time.Time{}) && !t.After(time.Now()) {
 		c.readErrChan <- os.ErrDeadlineExceeded
 	}
 	return nil
@@ -180,12 +184,12 @@ func NewMiddle(proxy *Proxy) (Interceptor, error) {
 	}
 
 	m.Server = server
+	m.Listener = &listener{make(chan net.Conn)}
 
 	return m, nil
 }
 
 func (m *Middle) Start() error {
-	m.Listener = &listener{make(chan net.Conn)}
 	return m.Server.ServeTLS(m.Listener, "", "")
 }
 
