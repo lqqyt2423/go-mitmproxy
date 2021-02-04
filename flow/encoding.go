@@ -5,44 +5,66 @@ import (
 	"compress/gzip"
 	"errors"
 	"io"
+	"strings"
 )
 
 // handle http header: content-encoding
 
 var EncodingNotSupport = errors.New("content-encoding not support")
 
-func (r *Response) DecodedBody() ([]byte, bool) {
+var textContentTypes = []string{
+	"text",
+	"javascript",
+	"json",
+}
+
+func (r *Response) IsTextContentType() bool {
+	contentType := r.Header.Get("Content-Type")
+	if contentType == "" {
+		return false
+	}
+	for _, substr := range textContentTypes {
+		if strings.Contains(contentType, substr) {
+			return true
+		}
+	}
+	return false
+}
+
+func (r *Response) DecodedBody() ([]byte, error) {
 	if r.decodedBody != nil {
-		return r.decodedBody, r.decoded
+		return r.decodedBody, nil
 	}
 
 	if r.decodedErr != nil {
-		return nil, r.decoded
+		return nil, r.decodedErr
 	}
 
 	if r.Body == nil {
-		return nil, r.decoded
+		return nil, nil
 	}
 
 	if len(r.Body) == 0 {
 		r.decodedBody = r.Body
-		return r.decodedBody, r.decoded
+		return r.decodedBody, nil
 	}
 
 	enc := r.Header.Get("Content-Encoding")
 	if enc == "" {
 		r.decodedBody = r.Body
-		return r.decodedBody, r.decoded
+		return r.decodedBody, nil
 	}
 
-	r.decodedBody, r.decodedErr = Decode(enc, r.Body)
-	if r.decodedErr != nil {
+	decodedBody, decodedErr := Decode(enc, r.Body)
+	if decodedErr != nil {
+		r.decodedErr = decodedErr
 		log.Error(r.decodedErr)
-	} else {
-		r.decoded = true
+		return nil, decodedErr
 	}
 
-	return r.decodedBody, r.decoded
+	r.decodedBody = decodedBody
+	r.decoded = true
+	return r.decodedBody, nil
 }
 
 // 当 Response.Body 替换为解压的内容时调用

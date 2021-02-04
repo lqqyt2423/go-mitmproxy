@@ -66,9 +66,9 @@ func (d *Dumper) dump(f *flow.Flow) {
 		}
 		buf.WriteString("\r\n")
 
-		if d.level == 1 && f.Response.Body != nil && len(f.Response.Body) > 0 {
-			body, _ := f.Response.DecodedBody()
-			if len(body) > 0 && CanPrint(body) {
+		if d.level == 1 && f.Response.Body != nil && len(f.Response.Body) > 0 && f.Response.IsTextContentType() {
+			body, err := f.Response.DecodedBody()
+			if err == nil && body != nil && len(body) > 0 {
 				buf.Write(body)
 				buf.WriteString("\r\n\r\n")
 			}
