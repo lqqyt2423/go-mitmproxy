@@ -31,58 +31,62 @@ func NewDumper(file string, level int) *Dumper {
 	return &Dumper{Out: out, level: level}
 }
 
-func (d *Dumper) Requestheaders(f *flow.Flow) {
+// call when <-f.Done()
+func (d *Dumper) dump(f *flow.Flow) {
+	// 参考 httputil.DumpRequest
+
 	log := log.WithField("in", "Dumper")
 
-	go func() {
-		<-f.Done()
+	buf := bytes.NewBuffer(make([]byte, 0))
+	fmt.Fprintf(buf, "%s %s %s\r\n", f.Request.Method, f.Request.URL.RequestURI(), f.Request.Proto)
+	fmt.Fprintf(buf, "Host: %s\r\n", f.Request.URL.Host)
+	if len(f.Request.Raw().TransferEncoding) > 0 {
+		fmt.Fprintf(buf, "Transfer-Encoding: %s\r\n", strings.Join(f.Request.Raw().TransferEncoding, ","))
+	}
+	if f.Request.Raw().Close {
+		fmt.Fprintf(buf, "Connection: close\r\n")
+	}
 
-		// 参考 httputil.DumpRequest
+	err := f.Request.Header.WriteSubset(buf, nil)
+	if err != nil {
+		log.Error(err)
+	}
+	buf.WriteString("\r\n")
 
-		buf := bytes.NewBuffer(make([]byte, 0))
-		fmt.Fprintf(buf, "%s %s %s\r\n", f.Request.Method, f.Request.URL.RequestURI(), f.Request.Proto)
-		fmt.Fprintf(buf, "Host: %s\r\n", f.Request.URL.Host)
-		if len(f.Request.Raw().TransferEncoding) > 0 {
-			fmt.Fprintf(buf, "Transfer-Encoding: %s\r\n", strings.Join(f.Request.Raw().TransferEncoding, ","))
-		}
-		if f.Request.Raw().Close {
-			fmt.Fprintf(buf, "Connection: close\r\n")
-		}
+	if d.level == 1 && f.Request.Body != nil && len(f.Request.Body) > 0 && CanPrint(f.Request.Body) {
+		buf.Write(f.Request.Body)
+		buf.WriteString("\r\n\r\n")
+	}
 
-		err := f.Request.Header.WriteSubset(buf, nil)
+	if f.Response != nil {
+		fmt.Fprintf(buf, "%v %v %v\r\n", f.Request.Proto, f.Response.StatusCode, http.StatusText(f.Response.StatusCode))
+		err = f.Response.Header.WriteSubset(buf, nil)
 		if err != nil {
 			log.Error(err)
 		}
 		buf.WriteString("\r\n")
 
-		if d.level == 1 && f.Request.Body != nil && len(f.Request.Body) > 0 && CanPrint(f.Request.Body) {
-			buf.Write(f.Request.Body)
-			buf.WriteString("\r\n\r\n")
-		}
-
-		if f.Response != nil {
-			fmt.Fprintf(buf, "%v %v %v\r\n", f.Request.Proto, f.Response.StatusCode, http.StatusText(f.Response.StatusCode))
-			err = f.Response.Header.WriteSubset(buf, nil)
-			if err != nil {
-				log.Error(err)
-			}
-			buf.WriteString("\r\n")
-
-			if d.level == 1 && f.Response.Body != nil && len(f.Response.Body) > 0 {
-				body, _ := f.Response.DecodedBody()
-				if len(body) > 0 && CanPrint(body) {
-					buf.Write(body)
-					buf.WriteString("\r\n\r\n")
-				}
+		if d.level == 1 && f.Response.Body != nil && len(f.Response.Body) > 0 {
+			body, _ := f.Response.DecodedBody()
+			if len(body) > 0 && CanPrint(body) {
+				buf.Write(body)
+				buf.WriteString("\r\n\r\n")
 			}
 		}
+	}
 
-		buf.WriteString("\r\n\r\n")
+	buf.WriteString("\r\n\r\n")
 
-		_, err = d.Out.Write(buf.Bytes())
-		if err != nil {
-			log.Error(err)
-		}
+	_, err = d.Out.Write(buf.Bytes())
+	if err != nil {
+		log.Error(err)
+	}
+}
+
+func (d *Dumper) Requestheaders(f *flow.Flow) {
+	go func() {
+		<-f.Done()
+		d.dump(f)
 	}()
 }
 
