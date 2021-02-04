@@ -6,6 +6,7 @@ import (
 	"compress/gzip"
 	"errors"
 	"io"
+	"strconv"
 	"strings"
 
 	"github.com/andybalholm/brotli"
@@ -70,10 +71,16 @@ func (r *Response) DecodedBody() ([]byte, error) {
 	return r.decodedBody, nil
 }
 
-// 当 Response.Body 替换为解压的内容时调用
-func (r *Response) RemoveEncodingHeader() {
+func (r *Response) ReplaceToDecodedBody() {
+	body, err := r.DecodedBody()
+	if err != nil || body == nil {
+		return
+	}
+
+	r.Body = body
 	r.Header.Del("Content-Encoding")
-	r.Header.Del("Content-Length")
+	r.Header.Set("Content-Length", strconv.Itoa(len(body)))
+	r.Header.Del("Transfer-Encoding")
 }
 
 func Decode(enc string, body []byte) ([]byte, error) {
