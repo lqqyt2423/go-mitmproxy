@@ -2,6 +2,7 @@ package flow
 
 import (
 	"bytes"
+	"compress/flate"
 	"compress/gzip"
 	"errors"
 	"io"
@@ -77,24 +78,32 @@ func (r *Response) RemoveEncodingHeader() {
 
 func Decode(enc string, body []byte) ([]byte, error) {
 	if enc == "gzip" {
-		zr, err := gzip.NewReader(bytes.NewReader(body))
+		dreader, err := gzip.NewReader(bytes.NewReader(body))
 		if err != nil {
 			return nil, err
 		}
 		buf := bytes.NewBuffer(make([]byte, 0))
-		_, err = io.Copy(buf, zr)
+		_, err = io.Copy(buf, dreader)
 		if err != nil {
 			return nil, err
 		}
-		err = zr.Close()
+		err = dreader.Close()
 		if err != nil {
 			return nil, err
 		}
 		return buf.Bytes(), nil
 	} else if enc == "br" {
-		brr := brotli.NewReader(bytes.NewReader(body))
+		dreader := brotli.NewReader(bytes.NewReader(body))
 		buf := bytes.NewBuffer(make([]byte, 0))
-		_, err := io.Copy(buf, brr)
+		_, err := io.Copy(buf, dreader)
+		if err != nil {
+			return nil, err
+		}
+		return buf.Bytes(), nil
+	} else if enc == "deflate" {
+		dreader := flate.NewReader(bytes.NewReader(body))
+		buf := bytes.NewBuffer(make([]byte, 0))
+		_, err := io.Copy(buf, dreader)
 		if err != nil {
 			return nil, err
 		}
