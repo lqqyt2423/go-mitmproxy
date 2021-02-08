@@ -5,6 +5,7 @@ import (
 	"net/http"
 	"net/url"
 
+	uuid "github.com/satori/go.uuid"
 	_log "github.com/sirupsen/logrus"
 )
 
@@ -63,18 +64,24 @@ type Flow struct {
 	Stream bool
 	done   chan struct{}
 
+	Id    uuid.UUID
 	State map[string]interface{} // Can add value by addon
 }
 
 func (f *Flow) MarshalJSON() ([]byte, error) {
 	j := make(map[string]interface{})
+	j["id"] = f.Id
 	j["request"] = f.Request
 	j["response"] = f.Response
 	return json.Marshal(j)
 }
 
 func NewFlow() *Flow {
-	return &Flow{done: make(chan struct{}), State: make(map[string]interface{})}
+	return &Flow{
+		done:  make(chan struct{}),
+		Id:    uuid.NewV4(),
+		State: make(map[string]interface{}),
+	}
 }
 
 func (f *Flow) Done() <-chan struct{} {

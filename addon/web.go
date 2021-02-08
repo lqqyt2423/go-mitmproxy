@@ -8,7 +8,6 @@ import (
 
 	"github.com/gorilla/websocket"
 	"github.com/lqqyt2423/go-mitmproxy/flow"
-	uuid "github.com/satori/go.uuid"
 	"github.com/sirupsen/logrus"
 )
 
@@ -54,6 +53,18 @@ type WebAddon struct {
 
 	conns   []*websocket.Conn
 	connsMu sync.RWMutex
+}
+
+type message struct {
+	On   string     `json:"on"`
+	Flow *flow.Flow `json:"flow"`
+}
+
+func newMessage(on string, f *flow.Flow) *message {
+	return &message{
+		On:   on,
+		Flow: f,
+	}
 }
 
 func NewWebAddon() *WebAddon {
@@ -102,27 +113,32 @@ func (web *WebAddon) removeConn(conn *websocket.Conn) {
 	web.conns = append(web.conns[:index], web.conns[index+1:]...)
 }
 
-func (web *WebAddon) Request(f *flow.Flow) {
-	b, err := json.Marshal(f)
+func (web *WebAddon) sendFlow(on string, f *flow.Flow) {
+	web.connsMu.RLock()
+	conns := web.conns
+	web.connsMu.RUnlock()
+
+	if len(conns) == 0 {
+		return
+	}
+
+	msg := newMessage(on, f)
+	b, err := json.Marshal(msg)
 	if err != nil {
 		web.log.Error(err)
 		return
 	}
+	for _, c := range conns {
+		c.WriteMessage(websocket.TextMessage, b)
+	}
+}
 
-	id := uuid.NewV4()
-	f.State["id"] = id
-
-	web.log.Infof("id: %s, request: %s\n", id, b)
+func (web *WebAddon) Request(f *flow.Flow) {
+	web.sendFlow("request", f)
 }
 
 func (web *WebAddon) Response(f *flow.Flow) {
-	b, err := json.Marshal(f)
-	if err != nil {
-		web.log.Error(err)
-		return
-	}
-
-	web.log.Infof("id: %s, response: %s\n", f.State["id"], b)
+	web.sendFlow("response", f)
 }
 
 var homeTemplate = template.Must(template.New("").Parse(`
