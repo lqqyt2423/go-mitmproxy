@@ -51,5 +51,7 @@ func main() {
 		p.AddAddon(dumper)
 	}
 
+	p.AddAddon(addon.NewWebAddon())
+
 	log.Fatal(p.Start())
 }

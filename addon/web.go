@@ -1,10 +1,14 @@
 package addon
 
 import (
+	"encoding/json"
 	"net/http"
+	"sync"
 	"text/template"
 
 	"github.com/gorilla/websocket"
+	"github.com/lqqyt2423/go-mitmproxy/flow"
+	uuid "github.com/satori/go.uuid"
 	"github.com/sirupsen/logrus"
 )
 
@@ -14,7 +18,13 @@ func (web *WebAddon) echo(w http.ResponseWriter, r *http.Request) {
 		web.log.Print("upgrade:", err)
 		return
 	}
-	defer c.Close()
+
+	web.addConn(c)
+	defer func() {
+		web.removeConn(c)
+		c.Close()
+	}()
+
 	for {
 		mt, message, err := c.ReadMessage()
 		if err != nil {
@@ -41,6 +51,9 @@ type WebAddon struct {
 	serverMux *http.ServeMux
 	server    *http.Server
 	log       *logrus.Entry
+
+	conns   []*websocket.Conn
+	connsMu sync.RWMutex
 }
 
 func NewWebAddon() *WebAddon {
@@ -53,8 +66,8 @@ func NewWebAddon() *WebAddon {
 	web.serverMux.HandleFunc("/", home)
 
 	web.server = &http.Server{Addr: web.addr, Handler: web.serverMux}
-
 	web.log = log.WithField("in", "WebAddon")
+	web.conns = make([]*websocket.Conn, 0)
 
 	go func() {
 		web.log.Infof("server start listen at %v\n", web.addr)
@@ -63,6 +76,53 @@ func NewWebAddon() *WebAddon {
 	}()
 
 	return web
+}
+
+func (web *WebAddon) addConn(c *websocket.Conn) {
+	web.connsMu.Lock()
+	web.conns = append(web.conns, c)
+	web.connsMu.Unlock()
+}
+
+func (web *WebAddon) removeConn(conn *websocket.Conn) {
+	web.connsMu.Lock()
+	defer web.connsMu.Unlock()
+
+	index := -1
+	for i, c := range web.conns {
+		if conn == c {
+			index = i
+			break
+		}
+	}
+
+	if index == -1 {
+		return
+	}
+	web.conns = append(web.conns[:index], web.conns[index+1:]...)
+}
+
+func (web *WebAddon) Request(f *flow.Flow) {
+	b, err := json.Marshal(f)
+	if err != nil {
+		web.log.Error(err)
+		return
+	}
+
+	id := uuid.NewV4()
+	f.State["id"] = id
+
+	web.log.Infof("id: %s, request: %s\n", id, b)
+}
+
+func (web *WebAddon) Response(f *flow.Flow) {
+	b, err := json.Marshal(f)
+	if err != nil {
+		web.log.Error(err)
+		return
+	}
+
+	web.log.Infof("id: %s, response: %s\n", f.State["id"], b)
 }
 
 var homeTemplate = template.Must(template.New("").Parse(`

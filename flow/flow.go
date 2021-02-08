@@ -1,6 +1,7 @@
 package flow
 
 import (
+	"encoding/json"
 	"net/http"
 	"net/url"
 
@@ -19,6 +20,16 @@ type Request struct {
 	raw *http.Request
 }
 
+func (req *Request) MarshalJSON() ([]byte, error) {
+	r := make(map[string]interface{})
+	r["method"] = req.Method
+	r["url"] = req.URL.String()
+	r["proto"] = req.Proto
+	r["header"] = req.Header
+	r["body"] = req.Body
+	return json.Marshal(r)
+}
+
 func NewRequest(req *http.Request) *Request {
 	return &Request{
 		Method: req.Method,
@@ -34,9 +45,9 @@ func (r *Request) Raw() *http.Request {
 }
 
 type Response struct {
-	StatusCode int
-	Header     http.Header
-	Body       []byte
+	StatusCode int         `json:"statusCode"`
+	Header     http.Header `json:"header"`
+	Body       []byte      `json:"body"`
 
 	decodedBody []byte
 	decoded     bool // decoded reports whether the response was sent compressed but was decoded to decodedBody.
@@ -51,10 +62,19 @@ type Flow struct {
 	// 如果为 true，则不缓冲 Request.Body 和 Response.Body，且不进入之后的 Addon.Request 和 Addon.Response
 	Stream bool
 	done   chan struct{}
+
+	State map[string]interface{} // Can add value by addon
+}
+
+func (f *Flow) MarshalJSON() ([]byte, error) {
+	j := make(map[string]interface{})
+	j["request"] = f.Request
+	j["response"] = f.Response
+	return json.Marshal(j)
 }
 
 func NewFlow() *Flow {
-	return &Flow{done: make(chan struct{})}
+	return &Flow{done: make(chan struct{}), State: make(map[string]interface{})}
 }
 
 func (f *Flow) Done() <-chan struct{} {
