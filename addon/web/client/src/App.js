@@ -1,6 +1,5 @@
 import React from 'react'
 import Table from 'react-bootstrap/Table'
-import { Base64 } from 'js-base64'
 import './App.css'
 
 const isTextResponse = response => {
@@ -9,6 +8,49 @@ const isTextResponse = response => {
   if (!response.header['Content-Type']) return false
 
   return /text|javascript|json/.test(response.header['Content-Type'].join(''))
+}
+
+const getSize = response => {
+  if (!response) return '0'
+  if (!response.header) return '0'
+  if (!response.header['Content-Length']) return '0'
+  const len = parseInt(response.header['Content-Length'][0])
+  if (isNaN(len)) return '0'
+  if (len <= 0) return '0'
+  
+  if (len < 1024) return `${len} B`
+  if (len < 1024*1024) return `${(len/1024).toFixed(2)} KB`
+  return `${(len/(1024*1024)).toFixed(2)} MB`
+}
+
+const parseMessage = data => {
+  if (data.byteLength < 38) return null
+  const meta = new Int8Array(data.slice(0, 2))
+  const version = meta[0]
+  if (version !== 1) return null
+  const type = meta[1]
+  if (![1, 2, 3].includes(type)) return null
+  const id = new TextDecoder().decode(data.slice(2, 38))
+
+  const resp = {
+    type: ['request', 'response', 'responseBody'][type-1],
+    id,
+  }
+  if (data.byteLength === 38) return resp
+  if (type === 3) {
+    resp.content = data.slice(38)
+    return resp
+  }
+
+  let content = new TextDecoder().decode(data.slice(38))
+  try {
+    content = JSON.parse(content)
+  } catch (err) {
+    return null
+  }
+
+  resp.content = content
+  return resp
 }
 
 class App extends React.Component {
@@ -23,6 +65,7 @@ class App extends React.Component {
       flowTab: 'Headers', // Headers, Preview, Response
     }
     this.ws = null
+    this.flowsMap = new Map()
   }
 
   componentDidMount() {
@@ -39,27 +82,37 @@ class App extends React.Component {
     if (this.ws) return
 
     this.ws = new WebSocket("ws://localhost:9081/echo")
+    this.ws.binaryType = 'arraybuffer'
     this.ws.onopen = () => { console.log('OPEN') }
     this.ws.onclose = () => { console.log('CLOSE') }
     this.ws.onmessage = evt => {
-      const data = JSON.parse(evt.data)
-      console.log(data)
+      const msg = parseMessage(evt.data)
+      if (!msg) {
+        console.error('parse error:', evt.data)
+        return
+      }
+      console.log('msg:', msg)
 
-      const flow = data.flow
-      const id = flow.id
-      if (data.on === 'request') {
+      if (msg.type === 'request') {
+        const flow = { id: msg.id, request: msg.content }
+        this.flowsMap.set(msg.id, flow)
         this.setState({ flows: this.state.flows.concat(flow) })
       }
-      else if (data.on === 'response') {
-        const flows = this.state.flows.map(f => {
-          if (f.id === id) return flow
-          return f
-        })
-        this.setState({ flows })
+      else if (msg.type === 'response') {
+        const flow = this.flowsMap.get(msg.id)
+        if (!flow) return
+        flow.response = msg.content
+        this.setState({ flows: this.state.flows })
+      }
+      else if (msg.type === 'responseBody') {
+        const flow = this.flowsMap.get(msg.id)
+        if (!flow || !flow.response) return
+        flow.response.body = msg.content
+        this.setState({ flows: this.state.flows })
       }
     }
     this.ws.onerror = evt => {
-      console.log('ERROR: ' + evt.data)
+      console.log('ERROR:', evt)
     }
 
     // this.ws.send('msg')
@@ -127,10 +180,10 @@ class App extends React.Component {
 
           {
             !(flowTab === 'Response') ? null :
-            !(response.body && response.body.length) ? <div>No response</div> :
+            !(response.body && response.body.byteLength) ? <div>No response</div> :
             !(isTextResponse(response)) ? <div>Not text response</div> :
             <div>
-              {Base64.decode(response.body)}
+              {new TextDecoder().decode(response.body)}
             </div>
           }
         </div>
@@ -150,6 +203,7 @@ class App extends React.Component {
               <th>Path</th>
               <th>Method</th>
               <th>Status</th>
+              <th>Size</th>
             </tr>
           </thead>
           <tbody>
@@ -170,6 +224,7 @@ class App extends React.Component {
                     <td>{path}</td>
                     <td>{request.method}</td>
                     <td>{response.statusCode || '(pending)'}</td>
+                    <td>{getSize(response)}</td>
                   </tr>
                 )
               })
