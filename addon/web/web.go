@@ -1,4 +1,4 @@
-package addon
+package web
 
 import (
 	"encoding/json"
@@ -7,14 +7,17 @@ import (
 	"text/template"
 
 	"github.com/gorilla/websocket"
+	"github.com/lqqyt2423/go-mitmproxy/addon"
 	"github.com/lqqyt2423/go-mitmproxy/flow"
-	"github.com/sirupsen/logrus"
+	_log "github.com/sirupsen/logrus"
 )
+
+var log = _log.WithField("at", "web addon")
 
 func (web *WebAddon) echo(w http.ResponseWriter, r *http.Request) {
 	c, err := web.upgrader.Upgrade(w, r, nil)
 	if err != nil {
-		web.log.Print("upgrade:", err)
+		log.Print("upgrade:", err)
 		return
 	}
 
@@ -27,13 +30,13 @@ func (web *WebAddon) echo(w http.ResponseWriter, r *http.Request) {
 	for {
 		mt, message, err := c.ReadMessage()
 		if err != nil {
-			web.log.Println("read:", err)
+			log.Println("read:", err)
 			break
 		}
-		web.log.Printf("recv: %s", message)
+		log.Printf("recv: %s", message)
 		err = c.WriteMessage(mt, message)
 		if err != nil {
-			web.log.Println("write:", err)
+			log.Println("write:", err)
 			break
 		}
 	}
@@ -44,12 +47,11 @@ func home(w http.ResponseWriter, r *http.Request) {
 }
 
 type WebAddon struct {
-	Base
+	addon.Base
 	addr      string
 	upgrader  *websocket.Upgrader
 	serverMux *http.ServeMux
 	server    *http.Server
-	log       *logrus.Entry
 
 	conns   []*websocket.Conn
 	connsMu sync.RWMutex
@@ -77,13 +79,13 @@ func NewWebAddon() *WebAddon {
 	web.serverMux.HandleFunc("/", home)
 
 	web.server = &http.Server{Addr: web.addr, Handler: web.serverMux}
-	web.log = log.WithField("in", "WebAddon")
+	log = log.WithField("in", "WebAddon")
 	web.conns = make([]*websocket.Conn, 0)
 
 	go func() {
-		web.log.Infof("server start listen at %v\n", web.addr)
+		log.Infof("server start listen at %v\n", web.addr)
 		err := web.server.ListenAndServe()
-		web.log.Error(err)
+		log.Error(err)
 	}()
 
 	return web
@@ -125,7 +127,7 @@ func (web *WebAddon) sendFlow(on string, f *flow.Flow) {
 	msg := newMessage(on, f)
 	b, err := json.Marshal(msg)
 	if err != nil {
-		web.log.Error(err)
+		log.Error(err)
 		return
 	}
 	for _, c := range conns {

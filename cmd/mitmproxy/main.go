@@ -5,6 +5,7 @@ import (
 	"os"
 
 	"github.com/lqqyt2423/go-mitmproxy/addon"
+	"github.com/lqqyt2423/go-mitmproxy/addon/web"
 	"github.com/lqqyt2423/go-mitmproxy/proxy"
 	log "github.com/sirupsen/logrus"
 )
@@ -51,7 +52,7 @@ func main() {
 		p.AddAddon(dumper)
 	}
 
-	p.AddAddon(addon.NewWebAddon())
+	p.AddAddon(web.NewWebAddon())
 
 	log.Fatal(p.Start())
 }
