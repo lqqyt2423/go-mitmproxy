@@ -1,7 +1,6 @@
 package web
 
 import (
-	"encoding/json"
 	"net/http"
 	"sync"
 
@@ -57,18 +56,6 @@ type WebAddon struct {
 	connsMu sync.RWMutex
 }
 
-type message struct {
-	On   string     `json:"on"`
-	Flow *flow.Flow `json:"flow"`
-}
-
-func newMessage(on string, f *flow.Flow) *message {
-	return &message{
-		On:   on,
-		Flow: f,
-	}
-}
-
 func NewWebAddon() *WebAddon {
 	web := new(WebAddon)
 	web.addr = ":9081"
@@ -119,7 +106,7 @@ func (web *WebAddon) removeConn(conn *websocket.Conn) {
 	web.conns = append(web.conns[:index], web.conns[index+1:]...)
 }
 
-func (web *WebAddon) sendFlow(on string, f *flow.Flow) {
+func (web *WebAddon) sendFlow(msgFn func() *message) {
 	web.connsMu.RLock()
 	conns := web.conns
 	web.connsMu.RUnlock()
@@ -128,23 +115,28 @@ func (web *WebAddon) sendFlow(on string, f *flow.Flow) {
 		return
 	}
 
-	msg := newMessage(on, f)
-	b, err := json.Marshal(msg)
-	if err != nil {
-		log.Error(err)
-		return
-	}
+	msg := msgFn()
 	for _, c := range conns {
 		c.mu.Lock()
-		c.conn.WriteMessage(websocket.TextMessage, b)
+		c.conn.WriteMessage(websocket.BinaryMessage, msg.bytes())
 		c.mu.Unlock()
 	}
 }
 
 func (web *WebAddon) Request(f *flow.Flow) {
-	web.sendFlow("request", f)
+	web.sendFlow(func() *message {
+		return newMessageRequest(f)
+	})
+}
+
+func (web *WebAddon) Responseheaders(f *flow.Flow) {
+	web.sendFlow(func() *message {
+		return newMessageResponse(f)
+	})
 }
 
 func (web *WebAddon) Response(f *flow.Flow) {
-	web.sendFlow("response", f)
+	web.sendFlow(func() *message {
+		return newMessageResponseBody(f)
+	})
 }

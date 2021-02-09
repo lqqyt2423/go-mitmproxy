@@ -48,7 +48,7 @@ func (r *Request) Raw() *http.Request {
 type Response struct {
 	StatusCode int         `json:"statusCode"`
 	Header     http.Header `json:"header"`
-	Body       []byte      `json:"body"`
+	Body       []byte      `json:"-"`
 
 	decodedBody []byte
 	decoded     bool // decoded reports whether the response was sent compressed but was decoded to decodedBody.
