@@ -1,4 +1,46 @@
 .main-table-wrap {
     font-family: Menlo,Monaco;
-    font-size: 0.9rem;
+    font-size: 0.8rem;
+}
+
+.flow-detail {
+    position: fixed;
+    top: 0;
+    right: 0;
+
+    height: 100vh;
+    background-color: #fff;
+    min-width: 500px;
+    width: 50%;
+    overflow-y: auto;
+
+    word-break: break-all;
+}
+
+.flow-detail .header-tabs span {
+    display: inline-block;
+    line-height: 1;
+    padding: 8px;
+    cursor: pointer;
+}
+
+.flow-detail .header-tabs .selected {
+    border-bottom: 2px rgb(35, 118, 229) solid;
+}
+
+/* .flow-detail .header-block {
+    margin: 20px;
+} */
+
+.flow-detail .header-block > p {
+    font-weight: bold;
+}
+
+.flow-detail .header-block .header-block-content p {
+    margin: 5px 0;
+}
+
+.flow-detail .header-block .header-block-content {
+    margin-left: 20px;
+    line-height: 1.5;
 }

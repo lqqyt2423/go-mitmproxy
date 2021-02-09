@@ -1,6 +1,15 @@
 import React from 'react'
 import Table from 'react-bootstrap/Table'
+import { Base64 } from 'js-base64'
 import './App.css'
+
+const isTextResponse = response => {
+  if (!response) return false
+  if (!response.header) return false
+  if (!response.header['Content-Type']) return false
+
+  return /text|javascript|json/.test(response.header['Content-Type'].join(''))
+}
 
 class App extends React.Component {
 
@@ -9,6 +18,9 @@ class App extends React.Component {
 
     this.state = {
       flows: [],
+      flow: null,
+
+      flowTab: 'Headers', // Headers, Preview, Response
     }
     this.ws = null
   }
@@ -53,6 +65,79 @@ class App extends React.Component {
     // this.ws.send('msg')
     // this.ws.close()
   }
+
+  renderFlow() {
+    const { flow, flowTab } = this.state
+    if (!flow) return null
+
+    const request = flow.request
+    const response = flow.response || {}
+
+    return (
+      <div className="flow-detail">
+        <div className="header-tabs">
+          <span onClick={() => { this.setState({ flow: null }) }}>x</span>
+          <span className={flowTab === 'Headers' ? 'selected' : null} onClick={() => { this.setState({ flowTab: 'Headers' }) }}>Headers</span>
+          <span className={flowTab === 'Preview' ? 'selected' : null} onClick={() => { this.setState({ flowTab: 'Preview' }) }}>Preview</span>
+          <span className={flowTab === 'Response' ? 'selected' : null} onClick={() => { this.setState({ flowTab: 'Response' }) }}>Response</span>
+        </div>
+
+        <div style={{ padding: '20px' }}>
+          {
+            !(flowTab === 'Headers') ? null :
+            <div>
+              <div className="header-block">
+                <p>General</p>
+                <div className="header-block-content">
+                  <p>Request URL: {request.url}</p>
+                  <p>Request Method: {request.method}</p>
+                  <p>Status Code: {`${response.statusCode || '(pending)'}`}</p>
+                </div>
+              </div>
+
+              <div className="header-block">
+                <p>Response Headers</p>
+                <div className="header-block-content">
+                  {
+                    !(response.header) ? null :
+                    Object.keys(response.header).map(key => {
+                      return (
+                        <p key={key}>{key}: {response.header[key].join(' ')}</p>
+                      )
+                    })
+                  }
+                </div>
+              </div>
+
+              <div className="header-block">
+                <p>Request Headers</p>
+                <div className="header-block-content">
+                  {
+                    !(request.header) ? null :
+                    Object.keys(request.header).map(key => {
+                      return (
+                        <p key={key}>{key}: {request.header[key].join(' ')}</p>
+                      )
+                    })
+                  }
+                </div>
+              </div>
+            </div>
+          }
+
+          {
+            !(flowTab === 'Response') ? null :
+            !(response.body && response.body.length) ? <div>No response</div> :
+            !(isTextResponse(response)) ? <div>Not text response</div> :
+            <div>
+              {Base64.decode(response.body)}
+            </div>
+          }
+        </div>
+
+      </div>
+    )
+  }
   
   render() {
     const { flows } = this.state
@@ -61,10 +146,10 @@ class App extends React.Component {
         <Table striped bordered size="sm">
           <thead>
             <tr>
-              <th>Status</th>
-              <th>Method</th>
               <th>Host</th>
               <th>Path</th>
+              <th>Method</th>
+              <th>Status</th>
             </tr>
           </thead>
           <tbody>
@@ -78,17 +163,21 @@ class App extends React.Component {
                 const request = f.request
                 const response = f.response || {}
                 return (
-                  <tr key={f.id}>
-                    <td>{response.statusCode || '(pending)'}</td>
-                    <td>{request.method}</td>
+                  <tr key={f.id} onClick={() => {
+                    this.setState({ flow: f })
+                  }}>
                     <td>{u.host}</td>
                     <td>{path}</td>
+                    <td>{request.method}</td>
+                    <td>{response.statusCode || '(pending)'}</td>
                   </tr>
                 )
               })
             }
           </tbody>
         </Table>
+
+        {this.renderFlow()}
       </div>
     )
   }
