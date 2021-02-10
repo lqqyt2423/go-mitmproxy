@@ -3,6 +3,11 @@
     font-size: 0.8rem;
 }
 
+.main-table-wrap tbody tr.tr-selected {
+    background-color: rgb(35, 118, 229);
+    color: white;
+}
+
 .flow-detail {
     position: fixed;
     top: 0;

@@ -53,6 +53,22 @@ const parseMessage = data => {
   return resp
 }
 
+/**
+ * 
+ * @param {number} messageType 
+ * @param {string} id 
+ * @param {string} content 
+ */
+const buildMessage = (messageType, id, content) => {
+  content = new TextEncoder().encode(content)
+  const data = new Uint8Array(38 + content.byteLength)
+  data[0] = 1
+  data[1] = messageType
+  data.set(new TextEncoder().encode(id), 2)
+  data.set(content, 38)
+  return data
+}
+
 class App extends React.Component {
 
   constructor(props) {
@@ -81,7 +97,13 @@ class App extends React.Component {
   initWs() {
     if (this.ws) return
 
-    this.ws = new WebSocket("ws://localhost:9081/echo")
+    let host;
+    if (process.env.NODE_ENV === 'development') {
+      host = 'localhost:9081'
+    } else {
+      host = new URL(document.URL).host
+    }
+    this.ws = new WebSocket(`ws://${host}/echo`)
     this.ws.binaryType = 'arraybuffer'
     this.ws.onopen = () => { console.log('OPEN') }
     this.ws.onclose = () => { console.log('CLOSE') }
@@ -217,7 +239,7 @@ class App extends React.Component {
                 const request = f.request
                 const response = f.response || {}
                 return (
-                  <tr key={f.id} onClick={() => {
+                  <tr className={(this.state.flow && this.state.flow.id === f.id) ? "tr-selected" : null} key={f.id} onClick={() => {
                     this.setState({ flow: f })
                   }}>
                     <td>{u.host}</td>
