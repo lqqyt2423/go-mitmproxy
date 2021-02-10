@@ -19,30 +19,14 @@ func (web *WebAddon) echo(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	web.addConn(c)
+	conn := newConn(c)
+	web.addConn(conn)
 	defer func() {
-		web.removeConn(c)
+		web.removeConn(conn)
 		c.Close()
 	}()
 
-	for {
-		mt, message, err := c.ReadMessage()
-		if err != nil {
-			log.Println("read:", err)
-			break
-		}
-		log.Printf("recv: %s", message)
-		err = c.WriteMessage(mt, message)
-		if err != nil {
-			log.Println("write:", err)
-			break
-		}
-	}
-}
-
-type concurrentConn struct {
-	conn *websocket.Conn
-	mu   sync.Mutex
+	conn.readloop()
 }
 
 type WebAddon struct {
@@ -82,19 +66,19 @@ func NewWebAddon() *WebAddon {
 	return web
 }
 
-func (web *WebAddon) addConn(c *websocket.Conn) {
+func (web *WebAddon) addConn(c *concurrentConn) {
 	web.connsMu.Lock()
-	web.conns = append(web.conns, &concurrentConn{conn: c})
+	web.conns = append(web.conns, c)
 	web.connsMu.Unlock()
 }
 
-func (web *WebAddon) removeConn(conn *websocket.Conn) {
+func (web *WebAddon) removeConn(conn *concurrentConn) {
 	web.connsMu.Lock()
 	defer web.connsMu.Unlock()
 
 	index := -1
 	for i, c := range web.conns {
-		if conn == c.conn {
+		if conn == c {
 			index = i
 			break
 		}
@@ -106,37 +90,37 @@ func (web *WebAddon) removeConn(conn *websocket.Conn) {
 	web.conns = append(web.conns[:index], web.conns[index+1:]...)
 }
 
-func (web *WebAddon) sendFlow(msgFn func() *message) {
+func (web *WebAddon) sendFlow(f *flow.Flow, msgFn func() *message) bool {
 	web.connsMu.RLock()
 	conns := web.conns
 	web.connsMu.RUnlock()
 
 	if len(conns) == 0 {
-		return
+		return false
 	}
 
 	msg := msgFn()
 	for _, c := range conns {
-		c.mu.Lock()
-		c.conn.WriteMessage(websocket.BinaryMessage, msg.bytes())
-		c.mu.Unlock()
+		c.writeMessage(msg, f)
 	}
+
+	return true
 }
 
 func (web *WebAddon) Request(f *flow.Flow) {
-	web.sendFlow(func() *message {
+	web.sendFlow(f, func() *message {
 		return newMessageRequest(f)
 	})
 }
 
 func (web *WebAddon) Responseheaders(f *flow.Flow) {
-	web.sendFlow(func() *message {
+	web.sendFlow(f, func() *message {
 		return newMessageResponse(f)
 	})
 }
 
 func (web *WebAddon) Response(f *flow.Flow) {
-	web.sendFlow(func() *message {
+	web.sendFlow(f, func() *message {
 		return newMessageResponseBody(f)
 	})
 }

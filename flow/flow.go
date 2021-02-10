@@ -2,6 +2,7 @@ package flow
 
 import (
 	"encoding/json"
+	"errors"
 	"net/http"
 	"net/url"
 
@@ -29,6 +30,54 @@ func (req *Request) MarshalJSON() ([]byte, error) {
 	r["header"] = req.Header
 	r["body"] = req.Body
 	return json.Marshal(r)
+}
+
+func (req *Request) UnmarshalJSON(data []byte) error {
+	r := make(map[string]interface{})
+	err := json.Unmarshal(data, &r)
+	if err != nil {
+		return err
+	}
+
+	rawurl, ok := r["url"].(string)
+	if !ok {
+		return errors.New("url parse error")
+	}
+	u, err := url.Parse(rawurl)
+	if err != nil {
+		return err
+	}
+
+	rawheader, ok := r["header"].(map[string]interface{})
+	if !ok {
+		return errors.New("rawheader parse error")
+	}
+
+	header := make(map[string][]string)
+	for k, v := range rawheader {
+		vals, ok := v.([]interface{})
+		if !ok {
+			return errors.New("header parse error")
+		}
+
+		svals := make([]string, 0)
+		for _, val := range vals {
+			sval, ok := val.(string)
+			if !ok {
+				return errors.New("header parse error")
+			}
+			svals = append(svals, sval)
+		}
+		header[k] = svals
+	}
+
+	*req = Request{
+		Method: r["method"].(string),
+		URL:    u,
+		Proto:  r["proto"].(string),
+		Header: header,
+	}
+	return nil
 }
 
 func NewRequest(req *http.Request) *Request {
