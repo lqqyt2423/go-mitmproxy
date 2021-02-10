@@ -1,5 +1,8 @@
 import React from 'react'
 import Table from 'react-bootstrap/Table'
+import Form from 'react-bootstrap/Form'
+import Button from 'react-bootstrap/Button'
+import { FlowManager } from './flow'
 import './App.css'
 
 const isTextResponse = response => {
@@ -74,14 +77,15 @@ class App extends React.Component {
   constructor(props) {
     super(props)
 
+    this.flowMgr = new FlowManager()
+
     this.state = {
-      flows: [],
+      flows: this.flowMgr.showList(),
       flow: null,
 
       flowTab: 'Headers', // Headers, Preview, Response
     }
     this.ws = null
-    this.flowsMap = new Map()
   }
 
   componentDidMount() {
@@ -117,17 +121,17 @@ class App extends React.Component {
 
       if (msg.type === 'request') {
         const flow = { id: msg.id, request: msg.content }
-        this.flowsMap.set(msg.id, flow)
-        this.setState({ flows: this.state.flows.concat(flow) })
+        this.flowMgr.add(flow)
+        this.setState({ flows: this.flowMgr.showList() })
       }
       else if (msg.type === 'response') {
-        const flow = this.flowsMap.get(msg.id)
+        const flow = this.flowMgr.get(msg.id)
         if (!flow) return
         flow.response = msg.content
         this.setState({ flows: this.state.flows })
       }
       else if (msg.type === 'responseBody') {
-        const flow = this.flowsMap.get(msg.id)
+        const flow = this.flowMgr.get(msg.id)
         if (!flow || !flow.response) return
         flow.response.body = msg.content
         this.setState({ flows: this.state.flows })
@@ -218,9 +222,29 @@ class App extends React.Component {
     const { flows } = this.state
     return (
       <div className="main-table-wrap">
+        <div className="top-control">
+          <div><Button size="sm" onClick={() => {
+            this.flowMgr.clear()
+            this.setState({ flows: this.flowMgr.showList(), flow: null })
+          }}>Clear</Button></div>
+          <div>
+            <Form.Control
+              size="sm" placeholder="Filter"
+              onChange={(e) => {
+                const value = e.target.value
+                this.flowMgr.changeFilterLazy(value, () => {
+                  this.setState({ flows: this.flowMgr.showList() })
+                })
+              }}
+            >
+            </Form.Control>
+          </div>
+        </div>
+
         <Table striped bordered size="sm">
           <thead>
             <tr>
+              <th>No</th>
               <th>Host</th>
               <th>Path</th>
               <th>Method</th>
@@ -233,8 +257,10 @@ class App extends React.Component {
               flows.map(f => {
                 const url = f.request.url
                 const u = new URL(url)
+                let host = u.host
+                if (host.length > 35) host = host.slice(0, 35) + '...'
                 let path = u.pathname + u.search
-                if (path.length > 60) path = path.slice(0, 60) + '...'
+                if (path.length > 65) path = path.slice(0, 65) + '...'
 
                 const request = f.request
                 const response = f.response || {}
@@ -242,7 +268,8 @@ class App extends React.Component {
                   <tr className={(this.state.flow && this.state.flow.id === f.id) ? "tr-selected" : null} key={f.id} onClick={() => {
                     this.setState({ flow: f })
                   }}>
-                    <td>{u.host}</td>
+                    <td>{f.no}</td>
+                    <td>{host}</td>
                     <td>{path}</td>
                     <td>{request.method}</td>
                     <td>{response.statusCode || '(pending)'}</td>

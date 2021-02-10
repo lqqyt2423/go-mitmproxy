@@ -3,6 +3,15 @@
     font-size: 0.8rem;
 }
 
+.top-control {
+    display: flex;
+    align-items: center;
+}
+
+.top-control > div {
+    margin-right: 20px;
+}
+
 .main-table-wrap tbody tr.tr-selected {
     background-color: rgb(35, 118, 229);
     color: white;
