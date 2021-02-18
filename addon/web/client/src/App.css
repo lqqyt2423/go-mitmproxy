@@ -12,8 +12,14 @@
     margin-right: 20px;
 }
 
+
 .main-table-wrap tbody tr.tr-selected {
     background-color: rgb(35, 118, 229);
+    color: white;
+}
+
+.main-table-wrap tbody tr.tr-wait-intercept {
+    background-color: rgb(216, 110, 83);
     color: white;
 }
 
@@ -31,6 +37,10 @@
     word-break: break-all;
 }
 
+.flow-detail .header-tabs {
+    display: flex;
+}
+
 .flow-detail .header-tabs span {
     display: inline-block;
     line-height: 1;
@@ -40,6 +50,10 @@
 
 .flow-detail .header-tabs .selected {
     border-bottom: 2px rgb(35, 118, 229) solid;
+}
+
+.flow-detail .header-tabs .flow-wait-area button {
+    margin-left: 10px;
 }
 
 /* .flow-detail .header-block {

@@ -27,25 +27,26 @@ const getSize = response => {
 }
 
 const parseMessage = data => {
-  if (data.byteLength < 38) return null
-  const meta = new Int8Array(data.slice(0, 2))
+  if (data.byteLength < 39) return null
+  const meta = new Int8Array(data.slice(0, 3))
   const version = meta[0]
   if (version !== 1) return null
   const type = meta[1]
   if (![1, 2, 3].includes(type)) return null
-  const id = new TextDecoder().decode(data.slice(2, 38))
+  const id = new TextDecoder().decode(data.slice(3, 39))
 
   const resp = {
     type: ['request', 'response', 'responseBody'][type-1],
     id,
+    waitIntercept: meta[2] === 1,
   }
-  if (data.byteLength === 38) return resp
+  if (data.byteLength === 39) return resp
   if (type === 3) {
-    resp.content = data.slice(38)
+    resp.content = data.slice(39)
     return resp
   }
 
-  let content = new TextDecoder().decode(data.slice(38))
+  let content = new TextDecoder().decode(data.slice(39))
   try {
     content = JSON.parse(content)
   } catch (err) {
@@ -64,11 +65,12 @@ const parseMessage = data => {
  */
 const buildMessage = (messageType, id, content) => {
   content = new TextEncoder().encode(content)
-  const data = new Uint8Array(38 + content.byteLength)
+  const data = new Uint8Array(39 + content.byteLength)
   data[0] = 1
   data[1] = messageType
-  data.set(new TextEncoder().encode(id), 2)
-  data.set(content, 38)
+  data[2] = 0
+  data.set(new TextEncoder().encode(id), 3)
+  data.set(content, 39)
   return data
 }
 
@@ -84,6 +86,9 @@ class App extends React.Component {
       flow: null,
 
       flowTab: 'Headers', // Headers, Preview, Response
+
+      interceptUriInputing: '',
+      interceptUri: '',
     }
     this.ws = null
   }
@@ -120,19 +125,21 @@ class App extends React.Component {
       console.log('msg:', msg)
 
       if (msg.type === 'request') {
-        const flow = { id: msg.id, request: msg.content }
+        const flow = { id: msg.id, request: msg.content, waitIntercept: msg.waitIntercept }
         this.flowMgr.add(flow)
         this.setState({ flows: this.flowMgr.showList() })
       }
       else if (msg.type === 'response') {
         const flow = this.flowMgr.get(msg.id)
         if (!flow) return
+        flow.waitIntercept = msg.waitIntercept
         flow.response = msg.content
         this.setState({ flows: this.state.flows })
       }
       else if (msg.type === 'responseBody') {
         const flow = this.flowMgr.get(msg.id)
         if (!flow || !flow.response) return
+        flow.waitIntercept = msg.waitIntercept
         flow.response.body = msg.content
         this.setState({ flows: this.state.flows })
       }
@@ -159,6 +166,18 @@ class App extends React.Component {
           <span className={flowTab === 'Headers' ? 'selected' : null} onClick={() => { this.setState({ flowTab: 'Headers' }) }}>Headers</span>
           <span className={flowTab === 'Preview' ? 'selected' : null} onClick={() => { this.setState({ flowTab: 'Preview' }) }}>Preview</span>
           <span className={flowTab === 'Response' ? 'selected' : null} onClick={() => { this.setState({ flowTab: 'Response' }) }}>Response</span>
+          {
+            !flow.waitIntercept ? null :
+            <div className="flow-wait-area">
+              <Button size="sm" onClick={() => {
+                const msg = buildMessage(11, flow.id, JSON.stringify(flow.request))
+                this.ws.send(msg)
+                flow.waitIntercept = false
+                this.setState({ flows: this.state.flows })
+              }}>Continue</Button>
+              <Button size="sm">Drop</Button>
+            </div>
+          }
         </div>
 
         <div style={{ padding: '20px' }}>
@@ -219,7 +238,7 @@ class App extends React.Component {
   }
   
   render() {
-    const { flows } = this.state
+    const { flows, interceptUriInputing, interceptUri } = this.state
     return (
       <div className="main-table-wrap">
         <div className="top-control">
@@ -238,6 +257,20 @@ class App extends React.Component {
               }}
             >
             </Form.Control>
+          </div>
+
+          <div style={{ display: 'flex', alignItems: 'center' }}>
+            <Form.Control size="sm" placeholder="Set interpect" value={interceptUriInputing} onChange={e => {
+              this.setState({ interceptUriInputing: e.target.value || '' })
+            }}></Form.Control>
+            <Button size="sm" onClick={() => {
+              this.setState({ interceptUri: interceptUriInputing })
+              const msg = buildMessage(21, '00000000-0000-0000-0000-000000000000', interceptUriInputing)
+              this.ws.send(msg)
+             }}>Set</Button>
+            {
+              interceptUri ? <span>{`Intercept:${interceptUri}`}</span> : null
+            }
           </div>
         </div>
 
@@ -264,10 +297,17 @@ class App extends React.Component {
 
                 const request = f.request
                 const response = f.response || {}
+
+                const classNames = []
+                if (this.state.flow && this.state.flow.id === f.id) classNames.push('tr-selected')
+                if (f.waitIntercept) classNames.push('tr-wait-intercept')
+
                 return (
-                  <tr className={(this.state.flow && this.state.flow.id === f.id) ? "tr-selected" : null} key={f.id} onClick={() => {
-                    this.setState({ flow: f })
-                  }}>
+                  <tr className={classNames.length ? classNames.join(' ') : null} key={f.id}
+                    onClick={() => {
+                      this.setState({ flow: f })
+                    }}
+                  >
                     <td>{f.no}</td>
                     <td>{host}</td>
                     <td>{path}</td>
