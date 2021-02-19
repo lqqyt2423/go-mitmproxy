@@ -53,11 +53,10 @@ Usage of mitmproxy:
 - [x] 命令行参数控制 dump 至文件
 - [x] dump level
 - [x] 文档
-- [ ] support get method with body
+- [x] web 界面
+- [x] Content-Encoding 相关
 - [ ] http2
 - [ ] websocket 解析
-- [ ] web 界面
-- [ ] Content-Encoding 相关
 
 ## License
 
