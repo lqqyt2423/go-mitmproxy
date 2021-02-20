@@ -36,41 +36,36 @@ func (web *WebAddon) echo(w http.ResponseWriter, r *http.Request) {
 
 type WebAddon struct {
 	addon.Base
-	addr      string
-	upgrader  *websocket.Upgrader
-	serverMux *http.ServeMux
-	server    *http.Server
+	upgrader *websocket.Upgrader
 
 	conns   []*concurrentConn
 	connsMu sync.RWMutex
 }
 
-func NewWebAddon() *WebAddon {
+func NewWebAddon(addr string) *WebAddon {
 	web := new(WebAddon)
-	web.addr = ":9081"
 	web.upgrader = &websocket.Upgrader{
 		CheckOrigin: func(r *http.Request) bool {
 			return true
 		},
 	}
 
-	web.serverMux = new(http.ServeMux)
-	web.serverMux.HandleFunc("/echo", web.echo)
+	serverMux := new(http.ServeMux)
+	serverMux.HandleFunc("/echo", web.echo)
 
-	// web.serverMux.Handle("/", http.FileServer(http.Dir("addon/web/client/build")))
 	fsys, err := fs.Sub(assets, "client/build")
 	if err != nil {
 		panic(err)
 	}
-	web.serverMux.Handle("/", http.FileServer(http.FS(fsys)))
+	serverMux.Handle("/", http.FileServer(http.FS(fsys)))
 
-	web.server = &http.Server{Addr: web.addr, Handler: web.serverMux}
+	server := &http.Server{Addr: addr, Handler: serverMux}
 	log = log.WithField("in", "WebAddon")
 	web.conns = make([]*concurrentConn, 0)
 
 	go func() {
-		log.Infof("server start listen at %v\n", web.addr)
-		err := web.server.ListenAndServe()
+		log.Infof("web interface start listen at %v\n", addr)
+		err := server.ListenAndServe()
 		log.Error(err)
 	}()
 

@@ -12,6 +12,7 @@ import (
 
 type Config struct {
 	addr      string
+	webAddr   string
 	dump      string // dump filename
 	dumpLevel int    // dump level
 }
@@ -20,6 +21,7 @@ func loadConfig() *Config {
 	config := new(Config)
 
 	flag.StringVar(&config.addr, "addr", ":9080", "proxy listen addr")
+	flag.StringVar(&config.webAddr, "web_addr", ":9081", "web interface listen addr")
 	flag.StringVar(&config.dump, "dump", "", "dump filename")
 	flag.IntVar(&config.dumpLevel, "dump_level", 0, "dump level: 0 - header, 1 - header + body")
 	flag.Parse()
@@ -53,7 +55,7 @@ func main() {
 	}
 
 	p.AddAddon(&addon.Decoder{})
-	p.AddAddon(web.NewWebAddon())
+	p.AddAddon(web.NewWebAddon(config.webAddr))
 
 	log.Fatal(p.Start())
 }

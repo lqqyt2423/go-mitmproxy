@@ -1,4 +1,4 @@
-all: mitmproxy dummycert
+all: mitmproxy
 
 .PHONY: mitmproxy
 mitmproxy:
