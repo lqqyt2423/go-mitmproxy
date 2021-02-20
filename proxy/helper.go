@@ -39,22 +39,27 @@ func LogErr(log *_log.Entry, err error) (loged bool) {
 // 转发流量
 // Read a => Write b
 // Read b => Write a
-func Transfer(log *_log.Entry, a, b io.ReadWriter) {
+func Transfer(log *_log.Entry, a, b io.ReadWriteCloser) {
 	done := make(chan struct{})
 	defer close(done)
 
-	forward := func(dst io.Writer, src io.Reader, ec chan<- error) {
+	forward := func(dst io.WriteCloser, src io.Reader, ec chan<- error) {
 		_, err := io.Copy(dst, src)
-
-		if v, ok := dst.(*conn); ok {
-			// 避免内存泄漏
-			_ = v.Writer.CloseWithError(nil)
+		if err != nil {
+			select {
+			case <-done:
+				return
+			case ec <- err:
+				return
+			}
 		}
 
+		err = dst.Close()
 		select {
 		case <-done:
 			return
 		case ec <- err:
+			return
 		}
 	}
 
