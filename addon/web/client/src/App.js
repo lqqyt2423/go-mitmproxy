@@ -63,6 +63,12 @@ class App extends React.Component {
         this.flowMgr.add(flow)
         this.setState({ flows: this.flowMgr.showList() })
       }
+      else if (msg.type === 'requestBody') {
+        const flow = this.flowMgr.get(msg.id)
+        if (!flow) return
+        flow.request.body = msg.content
+        this.setState({ flows: this.state.flows })
+      }
       else if (msg.type === 'response') {
         const flow = this.flowMgr.get(msg.id)
         if (!flow) return
@@ -124,19 +130,21 @@ class App extends React.Component {
                 </div>
               </div>
 
-              <div className="header-block">
-                <p>Response Headers</p>
-                <div className="header-block-content">
-                  {
-                    !(response.header) ? null :
-                    Object.keys(response.header).map(key => {
-                      return (
-                        <p key={key}>{key}: {response.header[key].join(' ')}</p>
-                      )
-                    })
-                  }
+              {
+                !(response.header) ? null :
+                <div className="header-block">
+                  <p>Response Headers</p>
+                  <div className="header-block-content">
+                    {
+                      Object.keys(response.header).map(key => {
+                        return (
+                          <p key={key}>{key}: {response.header[key].join(' ')}</p>
+                        )
+                      })
+                    }
+                  </div>
                 </div>
-              </div>
+              }
 
               <div className="header-block">
                 <p>Request Headers</p>
@@ -151,6 +159,22 @@ class App extends React.Component {
                   }
                 </div>
               </div>
+
+              {
+                !(request.body && request.body.byteLength) ? null :
+                <div className="header-block">
+                  <p>Request Body</p>
+                  <div className="header-block-content">
+                    <p>
+                      {
+                        !(isTextResponse(request)) ? "Not text" :
+                        new TextDecoder().decode(request.body)
+                      }
+                    </p>
+                  </div>
+                </div>
+              }
+
             </div>
           }
 

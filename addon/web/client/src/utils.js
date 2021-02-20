@@ -25,22 +25,36 @@ export const getSize = response => {
   return `${(len/(1024*1024)).toFixed(2)} MB`
 }
 
+const messageEnum = {
+  'request': 1,
+  'requestBody': 2,
+  'response': 3,
+  'responseBody': 4,
+}
+
+const allMessageBytes = Object.keys(messageEnum).map(k => messageEnum[k])
+
+const messageByteMap = Object.keys(messageEnum).reduce((m, k) => {
+  m[messageEnum[k]] = k
+  return m
+}, {})
+
 export const parseMessage = data => {
   if (data.byteLength < 39) return null
   const meta = new Int8Array(data.slice(0, 3))
   const version = meta[0]
   if (version !== 1) return null
   const type = meta[1]
-  if (![1, 2, 3].includes(type)) return null
+  if (!allMessageBytes.includes(type)) return null
   const id = new TextDecoder().decode(data.slice(3, 39))
 
   const resp = {
-    type: ['request', 'response', 'responseBody'][type-1],
+    type: messageByteMap[type],
     id,
     waitIntercept: meta[2] === 1,
   }
   if (data.byteLength === 39) return resp
-  if (type === 3) {
+  if (type === messageEnum['requestBody'] || type === messageEnum['responseBody']) {
     resp.content = data.slice(39)
     return resp
   }

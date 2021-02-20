@@ -113,9 +113,15 @@ func (web *WebAddon) sendFlow(f *flow.Flow, msgFn func() *message) bool {
 	return true
 }
 
-func (web *WebAddon) Request(f *flow.Flow) {
+func (web *WebAddon) Requestheaders(f *flow.Flow) {
 	web.sendFlow(f, func() *message {
 		return newMessageRequest(f)
+	})
+}
+
+func (web *WebAddon) Request(f *flow.Flow) {
+	web.sendFlow(f, func() *message {
+		return newMessageRequestBody(f)
 	})
 }
 

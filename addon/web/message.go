@@ -10,20 +10,33 @@ import (
 
 const messageVersion = 1
 
-type messageType int
+type messageType byte
 
 const (
 	messageTypeRequest      messageType = 1
-	messageTypeResponse     messageType = 2
-	messageTypeResponseBody messageType = 3
+	messageTypeRequestBody  messageType = 2
+	messageTypeResponse     messageType = 3
+	messageTypeResponseBody messageType = 4
 
-	messageTypeChangeRequest      messageType = 11
+	messageTypeChangeRequest messageType = 11
+
 	messageTypeChangeInterceptUri messageType = 21
 )
 
+var allMessageTypes = []messageType{
+	messageTypeRequest,
+	messageTypeRequestBody,
+	messageTypeResponse,
+	messageTypeResponseBody,
+	messageTypeChangeRequest,
+	messageTypeChangeInterceptUri,
+}
+
 func validMessageType(t byte) bool {
-	if t == byte(messageTypeRequest) || t == byte(messageTypeResponse) || t == byte(messageTypeResponseBody) || t == byte(messageTypeChangeRequest) || t == byte(messageTypeChangeInterceptUri) {
-		return true
+	for _, v := range allMessageTypes {
+		if t == byte(v) {
+			return true
+		}
 	}
 	return false
 }
@@ -70,6 +83,10 @@ func newMessageRequest(f *flow.Flow) *message {
 		panic(err)
 	}
 	return newMessage(messageTypeRequest, f.Id, content)
+}
+
+func newMessageRequestBody(f *flow.Flow) *message {
+	return newMessage(messageTypeRequestBody, f.Id, f.Request.Body)
 }
 
 func newMessageResponse(f *flow.Flow) *message {

@@ -56,6 +56,10 @@
     margin-left: 10px;
 }
 
+.flow-detail .header-block {
+    margin-bottom: 20px;
+}
+
 .flow-detail .header-block > p {
     font-weight: bold;
 }
