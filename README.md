@@ -19,7 +19,7 @@
 ## 安装
 
 ```
-go get github.com/lqqyt2423/go-mitmproxy/cmd/mitmproxy
+GO111MODULE=on go get -u github.com/lqqyt2423/go-mitmproxy/cmd/mitmproxy
 ```
 
 ## 命令行使用
