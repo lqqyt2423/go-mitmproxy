@@ -1,6 +1,8 @@
 package web
 
 import (
+	"embed"
+	"io/fs"
 	"net/http"
 	"sync"
 
@@ -11,6 +13,9 @@ import (
 )
 
 var log = _log.WithField("at", "web addon")
+
+//go:embed client/build
+var assets embed.FS
 
 func (web *WebAddon) echo(w http.ResponseWriter, r *http.Request) {
 	c, err := web.upgrader.Upgrade(w, r, nil)
@@ -51,7 +56,13 @@ func NewWebAddon() *WebAddon {
 
 	web.serverMux = new(http.ServeMux)
 	web.serverMux.HandleFunc("/echo", web.echo)
-	web.serverMux.Handle("/", http.FileServer(http.Dir("addon/web/client/build")))
+
+	// web.serverMux.Handle("/", http.FileServer(http.Dir("addon/web/client/build")))
+	fsys, err := fs.Sub(assets, "client/build")
+	if err != nil {
+		panic(err)
+	}
+	web.serverMux.Handle("/", http.FileServer(http.FS(fsys)))
 
 	web.server = &http.Server{Addr: web.addr, Handler: web.serverMux}
 	log = log.WithField("in", "WebAddon")
