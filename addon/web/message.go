@@ -81,7 +81,8 @@ func newMessageResponse(f *flow.Flow) *message {
 }
 
 func newMessageResponseBody(f *flow.Flow) *message {
-	return newMessage(messageTypeResponseBody, f.Id, f.Response.Body)
+	body, _ := f.Response.DecodedBody()
+	return newMessage(messageTypeResponseBody, f.Id, body)
 }
 
 func (m *message) bytes() []byte {

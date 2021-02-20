@@ -54,7 +54,6 @@ func main() {
 		p.AddAddon(dumper)
 	}
 
-	p.AddAddon(&addon.Decoder{})
 	p.AddAddon(web.NewWebAddon(config.webAddr))
 
 	log.Fatal(p.Start())

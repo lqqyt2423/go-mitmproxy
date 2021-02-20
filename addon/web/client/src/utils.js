@@ -9,8 +9,14 @@ export const isTextResponse = response => {
 export const getSize = response => {
   if (!response) return '0'
   if (!response.header) return '0'
-  if (!response.header['Content-Length']) return '0'
-  const len = parseInt(response.header['Content-Length'][0])
+
+  let len
+  if (response.header['Content-Length']) {
+    len = parseInt(response.header['Content-Length'][0])
+  } else if (response && response.body) {
+    len = response.body.byteLength
+  }
+  if (!len) return '0'
   if (isNaN(len)) return '0'
   if (len <= 0) return '0'
   
