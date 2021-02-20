@@ -14,6 +14,7 @@
     - 生成不同域名证书时使用 LRU 缓存，避免重复计算
 - 通过环境变量 `SSLKEYLOGFILE` 支持 `Wireshark` 解析分析流量
 - 上传/下载大文件时支持流式传输
+- WEB 界面：http://localhost:9081
 
 ## 安装
 
@@ -33,6 +34,8 @@ Usage of mitmproxy:
     	dump filename
   -dump_level int
     	dump level: 0 - header, 1 - header + body
+  -web_addr string
+    	web interface listen addr (default ":9081")
 ```
 
 ## 作为包引入
