@@ -28,7 +28,6 @@ func (req *Request) MarshalJSON() ([]byte, error) {
 	r["url"] = req.URL.String()
 	r["proto"] = req.Proto
 	r["header"] = req.Header
-	r["body"] = req.Body
 	return json.Marshal(r)
 }
 

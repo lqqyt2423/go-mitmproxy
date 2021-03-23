@@ -96,7 +96,7 @@ func (web *WebAddon) removeConn(conn *concurrentConn) {
 	web.conns = append(web.conns[:index], web.conns[index+1:]...)
 }
 
-func (web *WebAddon) sendFlow(f *flow.Flow, msgFn func() *message) bool {
+func (web *WebAddon) sendFlow(f *flow.Flow, msgFn func() *messageFlow) bool {
 	web.connsMu.RLock()
 	conns := web.conns
 	web.connsMu.RUnlock()
@@ -114,25 +114,25 @@ func (web *WebAddon) sendFlow(f *flow.Flow, msgFn func() *message) bool {
 }
 
 func (web *WebAddon) Requestheaders(f *flow.Flow) {
-	web.sendFlow(f, func() *message {
-		return newMessageRequest(f)
+	web.sendFlow(f, func() *messageFlow {
+		return newMessageFlow(messageTypeRequest, f)
 	})
 }
 
 func (web *WebAddon) Request(f *flow.Flow) {
-	web.sendFlow(f, func() *message {
-		return newMessageRequestBody(f)
+	web.sendFlow(f, func() *messageFlow {
+		return newMessageFlow(messageTypeRequestBody, f)
 	})
 }
 
 func (web *WebAddon) Responseheaders(f *flow.Flow) {
-	web.sendFlow(f, func() *message {
-		return newMessageResponse(f)
+	web.sendFlow(f, func() *messageFlow {
+		return newMessageFlow(messageTypeResponse, f)
 	})
 }
 
 func (web *WebAddon) Response(f *flow.Flow) {
-	web.sendFlow(f, func() *message {
-		return newMessageResponseBody(f)
+	web.sendFlow(f, func() *messageFlow {
+		return newMessageFlow(messageTypeResponseBody, f)
 	})
 }

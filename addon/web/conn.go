@@ -1,13 +1,17 @@
 package web
 
 import (
-	"encoding/json"
-	"strings"
 	"sync"
 
 	"github.com/gorilla/websocket"
 	"github.com/lqqyt2423/go-mitmproxy/flow"
 )
+
+type breakPointRule struct {
+	Method string `json:"method"`
+	URL    string `json:"url"`
+	Action int    `json:"action"` // 1 - change request 2 - change response 3 - both
+}
 
 type concurrentConn struct {
 	conn *websocket.Conn
@@ -16,7 +20,7 @@ type concurrentConn struct {
 	waitChans   map[string]chan interface{}
 	waitChansMu sync.Mutex
 
-	interceptUri string
+	breakPointRules []*breakPointRule
 }
 
 func newConn(c *websocket.Conn) *concurrentConn {
@@ -26,7 +30,7 @@ func newConn(c *websocket.Conn) *concurrentConn {
 	}
 }
 
-func (c *concurrentConn) writeMessage(msg *message, f *flow.Flow) {
+func (c *concurrentConn) writeMessage(msg *messageFlow, f *flow.Flow) {
 	if c.isIntercpt(f, msg) {
 		msg.waitIntercept = 1
 	}
@@ -63,27 +67,15 @@ func (c *concurrentConn) readloop() {
 			continue
 		}
 
-		if msg.mType == messageTypeChangeInterceptUri {
-			interceptUri := ""
-			if len(msg.content) > 0 {
-				interceptUri = string(msg.content)
-			}
-			c.interceptUri = interceptUri
-			continue
-		}
-
-		if msg.mType == messageTypeChangeRequest {
-			req := new(flow.Request)
-			err := json.Unmarshal(msg.content, req)
-			if err != nil {
-				log.Error(err)
-				continue
-			}
-
-			ch := c.initWaitChan(msg.id.String())
-			go func(req *flow.Request, ch chan<- interface{}) {
-				ch <- req
-			}(req, ch)
+		if msgEdit, ok := msg.(*messageEdit); ok {
+			ch := c.initWaitChan(msgEdit.id.String())
+			go func(m *messageEdit, ch chan<- interface{}) {
+				ch <- m
+			}(msgEdit, ch)
+		} else if msgMeta, ok := msg.(*messageMeta); ok {
+			c.breakPointRules = msgMeta.breakPointRules
+		} else {
+			log.Warn("invalid message, skip")
 		}
 	}
 }
@@ -101,28 +93,24 @@ func (c *concurrentConn) initWaitChan(key string) chan interface{} {
 }
 
 // 是否拦截
-func (c *concurrentConn) isIntercpt(f *flow.Flow, after *message) bool {
+func (c *concurrentConn) isIntercpt(f *flow.Flow, after *messageFlow) bool {
 	if after.mType != messageTypeRequest {
 		return false
 	}
 
-	if c.interceptUri == "" {
-		return false
-	}
-	if strings.Contains(f.Request.URL.String(), c.interceptUri) {
-		return true
-	}
 	return false
 }
 
 // 拦截
-func (c *concurrentConn) waitIntercept(f *flow.Flow, after *message) {
+func (c *concurrentConn) waitIntercept(f *flow.Flow, after *messageFlow) {
 	log.Infof("waiting Intercept: %s\n", f.Request.URL)
 	ch := c.initWaitChan(f.Id.String())
-	req := (<-ch).(*flow.Request)
+	msg := (<-ch).(*messageEdit)
 	log.Infof("waited Intercept: %s\n", f.Request.URL)
 
-	f.Request.Method = req.Method
-	f.Request.URL = req.URL
-	f.Request.Header = req.Header
+	// f.Request.Method = req.Method
+	// f.Request.URL = req.URL
+	// f.Request.Header = req.Header
+
+	log.Infof("waitIntercept: %v", msg)
 }
