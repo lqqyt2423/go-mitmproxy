@@ -5,7 +5,8 @@ import Button from 'react-bootstrap/Button'
 import './App.css'
 
 import { FlowManager } from './flow'
-import { isTextResponse, getSize, parseMessage, buildMessage } from './utils'
+import { isTextResponse, getSize } from './utils'
+import { parseMessage, sendMessageEnum, buildMessageEdit, buildMessageMeta } from './message'
 
 class App extends React.Component {
 
@@ -20,6 +21,7 @@ class App extends React.Component {
 
       flowTab: 'Headers', // Headers, Preview, Response
 
+      // TODO: change to rules
       interceptUriInputing: '',
       interceptUri: '',
     }
@@ -40,7 +42,7 @@ class App extends React.Component {
   initWs() {
     if (this.ws) return
 
-    let host;
+    let host
     if (process.env.NODE_ENV === 'development') {
       host = 'localhost:9081'
     } else {
@@ -107,7 +109,7 @@ class App extends React.Component {
             !flow.waitIntercept ? null :
             <div className="flow-wait-area">
               <Button size="sm" onClick={() => {
-                const msg = buildMessage(11, flow.id, JSON.stringify(flow.request))
+                const msg = buildMessageEdit(sendMessageEnum.changeRequest, flow)
                 this.ws.send(msg)
                 flow.waitIntercept = false
                 this.setState({ flows: this.state.flows })
@@ -220,7 +222,11 @@ class App extends React.Component {
             }}></Form.Control>
             <Button size="sm" onClick={() => {
               this.setState({ interceptUri: interceptUriInputing })
-              const msg = buildMessage(21, '00000000-0000-0000-0000-000000000000', interceptUriInputing)
+              const rules = []
+              if (interceptUriInputing) {
+                rules.push({ method: 'ALL', url: interceptUriInputing, action: 1 })
+              }
+              const msg = buildMessageMeta(sendMessageEnum.changeBreakPointRules, rules)
               this.ws.send(msg)
              }}>Set</Button>
             {
