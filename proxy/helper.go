@@ -3,6 +3,7 @@ package proxy
 import (
 	"bytes"
 	"io"
+	"net"
 	"os"
 	"strings"
 	"sync"
@@ -54,7 +55,12 @@ func Transfer(log *_log.Entry, a, b io.ReadWriteCloser) {
 			}
 		}
 
-		err = dst.Close()
+		if dstc, ok := dst.(*net.TCPConn); ok {
+			err = dstc.CloseWrite()
+		} else {
+			err = dst.Close()
+		}
+
 		select {
 		case <-done:
 			return
