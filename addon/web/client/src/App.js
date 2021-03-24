@@ -4,6 +4,8 @@ import Form from 'react-bootstrap/Form'
 import Button from 'react-bootstrap/Button'
 import './App.css'
 
+import BreakPoint from './components/BreakPoint'
+
 import { FlowManager } from './flow'
 import { isTextResponse, getSize } from './utils'
 import { parseMessage, sendMessageEnum, buildMessageEdit, buildMessageMeta } from './message'
@@ -20,10 +22,6 @@ class App extends React.Component {
       flow: null,
 
       flowTab: 'Headers', // Headers, Preview, Response
-
-      // TODO: change to rules
-      interceptUriInputing: '',
-      interceptUri: '',
     }
 
     this.ws = null
@@ -195,7 +193,7 @@ class App extends React.Component {
   }
   
   render() {
-    const { flows, interceptUriInputing, interceptUri } = this.state
+    const { flows } = this.state
     return (
       <div className="main-table-wrap">
         <div className="top-control">
@@ -216,23 +214,10 @@ class App extends React.Component {
             </Form.Control>
           </div>
 
-          <div style={{ display: 'flex', alignItems: 'center' }}>
-            <Form.Control size="sm" placeholder="Set interpect" value={interceptUriInputing} onChange={e => {
-              this.setState({ interceptUriInputing: e.target.value || '' })
-            }}></Form.Control>
-            <Button size="sm" onClick={() => {
-              this.setState({ interceptUri: interceptUriInputing })
-              const rules = []
-              if (interceptUriInputing) {
-                rules.push({ method: 'ALL', url: interceptUriInputing, action: 1 })
-              }
-              const msg = buildMessageMeta(sendMessageEnum.changeBreakPointRules, rules)
-              this.ws.send(msg)
-             }}>Set</Button>
-            {
-              interceptUri ? <span>{`Intercept:${interceptUri}`}</span> : null
-            }
-          </div>
+          <BreakPoint onSave={rules => {
+            const msg = buildMessageMeta(sendMessageEnum.changeBreakPointRules, rules)
+            this.ws.send(msg)
+          }} />
         </div>
 
         <Table striped bordered size="sm">
