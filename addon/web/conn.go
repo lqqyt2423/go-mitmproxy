@@ -1,6 +1,7 @@
 package web
 
 import (
+	"strings"
 	"sync"
 
 	"github.com/gorilla/websocket"
@@ -94,8 +95,34 @@ func (c *concurrentConn) initWaitChan(key string) chan interface{} {
 
 // 是否拦截
 func (c *concurrentConn) isIntercpt(f *flow.Flow, after *messageFlow) bool {
-	if after.mType != messageTypeRequest {
+	if after.mType != messageTypeRequestBody && after.mType != messageTypeResponseBody {
 		return false
+	}
+
+	if len(c.breakPointRules) == 0 {
+		return false
+	}
+
+	var action int
+	if after.mType == messageTypeRequestBody {
+		action = 1
+	} else {
+		action = 2
+	}
+
+	for _, rule := range c.breakPointRules {
+		if rule.URL == "" {
+			continue
+		}
+		if action&rule.Action == 0 {
+			continue
+		}
+		if rule.Method != "" && rule.Method != f.Request.Method {
+			continue
+		}
+		if strings.Contains(f.Request.URL.String(), rule.URL) {
+			return true
+		}
 	}
 
 	return false

@@ -69,19 +69,20 @@ export const buildMessageEdit = (messageType, flow) => {
     throw new Error('invalid message type')
   }
   
+  const bodyLen = (body && body.byteLength) ? body.byteLength : 0
   const headerBytes = new TextEncoder().encode(JSON.stringify(header))
-  const len = 2 + 36 + 4 + headerBytes.byteLength + 4 + body.byteLength
+  const len = 2 + 36 + 4 + headerBytes.byteLength + 4 + bodyLen
   const data = new ArrayBuffer(len)
   const view = new Uint8Array(data)
   view[0] = 1
   view[1] = messageType
-  view.set(new TextEncoder().encode(flow.id), 3)
+  view.set(new TextEncoder().encode(flow.id), 2)
   view.set(headerBytes, 2 + 36 + 4)
-  view.set(body, 2 + 36 + 4 + headerBytes.byteLength + 4)
+  if (bodyLen) view.set(body, 2 + 36 + 4 + headerBytes.byteLength + 4)
 
   const view2 = new DataView(data)
   view2.setUint32(2 + 36, headerBytes.byteLength)
-  view2.setUint32(2 + 36 + 4 + headerBytes.byteLength, body.byteLength)
+  view2.setUint32(2 + 36 + 4 + headerBytes.byteLength, bodyLen)
 
   return view
 }

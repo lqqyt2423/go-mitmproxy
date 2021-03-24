@@ -66,6 +66,7 @@ class App extends React.Component {
       else if (msg.type === 'requestBody') {
         const flow = this.flowMgr.get(msg.id)
         if (!flow) return
+        flow.waitIntercept = msg.waitIntercept
         flow.request.body = msg.content
         this.setState({ flows: this.state.flows })
       }
