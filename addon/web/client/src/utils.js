@@ -1,9 +1,9 @@
-export const isTextResponse = response => {
-  if (!response) return false
-  if (!response.header) return false
-  if (!response.header['Content-Type']) return false
+export const isTextBody = payload => {
+  if (!payload) return false
+  if (!payload.header) return false
+  if (!payload.header['Content-Type']) return false
 
-  return /text|javascript|json/.test(response.header['Content-Type'].join(''))
+  return /text|javascript|json/.test(payload.header['Content-Type'].join(''))
 }
 
 export const getSize = response => {

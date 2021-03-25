@@ -148,7 +148,7 @@ func (c *concurrentConn) waitIntercept(f *flow.Flow, after *messageFlow) {
 		f.Request.Header = msg.request.Header
 		f.Request.Body = msg.request.Body
 	} else if msg.mType == messageTypeChangeResponse {
-		// TODO: statusCode
+		f.Response.StatusCode = msg.response.StatusCode
 		f.Response.Header = msg.response.Header
 		f.Response.Body = msg.response.Body
 	}

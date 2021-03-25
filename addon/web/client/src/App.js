@@ -5,10 +5,11 @@ import Button from 'react-bootstrap/Button'
 import './App.css'
 
 import BreakPoint from './components/BreakPoint'
+import EditFlow from './components/EditFlow'
 
 import { FlowManager } from './flow'
-import { isTextResponse, getSize } from './utils'
-import { parseMessage, sendMessageEnum, buildMessageEdit, buildMessageMeta } from './message'
+import { isTextBody, getSize } from './utils'
+import { parseMessage, sendMessageEnum, buildMessageMeta } from './message'
 
 class App extends React.Component {
 
@@ -104,25 +105,29 @@ class App extends React.Component {
           <span className={flowTab === 'Headers' ? 'selected' : null} onClick={() => { this.setState({ flowTab: 'Headers' }) }}>Headers</span>
           <span className={flowTab === 'Preview' ? 'selected' : null} onClick={() => { this.setState({ flowTab: 'Preview' }) }}>Preview</span>
           <span className={flowTab === 'Response' ? 'selected' : null} onClick={() => { this.setState({ flowTab: 'Response' }) }}>Response</span>
-          {
-            !flow.waitIntercept ? null :
-            <div className="flow-wait-area">
-              <Button size="sm" onClick={() => {
-                const msgType = flow.response ? sendMessageEnum.changeResponse : sendMessageEnum.changeRequest
-                const msg = buildMessageEdit(msgType, flow)
-                this.ws.send(msg)
-                flow.waitIntercept = false
-                this.setState({ flows: this.state.flows })
-              }}>Continue</Button>
-              <Button size="sm" onClick={() => {
-                const msgType = flow.response ? sendMessageEnum.dropResponse : sendMessageEnum.dropRequest
-                const msg = buildMessageEdit(msgType, flow)
-                this.ws.send(msg)
-                flow.waitIntercept = false
-                this.setState({ flows: this.state.flows })
-              }}>Drop</Button>
-            </div>
-          }
+
+          <EditFlow
+            flow={flow}
+            onChangeRequest={request => {
+              flow.request.method = request.method
+              flow.request.url = request.url
+              flow.request.header = request.header
+              if (isTextBody(flow.request)) flow.request.body = request.body
+              this.setState({ flows: this.state.flows })
+            }}
+            onChangeResponse={response => {
+              flow.response.statusCode = response.statusCode
+              flow.response.header = response.header
+              if (isTextBody(flow.response)) flow.response.body = response.body
+              this.setState({ flows: this.state.flows })
+            }}
+            onMessage={msg => {
+              this.ws.send(msg)
+              flow.waitIntercept = false
+              this.setState({ flows: this.state.flows })
+            }}
+          />
+
         </div>
 
         <div style={{ padding: '20px' }}>
@@ -175,7 +180,7 @@ class App extends React.Component {
                   <div className="header-block-content">
                     <p>
                       {
-                        !(isTextResponse(request)) ? "Not text" :
+                        !(isTextBody(request)) ? "Not text" :
                         new TextDecoder().decode(request.body)
                       }
                     </p>
@@ -189,7 +194,7 @@ class App extends React.Component {
           {
             !(flowTab === 'Response') ? null :
             !(response.body && response.body.byteLength) ? <div>No response</div> :
-            !(isTextResponse(response)) ? <div>Not text response</div> :
+            !(isTextBody(response)) ? <div>Not text response</div> :
             <div>
               {new TextDecoder().decode(response.body)}
             </div>

@@ -102,7 +102,7 @@ class BreakPoint extends React.Component {
             <Button variant="primary" onClick={this.handleSave}>
               Save
             </Button>
-        </Modal.Footer>
+          </Modal.Footer>
         </Modal>
       </div>
     )
