@@ -130,14 +130,26 @@ func (c *concurrentConn) isIntercpt(f *flow.Flow, after *messageFlow) bool {
 
 // 拦截
 func (c *concurrentConn) waitIntercept(f *flow.Flow, after *messageFlow) {
-	log.Infof("waiting Intercept: %s\n", f.Request.URL)
 	ch := c.initWaitChan(f.Id.String())
 	msg := (<-ch).(*messageEdit)
-	log.Infof("waited Intercept: %s\n", f.Request.URL)
 
-	// f.Request.Method = req.Method
-	// f.Request.URL = req.URL
-	// f.Request.Header = req.Header
+	// drop
+	if msg.mType == messageTypeDropRequest || msg.mType == messageTypeDropResponse {
+		f.Response = &flow.Response{
+			StatusCode: 502,
+		}
+		return
+	}
 
-	log.Infof("waitIntercept: %v", msg)
+	// change
+	if msg.mType == messageTypeChangeRequest {
+		f.Request.Method = msg.request.Method
+		f.Request.URL = msg.request.URL
+		f.Request.Header = msg.request.Header
+		f.Request.Body = msg.request.Body
+	} else if msg.mType == messageTypeChangeResponse {
+		// TODO: statusCode
+		f.Response.Header = msg.response.Header
+		f.Response.Body = msg.response.Body
+	}
 }

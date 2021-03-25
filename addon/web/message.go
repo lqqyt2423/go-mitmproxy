@@ -16,7 +16,7 @@ import (
 // messageFlow
 // version 1 byte + type 1 byte + id 36 byte + waitIntercept 1 byte + content left bytes
 
-// type: 11/12
+// type: 11/12/13/14
 // messageEdit
 // version 1 byte + type 1 byte + id 36 byte + header len 4 byte + header content bytes + body len 4 byte + [body content bytes]
 
@@ -36,6 +36,8 @@ const (
 
 	messageTypeChangeRequest  messageType = 11
 	messageTypeChangeResponse messageType = 12
+	messageTypeDropRequest    messageType = 13
+	messageTypeDropResponse   messageType = 14
 
 	messageTypeChangeBreakPointRules messageType = 21
 )
@@ -47,6 +49,8 @@ var allMessageTypes = []messageType{
 	messageTypeResponseBody,
 	messageTypeChangeRequest,
 	messageTypeChangeResponse,
+	messageTypeDropRequest,
+	messageTypeDropResponse,
 	messageTypeChangeBreakPointRules,
 }
 
@@ -115,8 +119,8 @@ type messageEdit struct {
 }
 
 func parseMessageEdit(data []byte) *messageEdit {
-	// 2 + 36 + 4 + 4
-	if len(data) < 46 {
+	// 2 + 36
+	if len(data) < 38 {
 		return nil
 	}
 
@@ -124,6 +128,20 @@ func parseMessageEdit(data []byte) *messageEdit {
 
 	id, err := uuid.FromString(string(data[2:38]))
 	if err != nil {
+		return nil
+	}
+
+	msg := &messageEdit{
+		mType: mType,
+		id:    id,
+	}
+
+	if mType == messageTypeDropRequest || mType == messageTypeDropResponse {
+		return msg
+	}
+
+	// 2 + 36 + 4 + 4
+	if len(data) < 46 {
 		return nil
 	}
 
@@ -138,11 +156,6 @@ func parseMessageEdit(data []byte) *messageEdit {
 		return nil
 	}
 	bodyContent := data[42+hl+4:]
-
-	msg := &messageEdit{
-		mType: mType,
-		id:    id,
-	}
 
 	if mType == messageTypeChangeRequest {
 		req := new(flow.Request)
@@ -254,7 +267,7 @@ func parseMessage(data []byte) message {
 
 	mType := (messageType)(data[1])
 
-	if mType == messageTypeChangeRequest || mType == messageTypeChangeResponse {
+	if mType == messageTypeChangeRequest || mType == messageTypeChangeResponse || mType == messageTypeDropRequest || mType == messageTypeDropResponse {
 		return parseMessageEdit(data)
 	} else if mType == messageTypeChangeBreakPointRules {
 		return parseMessageMeta(data)
