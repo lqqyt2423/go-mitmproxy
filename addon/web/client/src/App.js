@@ -108,12 +108,19 @@ class App extends React.Component {
             !flow.waitIntercept ? null :
             <div className="flow-wait-area">
               <Button size="sm" onClick={() => {
-                const msg = buildMessageEdit(sendMessageEnum.changeRequest, flow)
+                const msgType = flow.response ? sendMessageEnum.changeResponse : sendMessageEnum.changeRequest
+                const msg = buildMessageEdit(msgType, flow)
                 this.ws.send(msg)
                 flow.waitIntercept = false
                 this.setState({ flows: this.state.flows })
               }}>Continue</Button>
-              <Button size="sm">Drop</Button>
+              <Button size="sm" onClick={() => {
+                const msgType = flow.response ? sendMessageEnum.dropResponse : sendMessageEnum.dropRequest
+                const msg = buildMessageEdit(msgType, flow)
+                this.ws.send(msg)
+                flow.waitIntercept = false
+                this.setState({ flows: this.state.flows })
+              }}>Drop</Button>
             </div>
           }
         </div>

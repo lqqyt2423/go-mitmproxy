@@ -52,13 +52,23 @@ export const parseMessage = data => {
 export const sendMessageEnum = {
   'changeRequest': 11,
   'changeResponse': 12,
+  'dropRequest': 13,
+  'dropResponse': 14,
   'changeBreakPointRules': 21,
 }
 
-// type: 11/12
+// type: 11/12/13/14
 // messageEdit
 // version 1 byte + type 1 byte + id 36 byte + header len 4 byte + header content bytes + body len 4 byte + [body content bytes]
 export const buildMessageEdit = (messageType, flow) => {
+  if (messageType === sendMessageEnum.dropRequest || messageType === sendMessageEnum.dropResponse) {
+    const view = new Uint8Array(38)
+    view[0] = 1
+    view[1] = messageType
+    view.set(new TextEncoder().encode(flow.id), 2)
+    return view
+  }
+
   let header, body
   
   if (messageType === sendMessageEnum.changeRequest) {

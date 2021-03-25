@@ -16,7 +16,9 @@ class BreakPoint extends React.Component {
         method: 'ALL',
         url: '',
         action: '1',
-      }
+      },
+
+      haveRules: false,
     }
 
     this.handleClose = this.handleClose.bind(this)
@@ -45,14 +47,17 @@ class BreakPoint extends React.Component {
 
     this.props.onSave(rules)
     this.handleClose()
+
+    this.setState({ haveRules: rules.length ? true : false })
   }
 
   render() {
-    const { rule } = this.state
+    const { rule, haveRules } = this.state
+    const variant = haveRules ? 'success' : 'primary'
 
     return (
       <div>
-        <Button size="sm" onClick={this.handleShow}>BreakPoint</Button>
+        <Button variant={variant} size="sm" onClick={this.handleShow}>BreakPoint</Button>
 
         <Modal show={this.state.show} onHide={this.handleClose}>
           <Modal.Header closeButton>
@@ -60,36 +65,34 @@ class BreakPoint extends React.Component {
           </Modal.Header>
 
           <Modal.Body>
-            <Form>
-              <Form.Group as={Row}>
-                <Form.Label column sm={2}>Method</Form.Label>
-                <Col sm={10}>
-                  <Form.Control as="select" value={rule.method} onChange={e => { this.setState({ rule: { ...rule, method: e.target.value } }) }}>
-                    <option>ALL</option>
-                    <option>GET</option>
-                    <option>POST</option>
-                    <option>PUT</option>
-                    <option>DELETE</option>
-                  </Form.Control>
-                </Col>
-              </Form.Group>
+            <Form.Group as={Row}>
+              <Form.Label column sm={2}>Method</Form.Label>
+              <Col sm={10}>
+                <Form.Control as="select" value={rule.method} onChange={e => { this.setState({ rule: { ...rule, method: e.target.value } }) }}>
+                  <option>ALL</option>
+                  <option>GET</option>
+                  <option>POST</option>
+                  <option>PUT</option>
+                  <option>DELETE</option>
+                </Form.Control>
+              </Col>
+            </Form.Group>
 
-              <Form.Group as={Row}>
-                <Form.Label column sm={2}>URL</Form.Label>
-                <Col sm={10}><Form.Control value={rule.url} onChange={e => { this.setState({ rule: { ...rule, url: e.target.value } }) }} /></Col>
-              </Form.Group>
+            <Form.Group as={Row}>
+              <Form.Label column sm={2}>URL</Form.Label>
+              <Col sm={10}><Form.Control value={rule.url} onChange={e => { this.setState({ rule: { ...rule, url: e.target.value } }) }} /></Col>
+            </Form.Group>
 
-              <Form.Group as={Row}>
-                <Form.Label column sm={2}>Action</Form.Label>
-                <Col sm={10}>
-                  <Form.Control as="select" value={rule.action} onChange={e => { this.setState({ rule: { ...rule, action: e.target.value } }) }}>
-                    <option value="1">Request</option>
-                    <option value="2">Response</option>
-                    <option value="3">Both</option>
-                  </Form.Control>
-                </Col>
-              </Form.Group>
-            </Form>
+            <Form.Group as={Row}>
+              <Form.Label column sm={2}>Action</Form.Label>
+              <Col sm={10}>
+                <Form.Control as="select" value={rule.action} onChange={e => { this.setState({ rule: { ...rule, action: e.target.value } }) }}>
+                  <option value="1">Request</option>
+                  <option value="2">Response</option>
+                  <option value="3">Both</option>
+                </Form.Control>
+              </Col>
+            </Form.Group>
           </Modal.Body>
 
           <Modal.Footer>
@@ -97,7 +100,7 @@ class BreakPoint extends React.Component {
               Close
             </Button>
             <Button variant="primary" onClick={this.handleSave}>
-              Save Changes
+              Save
             </Button>
         </Modal.Footer>
         </Modal>
