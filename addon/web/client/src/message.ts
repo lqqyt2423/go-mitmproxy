@@ -102,7 +102,7 @@ export const buildMessageEdit = (messageType: SendMessageType, flow: IFlow) => {
   }
 
   let header: Omit<IRequest, 'body'> | Omit<IResponse, 'body'>
-  let body: ArrayBuffer | undefined
+  let body: ArrayBuffer | Uint8Array | undefined
 
   if (messageType === SendMessageType.CHANGE_REQUEST) {
     ({ body, ...header } = flow.request)
@@ -112,7 +112,13 @@ export const buildMessageEdit = (messageType: SendMessageType, flow: IFlow) => {
     throw new Error('invalid message type')
   }
 
+  if (body instanceof ArrayBuffer) body = new Uint8Array(body)
   const bodyLen = (body && body.byteLength) ? body.byteLength : 0
+
+  if ('Content-Encoding' in header.header) delete header.header['Content-Encoding']
+  if ('Transfer-Encoding' in header.header) delete header.header['Transfer-Encoding']
+  header.header['Content-Length'] = [String(bodyLen)]
+
   const headerBytes = new TextEncoder().encode(JSON.stringify(header))
   const len = 2 + 36 + 4 + headerBytes.byteLength + 4 + bodyLen
   const data = new ArrayBuffer(len)
@@ -121,7 +127,7 @@ export const buildMessageEdit = (messageType: SendMessageType, flow: IFlow) => {
   view[1] = messageType
   view.set(new TextEncoder().encode(flow.id), 2)
   view.set(headerBytes, 2 + 36 + 4)
-  if (bodyLen) view.set(body as any, 2 + 36 + 4 + headerBytes.byteLength + 4)
+  if (bodyLen) view.set(body as Uint8Array, 2 + 36 + 4 + headerBytes.byteLength + 4)
 
   const view2 = new DataView(data)
   view2.setUint32(2 + 36, headerBytes.byteLength)

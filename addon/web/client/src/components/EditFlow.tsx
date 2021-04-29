@@ -22,13 +22,16 @@ const stringifyRequest = (request: IRequest) => {
 }
 
 const parseRequest = (content: string): IRequest | undefined => {
-  const sections = content.split('\n\n')
-  if (sections.length !== 3) return
+  const firstIndex = content.indexOf('\n\n')
+  if (firstIndex <= 0) return
 
-  const [firstLine, headerLines, bodyLines] = sections
+  const firstLine = content.slice(0, firstIndex)
   const [method, url] = firstLine.split(' ')
   if (!method || !url) return
 
+  const secondIndex = content.indexOf('\n\n', firstIndex + 2)
+  if (secondIndex <= 0) return
+  const headerLines = content.slice(firstIndex + 2, secondIndex)
   const header: Header = {}
   for (const line of headerLines.split('\n')) {
     const [key, vals] = line.split(': ')
@@ -36,6 +39,7 @@ const parseRequest = (content: string): IRequest | undefined => {
     header[key] = vals.split(' \t ')
   }
 
+  const bodyLines = content.slice(secondIndex + 2)
   let body: ArrayBuffer | undefined
   if (bodyLines) body = new TextEncoder().encode(bodyLines)
 
@@ -62,13 +66,16 @@ const stringifyResponse = (response: IResponse) => {
 }
 
 const parseResponse = (content: string): IResponse | undefined => {
-  const sections = content.split('\n\n')
-  if (sections.length !== 3) return
+  const firstIndex = content.indexOf('\n\n')
+  if (firstIndex <= 0) return
 
-  const [firstLine, headerLines, bodyLines] = sections
+  const firstLine = content.slice(0, firstIndex)
   const statusCode = parseInt(firstLine)
   if (isNaN(statusCode)) return
 
+  const secondIndex = content.indexOf('\n\n', firstIndex + 2)
+  if (secondIndex <= 0) return
+  const headerLines = content.slice(firstIndex + 2, secondIndex)
   const header: Header = {}
   for (const line of headerLines.split('\n')) {
     const [key, vals] = line.split(': ')
@@ -76,6 +83,7 @@ const parseResponse = (content: string): IResponse | undefined => {
     header[key] = vals.split(' \t ')
   }
 
+  const bodyLines = content.slice(secondIndex + 2)
   let body: ArrayBuffer | undefined
   if (bodyLines) body = new TextEncoder().encode(bodyLines)
 
