@@ -5,8 +5,26 @@ import Form from 'react-bootstrap/Form'
 import Row from 'react-bootstrap/Row'
 import Col from 'react-bootstrap/Col'
 
-class BreakPoint extends React.Component {
-  constructor(props) {
+type Method = 'ALL' | 'GET' | 'POST' | 'PUT' | 'DELETE' | ''
+type Action = 1 | 2 | 3
+interface IRule {
+  method: Method
+  url: string
+  action: Action
+}
+
+interface IState {
+  show: boolean
+  rule: IRule
+  haveRules: boolean
+}
+
+interface IProps {
+  onSave: (rules: IRule[]) => void
+}
+
+class BreakPoint extends React.Component<IProps, IState> {
+  constructor(props: IProps) {
     super(props)
 
     this.state = {
@@ -15,7 +33,7 @@ class BreakPoint extends React.Component {
       rule: {
         method: 'ALL',
         url: '',
-        action: '1',
+        action: 1,
       },
 
       haveRules: false,
@@ -36,12 +54,12 @@ class BreakPoint extends React.Component {
 
   handleSave() {
     const { rule } = this.state
-    const rules = []
+    const rules: IRule[] = []
     if (rule.url) {
       rules.push({
         method: rule.method === 'ALL' ? '' : rule.method,
         url: rule.url,
-        action: parseInt(rule.action)
+        action: rule.action,
       })
     }
 
@@ -68,7 +86,7 @@ class BreakPoint extends React.Component {
             <Form.Group as={Row}>
               <Form.Label column sm={2}>Method</Form.Label>
               <Col sm={10}>
-                <Form.Control as="select" value={rule.method} onChange={e => { this.setState({ rule: { ...rule, method: e.target.value } }) }}>
+                <Form.Control as="select" value={rule.method} onChange={e => { this.setState({ rule: { ...rule, method: e.target.value as Method } }) }}>
                   <option>ALL</option>
                   <option>GET</option>
                   <option>POST</option>
@@ -86,7 +104,7 @@ class BreakPoint extends React.Component {
             <Form.Group as={Row}>
               <Form.Label column sm={2}>Action</Form.Label>
               <Col sm={10}>
-                <Form.Control as="select" value={rule.action} onChange={e => { this.setState({ rule: { ...rule, action: e.target.value } }) }}>
+                <Form.Control as="select" value={rule.action} onChange={e => { this.setState({ rule: { ...rule, action: parseInt(e.target.value) as Action } }) }}>
                   <option value="1">Request</option>
                   <option value="2">Response</option>
                   <option value="3">Both</option>

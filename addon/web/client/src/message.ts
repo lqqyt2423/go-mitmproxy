@@ -1,45 +1,77 @@
-const messageEnum = {
-  'request': 1,
-  'requestBody': 2,
-  'response': 3,
-  'responseBody': 4,
+export enum MessageType {
+  REQUEST = 1,
+  REQUEST_BODY = 2,
+  RESPONSE = 3,
+  RESPONSE_BODY = 4,
 }
 
-const allMessageBytes = Object.keys(messageEnum).map(k => messageEnum[k])
+export type Header = Record<string, string[]>
 
-const messageByteMap = Object.keys(messageEnum).reduce((m, k) => {
-  m[messageEnum[k]] = k
-  return m
-}, {})
+export interface IRequest {
+  method: string
+  url: string
+  proto: string
+  header: Header
+  body?: ArrayBuffer
+}
+
+export interface IResponse {
+  statusCode: number
+  header: Header
+  body?: ArrayBuffer
+}
+
+export interface IMessage {
+  type: MessageType
+  id: string
+  waitIntercept: boolean
+  content?: ArrayBuffer | IRequest | IResponse
+}
+
+export interface IFlow {
+  id: string
+  no?: number
+  waitIntercept: boolean
+  request: IRequest
+  response?: IResponse
+}
+
+const allMessageBytes = [
+  MessageType.REQUEST,
+  MessageType.REQUEST_BODY,
+  MessageType.RESPONSE,
+  MessageType.RESPONSE_BODY,
+]
 
 
 // type: 1/2/3/4
 // messageFlow
 // version 1 byte + type 1 byte + id 36 byte + waitIntercept 1 byte + content left bytes
-export const parseMessage = data => {
+export const parseMessage = (data: ArrayBuffer): IMessage | null => {
   if (data.byteLength < 39) return null
   const meta = new Int8Array(data.slice(0, 39))
   const version = meta[0]
   if (version !== 1) return null
-  const type = meta[1]
+  const type = meta[1] as MessageType
   if (!allMessageBytes.includes(type)) return null
   const id = new TextDecoder().decode(data.slice(2, 38))
   const waitIntercept = meta[38] === 1
 
-  const resp = {
-    type: messageByteMap[type],
+  const resp: IMessage = {
+    type,
     id,
     waitIntercept,
   }
   if (data.byteLength === 39) return resp
-  if (type === messageEnum['requestBody'] || type === messageEnum['responseBody']) {
+  if (type === MessageType.REQUEST_BODY || type === MessageType.RESPONSE_BODY) {
     resp.content = data.slice(39)
     return resp
   }
 
-  let content = new TextDecoder().decode(data.slice(39))
+  const contentStr = new TextDecoder().decode(data.slice(39))
+  let content: any
   try {
-    content = JSON.parse(content)
+    content = JSON.parse(contentStr)
   } catch (err) {
     return null
   }
@@ -49,19 +81,19 @@ export const parseMessage = data => {
 }
 
 
-export const sendMessageEnum = {
-  'changeRequest': 11,
-  'changeResponse': 12,
-  'dropRequest': 13,
-  'dropResponse': 14,
-  'changeBreakPointRules': 21,
+export enum SendMessageType {
+  CHANGE_REQUEST = 11,
+  CHANGE_RESPONSE = 12,
+  DROP_REQUEST = 13,
+  DROP_RESPONSE = 14,
+  CHANGE_BREAK_POINT_RULES = 21,
 }
 
 // type: 11/12/13/14
 // messageEdit
 // version 1 byte + type 1 byte + id 36 byte + header len 4 byte + header content bytes + body len 4 byte + [body content bytes]
-export const buildMessageEdit = (messageType, flow) => {
-  if (messageType === sendMessageEnum.dropRequest || messageType === sendMessageEnum.dropResponse) {
+export const buildMessageEdit = (messageType: SendMessageType, flow: IFlow) => {
+  if (messageType === SendMessageType.DROP_REQUEST || messageType === SendMessageType.DROP_RESPONSE) {
     const view = new Uint8Array(38)
     view[0] = 1
     view[1] = messageType
@@ -69,16 +101,17 @@ export const buildMessageEdit = (messageType, flow) => {
     return view
   }
 
-  let header, body
-  
-  if (messageType === sendMessageEnum.changeRequest) {
+  let header: Omit<IRequest, 'body'> | Omit<IResponse, 'body'>
+  let body: ArrayBuffer | undefined
+
+  if (messageType === SendMessageType.CHANGE_REQUEST) {
     ({ body, ...header } = flow.request)
-  } else if (messageType === sendMessageEnum.changeResponse) {
-    ({ body, ...header } = flow.response)
+  } else if (messageType === SendMessageType.CHANGE_RESPONSE) {
+    ({ body, ...header } = flow.response as IResponse)
   } else {
     throw new Error('invalid message type')
   }
-  
+
   const bodyLen = (body && body.byteLength) ? body.byteLength : 0
   const headerBytes = new TextEncoder().encode(JSON.stringify(header))
   const len = 2 + 36 + 4 + headerBytes.byteLength + 4 + bodyLen
@@ -88,7 +121,7 @@ export const buildMessageEdit = (messageType, flow) => {
   view[1] = messageType
   view.set(new TextEncoder().encode(flow.id), 2)
   view.set(headerBytes, 2 + 36 + 4)
-  if (bodyLen) view.set(body, 2 + 36 + 4 + headerBytes.byteLength + 4)
+  if (bodyLen) view.set(body as any, 2 + 36 + 4 + headerBytes.byteLength + 4)
 
   const view2 = new DataView(data)
   view2.setUint32(2 + 36, headerBytes.byteLength)
@@ -101,8 +134,8 @@ export const buildMessageEdit = (messageType, flow) => {
 // type: 21
 // messageMeta
 // version 1 byte + type 1 byte + content left bytes
-export const buildMessageMeta = (messageType, rules) => {
-  if (messageType !== sendMessageEnum.changeBreakPointRules) {
+export const buildMessageMeta = (messageType: SendMessageType, rules: any) => {
+  if (messageType !== SendMessageType.CHANGE_BREAK_POINT_RULES) {
     throw new Error('invalid message type')
   }
 

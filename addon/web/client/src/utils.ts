@@ -1,4 +1,6 @@
-export const isTextBody = payload => {
+import { IRequest, IResponse } from './message'
+
+export const isTextBody = (payload: IRequest | IResponse) => {
   if (!payload) return false
   if (!payload.header) return false
   if (!payload.header['Content-Type']) return false
@@ -6,7 +8,7 @@ export const isTextBody = payload => {
   return /text|javascript|json/.test(payload.header['Content-Type'].join(''))
 }
 
-export const getSize = response => {
+export const getSize = (response: IResponse) => {
   if (!response) return '0'
   if (!response.header) return '0'
 
@@ -19,7 +21,7 @@ export const getSize = response => {
   if (!len) return '0'
   if (isNaN(len)) return '0'
   if (len <= 0) return '0'
-  
+
   if (len < 1024) return `${len} B`
   if (len < 1024*1024) return `${(len/1024).toFixed(2)} KB`
   return `${(len/(1024*1024)).toFixed(2)} MB`

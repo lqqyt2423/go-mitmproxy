@@ -4,11 +4,11 @@ import Modal from 'react-bootstrap/Modal'
 import Form from 'react-bootstrap/Form'
 import Alert from 'react-bootstrap/Alert'
 
-import { sendMessageEnum, buildMessageEdit } from '../message'
+import { SendMessageType, buildMessageEdit, IRequest, IResponse, Header, IFlow } from '../message'
 import { isTextBody } from '../utils'
 
 
-const stringifyRequest = request => {
+const stringifyRequest = (request: IRequest) => {
   const firstLine = `${request.method} ${request.url}`
   const headerLines = Object.keys(request.header).map(key => {
     const valstr = request.header[key].join(' \t ') // for parse convenience
@@ -17,37 +17,38 @@ const stringifyRequest = request => {
 
   let bodyLines = ''
   if (request.body && isTextBody(request)) bodyLines = new TextDecoder().decode(request.body)
-  
+
   return `${firstLine}\n\n${headerLines}\n\n${bodyLines}`
 }
 
-const parseRequest = content => {
+const parseRequest = (content: string): IRequest | undefined => {
   const sections = content.split('\n\n')
   if (sections.length !== 3) return
 
   const [firstLine, headerLines, bodyLines] = sections
   const [method, url] = firstLine.split(' ')
   if (!method || !url) return
-  
-  const header = {}
+
+  const header: Header = {}
   for (const line of headerLines.split('\n')) {
     const [key, vals] = line.split(': ')
     if (!key || !vals) return
     header[key] = vals.split(' \t ')
   }
 
-  let body = null
+  let body: ArrayBuffer | undefined
   if (bodyLines) body = new TextEncoder().encode(bodyLines)
 
   return {
     method,
     url,
+    proto: '',
     header,
     body,
   }
 }
 
-const stringifyResponse = response => {
+const stringifyResponse = (response: IResponse) => {
   const firstLine = `${response.statusCode}`
   const headerLines = Object.keys(response.header).map(key => {
     const valstr = response.header[key].join(' \t ') // for parse convenience
@@ -56,11 +57,11 @@ const stringifyResponse = response => {
 
   let bodyLines = ''
   if (response.body && isTextBody(response)) bodyLines = new TextDecoder().decode(response.body)
-  
+
   return `${firstLine}\n\n${headerLines}\n\n${bodyLines}`
 }
 
-const parseResponse = content => {
+const parseResponse = (content: string): IResponse | undefined => {
   const sections = content.split('\n\n')
   if (sections.length !== 3) return
 
@@ -68,14 +69,14 @@ const parseResponse = content => {
   const statusCode = parseInt(firstLine)
   if (isNaN(statusCode)) return
 
-  const header = {}
+  const header: Header = {}
   for (const line of headerLines.split('\n')) {
     const [key, vals] = line.split(': ')
     if (!key || !vals) return
     header[key] = vals.split(' \t ')
   }
 
-  let body = null
+  let body: ArrayBuffer | undefined
   if (bodyLines) body = new TextEncoder().encode(bodyLines)
 
   return {
@@ -86,8 +87,21 @@ const parseResponse = content => {
 }
 
 
-class EditFlow extends React.Component {
-  constructor(props) {
+interface IProps {
+  flow: IFlow
+  onChangeRequest: (request: IRequest) => void
+  onChangeResponse: (response: IResponse) => void
+  onMessage: (msg: ArrayBufferLike) => void
+}
+
+interface IState {
+  show: boolean
+  alertMsg: string
+  content: string
+}
+
+class EditFlow extends React.Component<IProps, IState> {
+  constructor(props: IProps) {
     super(props)
 
     this.state = {
@@ -101,7 +115,7 @@ class EditFlow extends React.Component {
     this.handleSave = this.handleSave.bind(this)
   }
 
-  showAlert(msg) {
+  showAlert(msg: string) {
     this.setState({ alertMsg: msg })
   }
 
@@ -117,7 +131,7 @@ class EditFlow extends React.Component {
     if (when === 'request') {
       content = stringifyRequest(flow.request)
     } else {
-      content = stringifyResponse(flow.response)
+      content = stringifyResponse(flow.response as IResponse)
     }
 
     this.setState({ show: true, alertMsg: '', content })
@@ -155,7 +169,7 @@ class EditFlow extends React.Component {
     if (!flow.waitIntercept) return null
 
     const { alertMsg } = this.state
-    
+
     const when = flow.response ? 'response' : 'request'
 
     return (
@@ -164,13 +178,13 @@ class EditFlow extends React.Component {
         <Button size="sm" onClick={this.handleShow}>Edit</Button>
 
         <Button size="sm" onClick={() => {
-          const msgType = when === 'response' ? sendMessageEnum.changeResponse : sendMessageEnum.changeRequest
+          const msgType = when === 'response' ? SendMessageType.CHANGE_RESPONSE : SendMessageType.CHANGE_REQUEST
           const msg = buildMessageEdit(msgType, flow)
           this.props.onMessage(msg)
         }}>Continue</Button>
 
         <Button size="sm" onClick={() => {
-          const msgType = when === 'response' ? sendMessageEnum.dropResponse : sendMessageEnum.dropRequest
+          const msgType = when === 'response' ? SendMessageType.DROP_RESPONSE : SendMessageType.DROP_REQUEST
           const msg = buildMessageEdit(msgType, flow)
           this.props.onMessage(msg)
         }}>Drop</Button>

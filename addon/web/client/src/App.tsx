@@ -9,11 +9,19 @@ import EditFlow from './components/EditFlow'
 
 import { FlowManager } from './flow'
 import { isTextBody, getSize } from './utils'
-import { parseMessage, sendMessageEnum, buildMessageMeta } from './message'
+import { parseMessage, SendMessageType, buildMessageMeta, IFlow, MessageType, IRequest, IResponse } from './message'
 
-class App extends React.Component {
+interface IState {
+  flows: IFlow[]
+  flow: IFlow | null
+  flowTab: 'Headers' | 'Preview' | 'Response'
+}
 
-  constructor(props) {
+class App extends React.Component<any, IState> {
+  private flowMgr: FlowManager
+  private ws: WebSocket | null
+
+  constructor(props: any) {
     super(props)
 
     this.flowMgr = new FlowManager()
@@ -59,30 +67,30 @@ class App extends React.Component {
       }
       // console.log('msg:', msg)
 
-      if (msg.type === 'request') {
-        const flow = { id: msg.id, request: msg.content, waitIntercept: msg.waitIntercept }
+      if (msg.type === MessageType.REQUEST) {
+        const flow = { id: msg.id, request: msg.content as IRequest, waitIntercept: msg.waitIntercept }
         this.flowMgr.add(flow)
         this.setState({ flows: this.flowMgr.showList() })
       }
-      else if (msg.type === 'requestBody') {
+      else if (msg.type === MessageType.REQUEST_BODY) {
         const flow = this.flowMgr.get(msg.id)
         if (!flow) return
         flow.waitIntercept = msg.waitIntercept
-        flow.request.body = msg.content
+        flow.request.body = msg.content as ArrayBuffer
         this.setState({ flows: this.state.flows })
       }
-      else if (msg.type === 'response') {
+      else if (msg.type === MessageType.RESPONSE) {
         const flow = this.flowMgr.get(msg.id)
         if (!flow) return
         flow.waitIntercept = msg.waitIntercept
-        flow.response = msg.content
+        flow.response = msg.content as IResponse
         this.setState({ flows: this.state.flows })
       }
-      else if (msg.type === 'responseBody') {
+      else if (msg.type === MessageType.RESPONSE_BODY) {
         const flow = this.flowMgr.get(msg.id)
         if (!flow || !flow.response) return
         flow.waitIntercept = msg.waitIntercept
-        flow.response.body = msg.content
+        flow.response.body = msg.content as ArrayBuffer
         this.setState({ flows: this.state.flows })
       }
     }
@@ -96,15 +104,15 @@ class App extends React.Component {
     if (!flow) return null
 
     const request = flow.request
-    const response = flow.response || {}
+    const response: IResponse = (flow.response || {}) as any
 
     return (
       <div className="flow-detail">
         <div className="header-tabs">
           <span onClick={() => { this.setState({ flow: null }) }}>x</span>
-          <span className={flowTab === 'Headers' ? 'selected' : null} onClick={() => { this.setState({ flowTab: 'Headers' }) }}>Headers</span>
-          <span className={flowTab === 'Preview' ? 'selected' : null} onClick={() => { this.setState({ flowTab: 'Preview' }) }}>Preview</span>
-          <span className={flowTab === 'Response' ? 'selected' : null} onClick={() => { this.setState({ flowTab: 'Response' }) }}>Response</span>
+          <span className={flowTab === 'Headers' ? 'selected' : undefined} onClick={() => { this.setState({ flowTab: 'Headers' }) }}>Headers</span>
+          <span className={flowTab === 'Preview' ? 'selected' : undefined} onClick={() => { this.setState({ flowTab: 'Preview' }) }}>Preview</span>
+          <span className={flowTab === 'Response' ? 'selected' : undefined} onClick={() => { this.setState({ flowTab: 'Response' }) }}>Response</span>
 
           <EditFlow
             flow={flow}
@@ -116,13 +124,15 @@ class App extends React.Component {
               this.setState({ flows: this.state.flows })
             }}
             onChangeResponse={response => {
+              if (!flow.response) flow.response = {} as IResponse
+
               flow.response.statusCode = response.statusCode
               flow.response.header = response.header
               if (isTextBody(flow.response)) flow.response.body = response.body
               this.setState({ flows: this.state.flows })
             }}
             onMessage={msg => {
-              this.ws.send(msg)
+              if (this.ws) this.ws.send(msg)
               flow.waitIntercept = false
               this.setState({ flows: this.state.flows })
             }}
@@ -133,78 +143,78 @@ class App extends React.Component {
         <div style={{ padding: '20px' }}>
           {
             !(flowTab === 'Headers') ? null :
-            <div>
-              <div className="header-block">
-                <p>General</p>
-                <div className="header-block-content">
-                  <p>Request URL: {request.url}</p>
-                  <p>Request Method: {request.method}</p>
-                  <p>Status Code: {`${response.statusCode || '(pending)'}`}</p>
-                </div>
-              </div>
-
-              {
-                !(response.header) ? null :
+              <div>
                 <div className="header-block">
-                  <p>Response Headers</p>
+                  <p>General</p>
+                  <div className="header-block-content">
+                    <p>Request URL: {request.url}</p>
+                    <p>Request Method: {request.method}</p>
+                    <p>Status Code: {`${response.statusCode || '(pending)'}`}</p>
+                  </div>
+                </div>
+
+                {
+                  !(response.header) ? null :
+                    <div className="header-block">
+                      <p>Response Headers</p>
+                      <div className="header-block-content">
+                        {
+                          Object.keys(response.header).map(key => {
+                            return (
+                              <p key={key}>{key}: {response.header[key].join(' ')}</p>
+                            )
+                          })
+                        }
+                      </div>
+                    </div>
+                }
+
+                <div className="header-block">
+                  <p>Request Headers</p>
                   <div className="header-block-content">
                     {
-                      Object.keys(response.header).map(key => {
-                        return (
-                          <p key={key}>{key}: {response.header[key].join(' ')}</p>
-                        )
-                      })
+                      !(request.header) ? null :
+                        Object.keys(request.header).map(key => {
+                          return (
+                            <p key={key}>{key}: {request.header[key].join(' ')}</p>
+                          )
+                        })
                     }
                   </div>
                 </div>
-              }
 
-              <div className="header-block">
-                <p>Request Headers</p>
-                <div className="header-block-content">
-                  {
-                    !(request.header) ? null :
-                    Object.keys(request.header).map(key => {
-                      return (
-                        <p key={key}>{key}: {request.header[key].join(' ')}</p>
-                      )
-                    })
-                  }
-                </div>
+                {
+                  !(request.body && request.body.byteLength) ? null :
+                    <div className="header-block">
+                      <p>Request Body</p>
+                      <div className="header-block-content">
+                        <p>
+                          {
+                            !(isTextBody(request)) ? 'Not text' :
+                              new TextDecoder().decode(request.body)
+                          }
+                        </p>
+                      </div>
+                    </div>
+                }
+
               </div>
-
-              {
-                !(request.body && request.body.byteLength) ? null :
-                <div className="header-block">
-                  <p>Request Body</p>
-                  <div className="header-block-content">
-                    <p>
-                      {
-                        !(isTextBody(request)) ? "Not text" :
-                        new TextDecoder().decode(request.body)
-                      }
-                    </p>
-                  </div>
-                </div>
-              }
-
-            </div>
           }
 
           {
             !(flowTab === 'Response') ? null :
-            !(response.body && response.body.byteLength) ? <div>No response</div> :
-            !(isTextBody(response)) ? <div>Not text response</div> :
-            <div>
-              {new TextDecoder().decode(response.body)}
-            </div>
+              !(response.body && response.body.byteLength) ? <div>No response</div> :
+                !(isTextBody(response)) ? <div>Not text response</div> :
+                  <div>
+                    {new TextDecoder().decode(response.body)}
+                  </div>
           }
         </div>
 
       </div>
     )
   }
-  
+
   render() {
     const { flows } = this.state
     return (
@@ -228,8 +238,8 @@ class App extends React.Component {
           </div>
 
           <BreakPoint onSave={rules => {
-            const msg = buildMessageMeta(sendMessageEnum.changeBreakPointRules, rules)
-            this.ws.send(msg)
+            const msg = buildMessageMeta(SendMessageType.CHANGE_BREAK_POINT_RULES, rules)
+            if (this.ws) this.ws.send(msg)
           }} />
         </div>
 
@@ -255,14 +265,14 @@ class App extends React.Component {
                 if (path.length > 65) path = path.slice(0, 65) + '...'
 
                 const request = f.request
-                const response = f.response || {}
+                const response: IResponse = (f.response || {}) as any
 
                 const classNames = []
                 if (this.state.flow && this.state.flow.id === f.id) classNames.push('tr-selected')
                 if (f.waitIntercept) classNames.push('tr-wait-intercept')
 
                 return (
-                  <tr className={classNames.length ? classNames.join(' ') : null} key={f.id}
+                  <tr className={classNames.length ? classNames.join(' ') : undefined} key={f.id}
                     onClick={() => {
                       this.setState({ flow: f })
                     }}

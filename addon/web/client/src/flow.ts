@@ -1,4 +1,13 @@
+import { IFlow } from './message'
+
 export class FlowManager {
+  private items: IFlow[]
+  private _map: Map<string, IFlow>
+  private filterText: string
+  private filterTimer: number | null
+  private num: number
+  private max: number
+
   constructor() {
     this.items = []
     this._map = new Map()
@@ -16,26 +25,26 @@ export class FlowManager {
     })
   }
 
-  add(item) {
+  add(item: IFlow) {
     item.no = ++this.num
     this.items.push(item)
     this._map.set(item.id, item)
-    
+
     if (this.items.length > this.max) {
       const oldest = this.items.shift()
-      this._map.delete(oldest.id)
+      if (oldest) this._map.delete(oldest.id)
     }
   }
 
-  get(id) {
+  get(id: string) {
     return this._map.get(id)
   }
 
-  changeFilter(text) {
+  changeFilter(text: string) {
     this.filterText = text
   }
 
-  changeFilterLazy(text, callback) {
+  changeFilterLazy(text: string, callback: () => void) {
     if (this.filterTimer) {
       clearTimeout(this.filterTimer)
       this.filterTimer = null
@@ -44,7 +53,7 @@ export class FlowManager {
     this.filterTimer = setTimeout(() => {
       this.filterText = text
       callback()
-    }, 300)
+    }, 300) as any
   }
 
   clear() {

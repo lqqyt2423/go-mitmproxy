@@ -1,74 +1,74 @@
 .main-table-wrap {
-    font-family: Menlo,Monaco;
-    font-size: 0.8rem;
+  font-family: Menlo,Monaco;
+  font-size: 0.8rem;
 }
 
 .top-control {
-    display: flex;
-    align-items: center;
+  display: flex;
+  align-items: center;
 }
 
 .top-control > div {
-    margin-right: 20px;
+  margin-right: 20px;
 }
 
 
 .main-table-wrap tbody tr.tr-selected {
-    background-color: rgb(35, 118, 229);
-    color: white;
+  background-color: rgb(35, 118, 229);
+  color: white;
 }
 
 .main-table-wrap tbody tr.tr-wait-intercept {
-    background-color: rgb(216, 110, 83);
-    color: white;
+  background-color: rgb(216, 110, 83);
+  color: white;
 }
 
 .flow-detail {
-    position: fixed;
-    top: 0;
-    right: 0;
+  position: fixed;
+  top: 0;
+  right: 0;
 
-    height: 100vh;
-    background-color: #fff;
-    min-width: 500px;
-    width: 50%;
-    overflow-y: auto;
+  height: 100vh;
+  background-color: #fff;
+  min-width: 500px;
+  width: 50%;
+  overflow-y: auto;
 
-    word-break: break-all;
+  word-break: break-all;
 }
 
 .flow-detail .header-tabs {
-    display: flex;
+  display: flex;
 }
 
 .flow-detail .header-tabs span {
-    display: inline-block;
-    line-height: 1;
-    padding: 8px;
-    cursor: pointer;
+  display: inline-block;
+  line-height: 1;
+  padding: 8px;
+  cursor: pointer;
 }
 
 .flow-detail .header-tabs .selected {
-    border-bottom: 2px rgb(35, 118, 229) solid;
+  border-bottom: 2px rgb(35, 118, 229) solid;
 }
 
 .flow-detail .header-tabs .flow-wait-area button {
-    margin-left: 10px;
+  margin-left: 10px;
 }
 
 .flow-detail .header-block {
-    margin-bottom: 20px;
+  margin-bottom: 20px;
 }
 
 .flow-detail .header-block > p {
-    font-weight: bold;
+  font-weight: bold;
 }
 
 .flow-detail .header-block .header-block-content p {
-    margin: 5px 0;
+  margin: 5px 0;
 }
 
 .flow-detail .header-block .header-block-content {
-    margin-left: 20px;
-    line-height: 1.5;
+  margin-left: 20px;
+  line-height: 1.5;
 }
