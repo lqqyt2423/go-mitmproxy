@@ -4,7 +4,7 @@ import Modal from 'react-bootstrap/Modal'
 import Form from 'react-bootstrap/Form'
 import Alert from 'react-bootstrap/Alert'
 
-import { SendMessageType, buildMessageEdit, IRequest, IResponse, Header, IFlow } from '../message'
+import { SendMessageType, buildMessageEdit, IRequest, IResponse, Header, Flow } from '../message'
 import { isTextBody } from '../utils'
 
 
@@ -96,7 +96,7 @@ const parseResponse = (content: string): IResponse | undefined => {
 
 
 interface IProps {
-  flow: IFlow
+  flow: Flow
   onChangeRequest: (request: IRequest) => void
   onChangeResponse: (response: IResponse) => void
   onMessage: (msg: ArrayBufferLike) => void

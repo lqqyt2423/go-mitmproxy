@@ -1,8 +1,8 @@
-import { IFlow } from './message'
+import { Flow } from './message'
 
 export class FlowManager {
-  private items: IFlow[]
-  private _map: Map<string, IFlow>
+  private items: Flow[]
+  private _map: Map<string, Flow>
   private filterText: string
   private filterTimer: number | null
   private num: number
@@ -25,7 +25,7 @@ export class FlowManager {
     })
   }
 
-  add(item: IFlow) {
+  add(item: Flow) {
     item.no = ++this.num
     this.items.push(item)
     this._map.set(item.id, item)

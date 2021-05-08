@@ -8,12 +8,12 @@ import BreakPoint from './components/BreakPoint'
 import EditFlow from './components/EditFlow'
 
 import { FlowManager } from './flow'
-import { isTextBody, getSize } from './utils'
-import { parseMessage, SendMessageType, buildMessageMeta, IFlow, MessageType, IRequest, IResponse } from './message'
+import { isTextBody } from './utils'
+import { parseMessage, SendMessageType, buildMessageMeta, Flow, MessageType, IResponse } from './message'
 
 interface IState {
-  flows: IFlow[]
-  flow: IFlow | null
+  flows: Flow[]
+  flow: Flow | null
   flowTab: 'Headers' | 'Preview' | 'Response'
 }
 
@@ -68,29 +68,26 @@ class App extends React.Component<any, IState> {
       // console.log('msg:', msg)
 
       if (msg.type === MessageType.REQUEST) {
-        const flow = { id: msg.id, request: msg.content as IRequest, waitIntercept: msg.waitIntercept }
+        const flow = new Flow(msg)
         this.flowMgr.add(flow)
         this.setState({ flows: this.flowMgr.showList() })
       }
       else if (msg.type === MessageType.REQUEST_BODY) {
         const flow = this.flowMgr.get(msg.id)
         if (!flow) return
-        flow.waitIntercept = msg.waitIntercept
-        flow.request.body = msg.content as ArrayBuffer
+        flow.addRequestBody(msg)
         this.setState({ flows: this.state.flows })
       }
       else if (msg.type === MessageType.RESPONSE) {
         const flow = this.flowMgr.get(msg.id)
         if (!flow) return
-        flow.waitIntercept = msg.waitIntercept
-        flow.response = msg.content as IResponse
+        flow.addResponse(msg)
         this.setState({ flows: this.state.flows })
       }
       else if (msg.type === MessageType.RESPONSE_BODY) {
         const flow = this.flowMgr.get(msg.id)
         if (!flow || !flow.response) return
-        flow.waitIntercept = msg.waitIntercept
-        flow.response.body = msg.content as ArrayBuffer
+        flow.addResponseBody(msg)
         this.setState({ flows: this.state.flows })
       }
     }
@@ -257,32 +254,24 @@ class App extends React.Component<any, IState> {
           <tbody>
             {
               flows.map(f => {
-                const url = f.request.url
-                const u = new URL(url)
-                let host = u.host
-                if (host.length > 35) host = host.slice(0, 35) + '...'
-                let path = u.pathname + u.search
-                if (path.length > 65) path = path.slice(0, 65) + '...'
-
-                const request = f.request
-                const response: IResponse = (f.response || {}) as any
+                const fp = f.preview()
 
                 const classNames = []
-                if (this.state.flow && this.state.flow.id === f.id) classNames.push('tr-selected')
-                if (f.waitIntercept) classNames.push('tr-wait-intercept')
+                if (this.state.flow && this.state.flow.id === fp.id) classNames.push('tr-selected')
+                if (fp.waitIntercept) classNames.push('tr-wait-intercept')
 
                 return (
-                  <tr className={classNames.length ? classNames.join(' ') : undefined} key={f.id}
+                  <tr className={classNames.length ? classNames.join(' ') : undefined} key={fp.id}
                     onClick={() => {
                       this.setState({ flow: f })
                     }}
                   >
-                    <td>{f.no}</td>
-                    <td>{host}</td>
-                    <td>{path}</td>
-                    <td>{request.method}</td>
-                    <td>{response.statusCode || '(pending)'}</td>
-                    <td>{getSize(response)}</td>
+                    <td>{fp.no}</td>
+                    <td>{fp.host}</td>
+                    <td>{fp.path}</td>
+                    <td>{fp.method}</td>
+                    <td>{fp.statusCode}</td>
+                    <td>{fp.size}</td>
                   </tr>
                 )
               })

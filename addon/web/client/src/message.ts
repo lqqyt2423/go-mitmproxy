@@ -1,3 +1,5 @@
+import { getSize } from './utils'
+
 export enum MessageType {
   REQUEST = 1,
   REQUEST_BODY = 2,
@@ -28,12 +30,84 @@ export interface IMessage {
   content?: ArrayBuffer | IRequest | IResponse
 }
 
-export interface IFlow {
-  id: string
-  no?: number
-  waitIntercept: boolean
-  request: IRequest
-  response?: IResponse
+export class Flow {
+  public no: number
+  public id: string
+  public waitIntercept: boolean
+  public request: IRequest
+  public response: IResponse | null = null
+
+  private url: URL
+  private _host = ''
+  private _path = ''
+  private _size = ''
+
+  public static curNo = 0
+
+  constructor(msg: IMessage) {
+    this.no = ++Flow.curNo
+    this.id = msg.id
+    this.waitIntercept = msg.waitIntercept
+    this.request = msg.content as IRequest
+
+    this.url = new URL(this.request.url)
+  }
+
+  public addRequestBody(msg: IMessage): Flow {
+    this.waitIntercept = msg.waitIntercept
+    this.request.body = msg.content as ArrayBuffer
+    return this
+  }
+
+  public addResponse(msg: IMessage): Flow {
+    this.waitIntercept = msg.waitIntercept
+    this.response = msg.content as IResponse
+    return this
+  }
+
+  public addResponseBody(msg: IMessage): Flow {
+    this.waitIntercept = msg.waitIntercept
+    if (this.response) this.response.body = msg.content as ArrayBuffer
+    return this
+  }
+
+  public preview() {
+    return {
+      no: this.no,
+      id: this.id,
+      waitIntercept: this.waitIntercept,
+      host: this.host,
+      path: this.path,
+      method: this.request.method,
+      statusCode: this.response ? this.response.statusCode : '(pending)',
+      size: this.size,
+    }
+  }
+
+  private get host(): string {
+    if (this._host) return this._host
+    let _host = this.url.host
+    if (_host.length > 35) _host = _host.slice(0, 35) + '...'
+    this._host = _host
+    return _host
+  }
+
+  private get path(): string {
+    if (this._path) return this._path
+    let _path = this.url.pathname + this.url.search
+    if (_path.length > 65) _path = _path.slice(0, 65) + '...'
+    this._path = _path
+    return _path
+  }
+
+  private get size(): string {
+    if (!this.response) return '0'
+    if (!this.response.header) return '0'
+    if (this._size) return this._size
+
+    this._size = getSize(this.response)
+    return this._size
+  }
 }
 
 const allMessageBytes = [
@@ -92,7 +166,7 @@ export enum SendMessageType {
 // type: 11/12/13/14
 // messageEdit
 // version 1 byte + type 1 byte + id 36 byte + header len 4 byte + header content bytes + body len 4 byte + [body content bytes]
-export const buildMessageEdit = (messageType: SendMessageType, flow: IFlow) => {
+export const buildMessageEdit = (messageType: SendMessageType, flow: Flow) => {
   if (messageType === SendMessageType.DROP_REQUEST || messageType === SendMessageType.DROP_RESPONSE) {
     const view = new Uint8Array(38)
     view[0] = 1
