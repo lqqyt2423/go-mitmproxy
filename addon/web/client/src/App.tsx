@@ -6,6 +6,7 @@ import './App.css'
 
 import BreakPoint from './components/BreakPoint'
 import EditFlow from './components/EditFlow'
+import FlowPreview from './components/FlowPreview'
 
 import { FlowManager } from './flow'
 import { isTextBody } from './utils'
@@ -256,23 +257,15 @@ class App extends React.Component<any, IState> {
               flows.map(f => {
                 const fp = f.preview()
 
-                const classNames = []
-                if (this.state.flow && this.state.flow.id === fp.id) classNames.push('tr-selected')
-                if (fp.waitIntercept) classNames.push('tr-wait-intercept')
-
                 return (
-                  <tr className={classNames.length ? classNames.join(' ') : undefined} key={fp.id}
-                    onClick={() => {
+                  <FlowPreview
+                    key={fp.id}
+                    flow={fp}
+                    isSelected={(this.state.flow && this.state.flow.id === fp.id) ? true : false}
+                    onShowDetail={() => {
                       this.setState({ flow: f })
                     }}
-                  >
-                    <td>{fp.no}</td>
-                    <td>{fp.host}</td>
-                    <td>{fp.path}</td>
-                    <td>{fp.method}</td>
-                    <td>{fp.statusCode}</td>
-                    <td>{fp.size}</td>
-                  </tr>
+                  />
                 )
               })
             }

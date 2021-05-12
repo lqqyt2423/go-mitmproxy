@@ -26,3 +26,17 @@ export const getSize = (response: IResponse) => {
   if (len < 1024*1024) return `${(len/1024).toFixed(2)} KB`
   return `${(len/(1024*1024)).toFixed(2)} MB`
 }
+
+export const shallowEqual = (objA: any, objB: any) => {
+  if (objA === objB) return true
+
+  const keysA = Object.keys(objA)
+  const keysB = Object.keys(objB)
+  if (keysA.length !== keysB.length) return false
+
+  for (let i = 0; i < keysA.length; i++) {
+    const key = keysA[i]
+    if (objB[key] === undefined || objA[key] !== objB[key]) return false
+  }
+  return true
+}

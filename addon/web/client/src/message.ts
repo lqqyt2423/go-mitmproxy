@@ -30,6 +30,17 @@ export interface IMessage {
   content?: ArrayBuffer | IRequest | IResponse
 }
 
+export interface IFlowPreview {
+  no: number
+  id: string
+  waitIntercept: boolean
+  host: string
+  path: string
+  method: string
+  statusCode: string
+  size: string
+}
+
 export class Flow {
   public no: number
   public id: string
@@ -71,7 +82,7 @@ export class Flow {
     return this
   }
 
-  public preview() {
+  public preview(): IFlowPreview {
     return {
       no: this.no,
       id: this.id,
@@ -79,7 +90,7 @@ export class Flow {
       host: this.host,
       path: this.path,
       method: this.request.method,
-      statusCode: this.response ? this.response.statusCode : '(pending)',
+      statusCode: this.response ? String(this.response.statusCode) : '(pending)',
       size: this.size,
     }
   }
