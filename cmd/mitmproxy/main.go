@@ -10,6 +10,8 @@ import (
 	log "github.com/sirupsen/logrus"
 )
 
+const version = "0.0.1"
+
 type Config struct {
 	addr      string
 	webAddr   string
@@ -36,6 +38,8 @@ func main() {
 	log.SetFormatter(&log.TextFormatter{
 		FullTimestamp: true,
 	})
+
+	log.Infof("go-mitmproxy version %v\n", version)
 
 	config := loadConfig()
 
