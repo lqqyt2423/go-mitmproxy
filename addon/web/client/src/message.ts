@@ -39,6 +39,7 @@ export interface IFlowPreview {
   method: string
   statusCode: string
   size: string
+  costTime: string
 }
 
 export class Flow {
@@ -49,9 +50,14 @@ export class Flow {
   public response: IResponse | null = null
 
   private url: URL
-  private _host = ''
-  private _path = ''
-  private _size = ''
+  private path: string
+  private _size = 0
+  private size = '0'
+  private headerContentLengthExist = false
+
+  private startTime = Date.now()
+  private endTime = 0
+  private costTime = '(pending)'
 
   public static curNo = 0
 
@@ -62,6 +68,7 @@ export class Flow {
     this.request = msg.content as IRequest
 
     this.url = new URL(this.request.url)
+    this.path = this.url.pathname + this.url.search
   }
 
   public addRequestBody(msg: IMessage): Flow {
@@ -73,12 +80,26 @@ export class Flow {
   public addResponse(msg: IMessage): Flow {
     this.waitIntercept = msg.waitIntercept
     this.response = msg.content as IResponse
+
+    if (this.response && this.response.header && this.response.header['Content-Length'] != null) {
+      this.headerContentLengthExist = true
+      this._size = parseInt(this.response.header['Content-Length'][0])
+      this.size = getSize(this._size)
+    }
+
     return this
   }
 
   public addResponseBody(msg: IMessage): Flow {
     this.waitIntercept = msg.waitIntercept
     if (this.response) this.response.body = msg.content as ArrayBuffer
+    this.endTime = Date.now()
+    this.costTime = String(this.endTime - this.startTime) + ' ms'
+
+    if (!this.headerContentLengthExist && this.response && this.response.body) {
+      this._size = this.response.body.byteLength
+      this.size = getSize(this._size)
+    }
     return this
   }
 
@@ -87,37 +108,13 @@ export class Flow {
       no: this.no,
       id: this.id,
       waitIntercept: this.waitIntercept,
-      host: this.host,
+      host: this.url.host,
       path: this.path,
       method: this.request.method,
       statusCode: this.response ? String(this.response.statusCode) : '(pending)',
       size: this.size,
+      costTime: this.costTime,
     }
-  }
-
-  private get host(): string {
-    if (this._host) return this._host
-    let _host = this.url.host
-    if (_host.length > 35) _host = _host.slice(0, 35) + '...'
-    this._host = _host
-    return _host
-  }
-
-  private get path(): string {
-    if (this._path) return this._path
-    let _path = this.url.pathname + this.url.search
-    if (_path.length > 65) _path = _path.slice(0, 65) + '...'
-    this._path = _path
-    return _path
-  }
-
-  private get size(): string {
-    if (!this.response) return '0'
-    if (!this.response.header) return '0'
-    if (this._size) return this._size
-
-    this._size = getSize(this.response)
-    return this._size
   }
 }
 

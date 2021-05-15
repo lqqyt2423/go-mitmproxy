@@ -3,6 +3,11 @@
   font-size: 0.8rem;
 }
 
+.main-table-wrap table td {
+  overflow: hidden;
+  white-space: nowrap;
+}
+
 .top-control {
   display: flex;
   align-items: center;

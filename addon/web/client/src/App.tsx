@@ -241,15 +241,16 @@ class App extends React.Component<any, IState> {
           }} />
         </div>
 
-        <Table striped bordered size="sm">
+        <Table striped bordered size="sm" style={{ tableLayout: 'fixed' }}>
           <thead>
             <tr>
-              <th>No</th>
-              <th>Host</th>
-              <th>Path</th>
-              <th>Method</th>
-              <th>Status</th>
-              <th>Size</th>
+              <th style={{ width: '50px' }}>No</th>
+              <th style={{ width: '200px' }}>Host</th>
+              <th style={{ width: '500px' }}>Path</th>
+              <th style={{ width: '80px' }}>Method</th>
+              <th style={{ width: '80px' }}>Status</th>
+              <th style={{ width: '90px' }}>Size</th>
+              <th style={{ width: '90px' }}>Time</th>
             </tr>
           </thead>
           <tbody>

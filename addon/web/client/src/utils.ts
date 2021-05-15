@@ -8,16 +8,7 @@ export const isTextBody = (payload: IRequest | IResponse) => {
   return /text|javascript|json/.test(payload.header['Content-Type'].join(''))
 }
 
-export const getSize = (response: IResponse) => {
-  if (!response) return '0'
-  if (!response.header) return '0'
-
-  let len
-  if (response.header['Content-Length']) {
-    len = parseInt(response.header['Content-Length'][0])
-  } else if (response && response.body) {
-    len = response.body.byteLength
-  }
+export const getSize = (len: number) => {
   if (!len) return '0'
   if (isNaN(len)) return '0'
   if (len <= 0) return '0'
