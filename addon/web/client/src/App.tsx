@@ -2,6 +2,7 @@ import React from 'react'
 import Table from 'react-bootstrap/Table'
 import Form from 'react-bootstrap/Form'
 import Button from 'react-bootstrap/Button'
+import scrollMonitor from 'scrollmonitor'
 import './App.css'
 
 import BreakPoint from './components/BreakPoint'
@@ -22,6 +23,9 @@ class App extends React.Component<any, IState> {
   private flowMgr: FlowManager
   private ws: WebSocket | null
 
+  private pageBottom: HTMLDivElement | null
+  private autoScore = false
+
   constructor(props: any) {
     super(props)
 
@@ -35,6 +39,7 @@ class App extends React.Component<any, IState> {
     }
 
     this.ws = null
+    this.pageBottom = null
   }
 
   componentDidMount() {
@@ -71,7 +76,9 @@ class App extends React.Component<any, IState> {
       if (msg.type === MessageType.REQUEST) {
         const flow = new Flow(msg)
         this.flowMgr.add(flow)
-        this.setState({ flows: this.flowMgr.showList() })
+        this.setState({ flows: this.flowMgr.showList() }, () => {
+          if (this.pageBottom && this.autoScore) this.pageBottom.scrollIntoView({ behavior: 'auto' })
+        })
       }
       else if (msg.type === MessageType.REQUEST_BODY) {
         const flow = this.flowMgr.get(msg.id)
@@ -95,6 +102,18 @@ class App extends React.Component<any, IState> {
     this.ws.onerror = evt => {
       console.log('ERROR:', evt)
     }
+  }
+
+  initScrollMonitor() {
+    if (!this.pageBottom) return
+
+    const watcher = scrollMonitor.create(this.pageBottom)
+    watcher.enterViewport(() => {
+      this.autoScore = true
+    })
+    watcher.exitViewport(() => {
+      this.autoScore = false
+    })
   }
 
   renderFlow() {
@@ -274,6 +293,12 @@ class App extends React.Component<any, IState> {
         </Table>
 
         {this.renderFlow()}
+
+        <div ref={el => {
+          if (this.pageBottom) return
+          this.pageBottom = el
+          this.initScrollMonitor()
+        }} style={{ height: '0px', visibility: 'hidden' }}>bottom</div>
       </div>
     )
   }
