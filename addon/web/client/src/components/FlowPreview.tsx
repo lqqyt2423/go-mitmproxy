@@ -30,9 +30,9 @@ class FlowPreview extends React.Component<IProps> {
         }}
       >
         <td>{fp.no}</td>
+        <td>{fp.method}</td>
         <td>{fp.host}</td>
         <td>{fp.path}</td>
-        <td>{fp.method}</td>
         <td>{fp.statusCode}</td>
         <td>{fp.size}</td>
         <td>{fp.costTime}</td>

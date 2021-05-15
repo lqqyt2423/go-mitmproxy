@@ -1,4 +1,4 @@
-import { getSize } from './utils'
+import { getSize, isTextBody } from './utils'
 
 export enum MessageType {
   REQUEST = 1,
@@ -61,6 +61,13 @@ export class Flow {
 
   public static curNo = 0
 
+  private status: MessageType = MessageType.REQUEST
+
+  private _isTextRequest: boolean | null
+  private _isTextResponse: boolean | null
+  private _requestBody: string | null
+  private _responseBody: string | null
+
   constructor(msg: IMessage) {
     this.no = ++Flow.curNo
     this.id = msg.id
@@ -69,15 +76,22 @@ export class Flow {
 
     this.url = new URL(this.request.url)
     this.path = this.url.pathname + this.url.search
+
+    this._isTextRequest = null
+    this._isTextResponse = null
+    this._requestBody = null
+    this._responseBody = null
   }
 
   public addRequestBody(msg: IMessage): Flow {
+    this.status = MessageType.REQUEST_BODY
     this.waitIntercept = msg.waitIntercept
     this.request.body = msg.content as ArrayBuffer
     return this
   }
 
   public addResponse(msg: IMessage): Flow {
+    this.status = MessageType.RESPONSE
     this.waitIntercept = msg.waitIntercept
     this.response = msg.content as IResponse
 
@@ -91,6 +105,7 @@ export class Flow {
   }
 
   public addResponseBody(msg: IMessage): Flow {
+    this.status = MessageType.RESPONSE_BODY
     this.waitIntercept = msg.waitIntercept
     if (this.response) this.response.body = msg.content as ArrayBuffer
     this.endTime = Date.now()
@@ -115,6 +130,42 @@ export class Flow {
       size: this.size,
       costTime: this.costTime,
     }
+  }
+
+  public isTextRequest(): boolean {
+    if (this._isTextRequest !== null) return this._isTextRequest
+    this._isTextRequest = isTextBody(this.request)
+    return this._isTextRequest
+  }
+
+  public requestBody(): string {
+    if (this._requestBody !== null) return this._requestBody
+    if (!this.isTextRequest()) {
+      this._requestBody = ''
+      return this._requestBody
+    }
+    if (this.status < MessageType.REQUEST_BODY) return ''
+    this._requestBody = new TextDecoder().decode(this.request.body)
+    return this._requestBody
+  }
+
+  public isTextResponse(): boolean | null {
+    if (this.status < MessageType.RESPONSE) return null
+    if (this._isTextResponse !== null) return this._isTextResponse
+    this._isTextResponse = isTextBody(this.response as IResponse)
+    return this._isTextResponse
+  }
+
+  public responseBody(): string {
+    if (this._responseBody !== null) return this._responseBody
+    if (this.status < MessageType.RESPONSE) return ''
+    if (!this.isTextResponse()) {
+      this._responseBody = ''
+      return this._responseBody
+    }
+    if (this.status < MessageType.RESPONSE_BODY) return ''
+    this._responseBody = new TextDecoder().decode(this.response?.body)
+    return this._responseBody
   }
 }
 

@@ -5,7 +5,7 @@ export const isTextBody = (payload: IRequest | IResponse) => {
   if (!payload.header) return false
   if (!payload.header['Content-Type']) return false
 
-  return /text|javascript|json/.test(payload.header['Content-Type'].join(''))
+  return /text|javascript|json|x-www-form-urlencoded/.test(payload.header['Content-Type'].join(''))
 }
 
 export const getSize = (len: number) => {

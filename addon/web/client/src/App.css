@@ -8,9 +8,17 @@
   white-space: nowrap;
 }
 
+/* https://css-tricks.com/position-sticky-and-table-headers/ */
+.main-table-wrap table th {
+  background-color: white;
+  position: sticky;
+  top: -1px;
+}
+
 .top-control {
   display: flex;
   align-items: center;
+  margin: 10px;
 }
 
 .top-control > div {
@@ -40,10 +48,15 @@
   overflow-y: auto;
 
   word-break: break-all;
+  border-left: 2px solid #dee2e6;
 }
 
 .flow-detail .header-tabs {
   display: flex;
+  position: sticky;
+  top: 0;
+  background-color: white;
+  padding: 5px 0;
 }
 
 .flow-detail .header-tabs span {

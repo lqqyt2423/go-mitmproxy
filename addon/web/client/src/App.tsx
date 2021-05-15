@@ -207,8 +207,8 @@ class App extends React.Component<any, IState> {
                       <div className="header-block-content">
                         <p>
                           {
-                            !(isTextBody(request)) ? 'Not text' :
-                              new TextDecoder().decode(request.body)
+                            !(flow.isTextRequest()) ? <span style={{ color: 'gray' }}>Not text</span> :
+                              flow.requestBody()
                           }
                         </p>
                       </div>
@@ -220,10 +220,10 @@ class App extends React.Component<any, IState> {
 
           {
             !(flowTab === 'Response') ? null :
-              !(response.body && response.body.byteLength) ? <div>No response</div> :
-                !(isTextBody(response)) ? <div>Not text response</div> :
+              !(response.body && response.body.byteLength) ? <div style={{ color: 'gray' }}>No response</div> :
+                !(flow.isTextResponse()) ? <div style={{ color: 'gray' }}>Not text response</div> :
                   <div>
-                    {new TextDecoder().decode(response.body)}
+                    {flow.responseBody()}
                   </div>
           }
         </div>
@@ -264,9 +264,9 @@ class App extends React.Component<any, IState> {
           <thead>
             <tr>
               <th style={{ width: '50px' }}>No</th>
-              <th style={{ width: '200px' }}>Host</th>
-              <th style={{ width: '500px' }}>Path</th>
               <th style={{ width: '80px' }}>Method</th>
+              <th style={{ width: '200px' }}>Host</th>
+              <th style={{ width: '600px' }}>Path</th>
               <th style={{ width: '80px' }}>Status</th>
               <th style={{ width: '90px' }}>Size</th>
               <th style={{ width: '90px' }}>Time</th>
