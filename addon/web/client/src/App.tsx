@@ -150,6 +150,7 @@ class App extends React.Component<any, IState> {
               <th style={{ width: '80px' }}>Method</th>
               <th style={{ width: '200px' }}>Host</th>
               <th style={{ width: '600px' }}>Path</th>
+              <th style={{ width: '150px' }}>Type</th>
               <th style={{ width: '80px' }}>Status</th>
               <th style={{ width: '90px' }}>Size</th>
               <th style={{ width: '90px' }}>Time</th>

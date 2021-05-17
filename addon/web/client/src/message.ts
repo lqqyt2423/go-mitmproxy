@@ -40,6 +40,7 @@ export interface IFlowPreview {
   statusCode: string
   size: string
   costTime: string
+  contentType: string
 }
 
 interface IPreviewResponseBody {
@@ -59,6 +60,7 @@ export class Flow {
   private _size = 0
   private size = '0'
   private headerContentLengthExist = false
+  private contentType = ''
 
   private startTime = Date.now()
   private endTime = 0
@@ -102,10 +104,16 @@ export class Flow {
     this.waitIntercept = msg.waitIntercept
     this.response = msg.content as IResponse
 
-    if (this.response && this.response.header && this.response.header['Content-Length'] != null) {
-      this.headerContentLengthExist = true
-      this._size = parseInt(this.response.header['Content-Length'][0])
-      this.size = getSize(this._size)
+    if (this.response && this.response.header) {
+      if (this.response.header['Content-Type'] != null) {
+        this.contentType = this.response.header['Content-Type'][0].split(';')[0]
+        if (this.contentType.includes('javascript')) this.contentType = 'javascript'
+      }
+      if (this.response.header['Content-Length'] != null) {
+        this.headerContentLengthExist = true
+        this._size = parseInt(this.response.header['Content-Length'][0])
+        this.size = getSize(this._size)
+      }
     }
 
     return this
@@ -136,6 +144,7 @@ export class Flow {
       statusCode: this.response ? String(this.response.statusCode) : '(pending)',
       size: this.size,
       costTime: this.costTime,
+      contentType: this.contentType,
     }
   }
 
