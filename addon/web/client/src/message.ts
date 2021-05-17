@@ -1,4 +1,4 @@
-import { getSize, isTextBody } from './utils'
+import { arrayBufferToBase64, getSize, isTextBody } from './utils'
 
 export enum MessageType {
   REQUEST = 1,
@@ -42,6 +42,11 @@ export interface IFlowPreview {
   costTime: string
 }
 
+interface IPreviewResponseBody {
+  type: 'image'
+  data: string
+}
+
 export class Flow {
   public no: number
   public id: string
@@ -67,6 +72,8 @@ export class Flow {
   private _isTextResponse: boolean | null
   private _requestBody: string | null
   private _responseBody: string | null
+
+  private _previewResponseBody: IPreviewResponseBody | null = null
 
   constructor(msg: IMessage) {
     this.no = ++Flow.curNo
@@ -166,6 +173,26 @@ export class Flow {
     if (this.status < MessageType.RESPONSE_BODY) return ''
     this._responseBody = new TextDecoder().decode(this.response?.body)
     return this._responseBody
+  }
+
+  public previewResponseBody(): IPreviewResponseBody | null {
+    if (this._previewResponseBody) return this._previewResponseBody
+
+    if (this.status < MessageType.RESPONSE_BODY) return null
+    if (!(this.response?.body?.byteLength)) return null
+
+    let contentType: string | undefined
+    if (this.response.header['Content-Type']) contentType = this.response.header['Content-Type'][0]
+    if (!contentType) return null
+
+    if (contentType.startsWith('image/')) {
+      this._previewResponseBody = {
+        type: 'image',
+        data: arrayBufferToBase64(this.response.body),
+      }
+    }
+
+    return this._previewResponseBody
   }
 }
 

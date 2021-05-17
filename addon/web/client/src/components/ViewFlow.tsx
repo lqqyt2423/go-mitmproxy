@@ -24,6 +24,26 @@ class ViewFlow extends React.Component<Iprops, IState> {
     }
   }
 
+  preview() {
+    const { flow } = this.props
+    if (!flow) return null
+    const response = flow.response
+    if(!response) return null
+
+    if (!(response.body && response.body.byteLength)) {
+      return <div style={{ color: 'gray' }}>No response</div>
+    }
+
+    const pv = flow.previewResponseBody()
+    if (!pv) return <div style={{ color: 'gray' }}>Not support preview</div>
+
+    if (pv.type === 'image') {
+      return <img src={`data:image/png;base64,${pv.data}`} />
+    }
+
+    return <div style={{ color: 'gray' }}>Not support preview</div>
+  }
+
   render() {
     if (!this.props.flow) return null
 
@@ -135,6 +155,11 @@ class ViewFlow extends React.Component<Iprops, IState> {
                   <div>
                     {flow.responseBody()}
                   </div>
+          }
+
+          {
+            !(flowTab === 'Preview') ? null :
+              <div>{this.preview()}</div>
           }
         </div>
 
