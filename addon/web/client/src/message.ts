@@ -44,7 +44,7 @@ export interface IFlowPreview {
 }
 
 interface IPreviewResponseBody {
-  type: 'image'
+  type: 'image' | 'json'
   data: string
 }
 
@@ -198,6 +198,12 @@ export class Flow {
       this._previewResponseBody = {
         type: 'image',
         data: arrayBufferToBase64(this.response.body),
+      }
+    }
+    else if (contentType.includes('application/json')) {
+      this._previewResponseBody = {
+        type: 'json',
+        data: this.responseBody(),
       }
     }
 

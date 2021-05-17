@@ -1,4 +1,5 @@
 import React from 'react'
+import JSONPretty from 'react-json-pretty'
 import { Flow, IResponse } from '../message'
 import { isTextBody } from '../utils'
 
@@ -39,6 +40,9 @@ class ViewFlow extends React.Component<Iprops, IState> {
 
     if (pv.type === 'image') {
       return <img src={`data:image/png;base64,${pv.data}`} />
+    }
+    else if (pv.type === 'json') {
+      return <div><JSONPretty data={pv.data} keyStyle={'color: rgb(130,40,144);'} stringStyle={'color: rgb(153,68,60);'} valueStyle={'color: rgb(25,1,199);'} booleanStyle={'color: rgb(94,105,192);'} /></div>
     }
 
     return <div style={{ color: 'gray' }}>Not support preview</div>
