@@ -1,4 +1,7 @@
 import React from 'react'
+import Button from 'react-bootstrap/Button'
+import fetchToCurl from 'fetch-to-curl'
+import copy from 'copy-to-clipboard'
 import JSONPretty from 'react-json-pretty'
 import { Flow, IResponse } from '../message'
 import { isTextBody } from '../utils'
@@ -95,6 +98,19 @@ class ViewFlow extends React.Component<Iprops, IState> {
           {
             !(flowTab === 'Headers') ? null :
               <div>
+                <p><Button size="sm" onClick={() => {
+                  const curl = fetchToCurl({
+                    url: flow.request.url,
+                    method: flow.request.method,
+                    headers: Object.keys(flow.request.header).reduce((obj: any, key: string) => {
+                      obj[key] = flow.request.header[key][0]
+                      return obj
+                    }, {}),
+                    body: flow.requestBody(),
+                  })
+                  copy(curl)
+                }}>Copy as cURL</Button></p>
+
                 <div className="header-block">
                   <p>General</p>
                   <div className="header-block-content">
