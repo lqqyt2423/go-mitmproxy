@@ -19,9 +19,26 @@ export class FlowManager {
   }
 
   showList() {
-    if (!this.filterText) return this.items
+    let text = this.filterText
+    if (text) text = text.trim()
+    if (!text) return this.items
+
+    // regexp
+    if (text.startsWith('/') && text.endsWith('/')) {
+      text = text.slice(1, text.length - 1).trim()
+      if (!text) return this.items
+      try {
+        const reg = new RegExp(text)
+        return this.items.filter(item => {
+          return reg.test(item.request.url)
+        })
+      } catch (err) {
+        return this.items
+      }
+    }
+
     return this.items.filter(item => {
-      return item.request.url.includes(this.filterText)
+      return item.request.url.includes(text)
     })
   }
 
