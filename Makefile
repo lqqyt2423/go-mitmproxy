@@ -2,7 +2,7 @@ all: mitmproxy
 
 .PHONY: mitmproxy
 mitmproxy:
-	go build -o mitmproxy cmd/mitmproxy/main.go
+	go build -o go-mitmproxy cmd/go-mitmproxy/main.go
 
 .PHONY: dummycert
 dummycert:
@@ -10,7 +10,7 @@ dummycert:
 
 .PHONY: clean
 clean:
-	rm -f mitmproxy dummycert
+	rm -f go-mitmproxy dummycert
 
 .PHONY: test
 test:

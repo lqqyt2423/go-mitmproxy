@@ -10,7 +10,7 @@ import (
 	log "github.com/sirupsen/logrus"
 )
 
-const version = "0.0.4"
+const version = "0.0.5"
 
 type Config struct {
 	addr      string
