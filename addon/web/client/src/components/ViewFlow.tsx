@@ -17,6 +17,7 @@ interface Iprops {
 
 interface IState {
   flowTab: 'Headers' | 'Preview' | 'Response'
+  copied: boolean
 }
 
 class ViewFlow extends React.Component<Iprops, IState> {
@@ -25,6 +26,7 @@ class ViewFlow extends React.Component<Iprops, IState> {
 
     this.state = {
       flowTab: 'Headers',
+      copied: false,
     }
   }
 
@@ -98,7 +100,7 @@ class ViewFlow extends React.Component<Iprops, IState> {
           {
             !(flowTab === 'Headers') ? null :
               <div>
-                <p><Button size="sm" onClick={() => {
+                <p><Button size="sm" variant={ this.state.copied ? 'success' : 'primary' } disabled={this.state.copied} onClick={() => {
                   const curl = fetchToCurl({
                     url: flow.request.url,
                     method: flow.request.method,
@@ -109,7 +111,14 @@ class ViewFlow extends React.Component<Iprops, IState> {
                     body: flow.requestBody(),
                   })
                   copy(curl)
-                }}>Copy as cURL</Button></p>
+
+                  this.setState({ copied: true }, () => {
+                    setTimeout(() => {
+                      this.setState({ copied: false })
+                    }, 1000)
+                  })
+
+                }}>{ this.state.copied ? 'Copied' : 'Copy as cURL' }</Button></p>
 
                 <div className="header-block">
                   <p>General</p>
