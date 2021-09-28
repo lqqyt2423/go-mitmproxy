@@ -2,6 +2,7 @@ package main
 
 import (
 	"flag"
+	"fmt"
 	"os"
 
 	"github.com/lqqyt2423/go-mitmproxy/addon"
@@ -13,6 +14,7 @@ import (
 const version = "0.0.5"
 
 type Config struct {
+	version   bool
 	addr      string
 	webAddr   string
 	dump      string // dump filename
@@ -22,6 +24,7 @@ type Config struct {
 func loadConfig() *Config {
 	config := new(Config)
 
+	flag.BoolVar(&config.version, "version", false, "show version")
 	flag.StringVar(&config.addr, "addr", ":9080", "proxy listen addr")
 	flag.StringVar(&config.webAddr, "web_addr", ":9081", "web interface listen addr")
 	flag.StringVar(&config.dump, "dump", "", "dump filename")
@@ -32,6 +35,13 @@ func loadConfig() *Config {
 }
 
 func main() {
+	config := loadConfig()
+
+	if config.version {
+		fmt.Println("go-mitmproxy: " + version)
+		os.Exit(0)
+	}
+
 	log.SetLevel(log.InfoLevel)
 	log.SetReportCaller(false)
 	log.SetOutput(os.Stdout)
@@ -40,8 +50,6 @@ func main() {
 	})
 
 	log.Infof("go-mitmproxy version %v\n", version)
-
-	config := loadConfig()
 
 	opts := &proxy.Options{
 		Addr:              config.addr,
