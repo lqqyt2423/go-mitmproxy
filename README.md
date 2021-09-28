@@ -1,44 +1,44 @@
 # go-mitmproxy
 
-[mitmproxy](https://mitmproxy.org/) implemented with golang.
+[简体中文](./README_CN.md)
 
-用 Golang 实现的中间人攻击（[Man-in-the-middle](https://en.wikipedia.org/wiki/Man-in-the-middle_attack)），解析、监测、篡改 HTTP/HTTPS 流量。
+[Mitmproxy](https://mitmproxy.org/) implemented with golang. Intercept HTTP & HTTPS requests and responses and modify them.
 
-## 特点
+## Features
 
-- HTTPS 证书相关逻辑参考 [mitmproxy](https://mitmproxy.org/) 且与之兼容，根证书也保存在 `~/.mitmproxy` 文件夹中，如果之前用过 `mitmproxy` 且根证书已经安装信任，则此 `go-mitmproxy` 可以直接使用
-- 支持插件机制，很方便扩展自己需要的功能，可参考 [addon/addon.go](./addon/addon.go)
-- 性能优势
-    - Golang 天生的性能优势
-    - 在进程内存中转发解析 HTTPS 流量，不需通过 tcp端口 或 unix socket 等进程间通信
-    - 生成不同域名证书时使用 LRU 缓存，避免重复计算
-- 通过环境变量 `SSLKEYLOGFILE` 支持 `Wireshark` 解析分析流量
-- 上传/下载大文件时支持流式传输
-- Web 界面
+- Intercept HTTP & HTTPS requests and responses and modify them on the fly
+- SSL/TLS certificates for interception are generated on the fly
+- Certificates logic compatible with [mitmproxy](https://mitmproxy.org/), saved at `~/.mitmproxy`. If you used mitmproxy before and installed certificates, then you can use this go-mitmproxy directly
+- Addon mechanism, you can add your functions easily, refer to [addon/addon.go](./addon/addon.go)
+- Performance advantages
+  - Golang's inherent performance advantages
+  - Forwarding and parsing HTTPS traffic in process memory without inter-process communication such as tcp port or unix socket
+  - Use LRU cache when generating certificates of different domain names to avoid double counting
+- Support `Wireshark` to analyze traffic through the environment variable `SSLKEYLOGFILE`
+- Support streaming when uploading/downloading large files
+- Web interface
 
-## 安装
+## Install
 
 ```
 GO111MODULE=on go get -u github.com/lqqyt2423/go-mitmproxy/cmd/go-mitmproxy
 ```
 
-## 命令行使用
+## Usage
 
-### 启动
+### Startup
 
 ```
 go-mitmproxy
 ```
 
-启动后，HTTP 代理地址默认为 9080 端口，Web 界面默认在 9081 端口。
+After startup, the HTTP proxy address defaults to port 9080, and the web interface defaults to port 9081.
 
-首次启动后需按照证书以解析 HTTPS 流量，证书会在首次启动命令后自动生成，路径为 `~/.mitmproxy/mitmproxy-ca-cert.pem`。可参考此链接安装：[About Certificates](https://docs.mitmproxy.org/stable/concepts-certificates/)。
+After the first startup, the SSL/TLS certificate will be automatically generated at `~/.mitmproxy/mitmproxy-ca-cert.pem`. You can refer to this link to install: [About Certificates](https://docs.mitmproxy.org/stable/concepts-certificates/).
 
-### 自定义参数
+### Help
 
 ```
-go-mitmproxy --help
-
 Usage of go-mitmproxy:
   -addr string
     	proxy listen addr (default ":9080")
@@ -46,15 +46,19 @@ Usage of go-mitmproxy:
     	dump filename
   -dump_level int
     	dump level: 0 - header, 1 - header + body
+  -version
+    	show version
   -web_addr string
     	web interface listen addr (default ":9081")
 ```
 
-## 作为包引入
+## Usage as package
 
-参考 [cmd/go-mitmproxy/main.go](./cmd/go-mitmproxy/main.go)，可通过自己实现 `AddAddon` 方法添加自己实现的插件。
+Refer to [cmd/go-mitmproxy/main.go](./cmd/go-mitmproxy/main.go), you can add your own addon by call `AddAddon` method.
 
-## Web 界面
+For more examples, please refer to [examples](./examples)
+
+## Web interface
 
 ![](./assets/web-1.png)
 
@@ -64,8 +68,8 @@ Usage of go-mitmproxy:
 
 ## TODO
 
-- [ ] http2
-- [ ] websocket 解析
+- [ ] Support http2
+- [ ] Support parse websocket
 
 ## License
 
