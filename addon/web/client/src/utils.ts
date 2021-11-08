@@ -5,7 +5,7 @@ export const isTextBody = (payload: IRequest | IResponse) => {
   if (!payload.header) return false
   if (!payload.header['Content-Type']) return false
 
-  return /text|javascript|json|x-www-form-urlencoded|xml/.test(payload.header['Content-Type'].join(''))
+  return /text|javascript|json|x-www-form-urlencoded|xml|form-data/.test(payload.header['Content-Type'].join(''))
 }
 
 export const getSize = (len: number) => {
@@ -14,8 +14,8 @@ export const getSize = (len: number) => {
   if (len <= 0) return '0'
 
   if (len < 1024) return `${len} B`
-  if (len < 1024*1024) return `${(len/1024).toFixed(2)} KB`
-  return `${(len/(1024*1024)).toFixed(2)} MB`
+  if (len < 1024 * 1024) return `${(len / 1024).toFixed(2)} KB`
+  return `${(len / (1024 * 1024)).toFixed(2)} MB`
 }
 
 export const shallowEqual = (objA: any, objB: any) => {
