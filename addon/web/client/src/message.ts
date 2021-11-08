@@ -55,7 +55,7 @@ export class Flow {
   public request: IRequest
   public response: IResponse | null = null
 
-  private url: URL
+  public url: URL
   private path: string
   private _size = 0
   private size = '0'

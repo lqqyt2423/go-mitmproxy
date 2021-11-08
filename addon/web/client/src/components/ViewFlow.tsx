@@ -34,7 +34,7 @@ class ViewFlow extends React.Component<Iprops, IState> {
     const { flow } = this.props
     if (!flow) return null
     const response = flow.response
-    if(!response) return null
+    if (!response) return null
 
     if (!(response.body && response.body.byteLength)) {
       return <div style={{ color: 'gray' }}>No response</div>
@@ -61,6 +61,14 @@ class ViewFlow extends React.Component<Iprops, IState> {
 
     const request = flow.request
     const response: IResponse = (flow.response || {}) as any
+
+    // Query String Parameters
+    const searchItems: Array<{ key: string; value: string }> = []
+    if (flow.url && flow.url.search) {
+      flow.url.searchParams.forEach((value, key) => {
+        searchItems.push({ key, value })
+      })
+    }
 
     return (
       <div className="flow-detail">
@@ -100,7 +108,7 @@ class ViewFlow extends React.Component<Iprops, IState> {
           {
             !(flowTab === 'Headers') ? null :
               <div>
-                <p><Button size="sm" variant={ this.state.copied ? 'success' : 'primary' } disabled={this.state.copied} onClick={() => {
+                <p><Button size="sm" variant={this.state.copied ? 'success' : 'primary'} disabled={this.state.copied} onClick={() => {
                   const curl = fetchToCurl({
                     url: flow.request.url,
                     method: flow.request.method,
@@ -118,7 +126,7 @@ class ViewFlow extends React.Component<Iprops, IState> {
                     }, 1000)
                   })
 
-                }}>{ this.state.copied ? 'Copied' : 'Copy as cURL' }</Button></p>
+                }}>{this.state.copied ? 'Copied' : 'Copy as cURL'}</Button></p>
 
                 <div className="header-block">
                   <p>General</p>
@@ -158,6 +166,22 @@ class ViewFlow extends React.Component<Iprops, IState> {
                     }
                   </div>
                 </div>
+
+                {
+                  !(searchItems.length) ? null :
+                    <div className="header-block">
+                      <p>Query String Parameters</p>
+                      <div className="header-block-content">
+                        {
+                          searchItems.map(({ key, value }) => {
+                            return (
+                              <p key={key}>{key}: {value}</p>
+                            )
+                          })
+                        }
+                      </div>
+                    </div>
+                }
 
                 {
                   !(request.body && request.body.byteLength) ? null :
