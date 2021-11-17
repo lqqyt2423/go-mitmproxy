@@ -73,7 +73,6 @@ func NewProxy(opts *Options) (*Proxy, error) {
 	}
 
 	proxy.Addons = make([]addon.Addon, 0)
-	proxy.AddAddon(&addon.Log{})
 
 	return proxy, nil
 }
