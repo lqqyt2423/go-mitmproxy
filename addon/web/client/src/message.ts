@@ -1,4 +1,4 @@
-import { arrayBufferToBase64, getSize, isTextBody } from './utils'
+import { arrayBufferToBase64, bufHexView, getSize, isTextBody } from './utils'
 
 export enum MessageType {
   REQUEST = 1,
@@ -76,6 +76,7 @@ export class Flow {
   private _responseBody: string | null
 
   private _previewResponseBody: IPreviewResponseBody | null = null
+  private _hexviewResponseBody: string | null = null
 
   constructor(msg: IMessage) {
     this.no = ++Flow.curNo
@@ -208,6 +209,17 @@ export class Flow {
     }
 
     return this._previewResponseBody
+  }
+
+  public hexviewResponseBody(): string | null {
+    if (this._hexviewResponseBody) return this._hexviewResponseBody
+
+    if (this.status < MessageType.RESPONSE_BODY) return null
+    if (!(this.response?.body?.byteLength)) return null
+
+    this._hexviewResponseBody = bufHexView(this.response.body)
+
+    return this._hexviewResponseBody
   }
 }
 

@@ -16,7 +16,7 @@ interface Iprops {
 }
 
 interface IState {
-  flowTab: 'Headers' | 'Preview' | 'Response'
+  flowTab: 'Headers' | 'Preview' | 'Response' | 'Hexview'
   copied: boolean
 }
 
@@ -53,6 +53,19 @@ class ViewFlow extends React.Component<Iprops, IState> {
     return <div style={{ color: 'gray' }}>Not support preview</div>
   }
 
+  hexview() {
+    const { flow } = this.props
+    if (!flow) return null
+    const response = flow.response
+    if (!response) return null
+
+    if (!(response.body && response.body.byteLength)) {
+      return <div style={{ color: 'gray' }}>No response</div>
+    }
+
+    return <pre>{flow.hexviewResponseBody()}</pre>
+  }
+
   render() {
     if (!this.props.flow) return null
 
@@ -77,6 +90,7 @@ class ViewFlow extends React.Component<Iprops, IState> {
           <span className={flowTab === 'Headers' ? 'selected' : undefined} onClick={() => { this.setState({ flowTab: 'Headers' }) }}>Headers</span>
           <span className={flowTab === 'Preview' ? 'selected' : undefined} onClick={() => { this.setState({ flowTab: 'Preview' }) }}>Preview</span>
           <span className={flowTab === 'Response' ? 'selected' : undefined} onClick={() => { this.setState({ flowTab: 'Response' }) }}>Response</span>
+          <span className={flowTab === 'Hexview' ? 'selected' : undefined} onClick={() => { this.setState({ flowTab: 'Hexview' }) }}>Hexview</span>
 
           <EditFlow
             flow={flow}
@@ -213,6 +227,11 @@ class ViewFlow extends React.Component<Iprops, IState> {
           {
             !(flowTab === 'Preview') ? null :
               <div>{this.preview()}</div>
+          }
+
+          {
+            !(flowTab === 'Hexview') ? null :
+              <div>{this.hexview()}</div>
           }
         </div>
 

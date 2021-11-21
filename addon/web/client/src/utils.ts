@@ -41,3 +41,20 @@ export const arrayBufferToBase64 = (buf: ArrayBuffer) => {
   }
   return btoa(binary)
 }
+
+export const bufHexView = (buf: ArrayBuffer) => {
+  let str = ''
+  const bytes = new Uint8Array(buf)
+  const len = bytes.byteLength
+
+  str += '00000000:  '
+  for (let i = 0; i < len; i++) {
+    str += bytes[i].toString(16).padStart(2, '0') + ' '
+    if ((i + 1) % 16 === 0) {
+      str += `\n${(i + 1).toString(16).padStart(8, '0')}:  `
+    } else if ((i + 1) % 8 === 0) {
+      str += '  '
+    }
+  }
+  return str
+}
