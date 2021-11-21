@@ -73,6 +73,7 @@ export class Flow {
   private _isTextRequest: boolean | null
   private _isTextResponse: boolean | null
   private _requestBody: string | null
+  private _hexviewRequestBody: string | null = null
   private _responseBody: string | null
 
   private _previewResponseBody: IPreviewResponseBody | null = null
@@ -166,6 +167,15 @@ export class Flow {
     return this._requestBody
   }
 
+  public hexviewRequestBody(): string | null {
+    if (this._hexviewRequestBody !== null) return this._hexviewRequestBody
+    if (this.status < MessageType.REQUEST_BODY) return null
+    if (!(this.request?.body?.byteLength)) return null
+
+    this._hexviewRequestBody = bufHexView(this.request.body)
+    return this._hexviewRequestBody
+  }
+
   public isTextResponse(): boolean | null {
     if (this.status < MessageType.RESPONSE) return null
     if (this._isTextResponse !== null) return this._isTextResponse
@@ -212,13 +222,12 @@ export class Flow {
   }
 
   public hexviewResponseBody(): string | null {
-    if (this._hexviewResponseBody) return this._hexviewResponseBody
+    if (this._hexviewResponseBody !== null) return this._hexviewResponseBody
 
     if (this.status < MessageType.RESPONSE_BODY) return null
     if (!(this.response?.body?.byteLength)) return null
 
     this._hexviewResponseBody = bufHexView(this.response.body)
-
     return this._hexviewResponseBody
   }
 }

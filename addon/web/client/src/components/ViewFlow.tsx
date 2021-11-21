@@ -202,12 +202,15 @@ class ViewFlow extends React.Component<Iprops, IState> {
                     <div className="header-block">
                       <p>Request Body</p>
                       <div className="header-block-content">
-                        <p>
+                        <div>
                           {
-                            !(flow.isTextRequest()) ? <span style={{ color: 'gray' }}>Not text</span> :
+                            !(flow.isTextRequest()) ? <div>
+                              <p><span style={{ color: 'gray' }}>Hex:</span></p>
+                              <div><pre>{flow.hexviewRequestBody()}</pre></div>
+                            </div> :
                               flow.requestBody()
                           }
-                        </p>
+                        </div>
                       </div>
                     </div>
                 }
