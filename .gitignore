@@ -2,3 +2,5 @@
 .env
 /go-mitmproxy
 /dummycert
+
+dist/
