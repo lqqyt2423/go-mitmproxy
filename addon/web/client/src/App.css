@@ -90,3 +90,14 @@
   margin-left: 20px;
   line-height: 1.5;
 }
+
+.flow-detail .request-body-detail span {
+  display: inline-block;
+  line-height: 1;
+  padding: 8px;
+  cursor: pointer;
+}
+
+.flow-detail .request-body-detail .selected {
+  border-bottom: 2px rgb(35, 118, 229) solid;
+}

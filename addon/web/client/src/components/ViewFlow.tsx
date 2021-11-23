@@ -18,6 +18,7 @@ interface Iprops {
 interface IState {
   flowTab: 'Headers' | 'Preview' | 'Response' | 'Hexview'
   copied: boolean
+  requestBodyViewTab: 'Raw' | 'Preview'
 }
 
 class ViewFlow extends React.Component<Iprops, IState> {
@@ -27,6 +28,7 @@ class ViewFlow extends React.Component<Iprops, IState> {
     this.state = {
       flowTab: 'Headers',
       copied: false,
+      requestBodyViewTab: 'Raw',
     }
   }
 
@@ -48,6 +50,23 @@ class ViewFlow extends React.Component<Iprops, IState> {
     }
     else if (pv.type === 'json') {
       return <div><JSONPretty data={pv.data} keyStyle={'color: rgb(130,40,144);'} stringStyle={'color: rgb(153,68,60);'} valueStyle={'color: rgb(25,1,199);'} booleanStyle={'color: rgb(94,105,192);'} /></div>
+    }
+
+    return <div style={{ color: 'gray' }}>Not support preview</div>
+  }
+
+  requestBodyPreview() {
+    const { flow } = this.props
+    if (!flow) return null
+
+    const pv = flow.previewRequestBody()
+    if (!pv) return <div style={{ color: 'gray' }}>Not support preview</div>
+
+    if (pv.type === 'json') {
+      return <div><JSONPretty data={pv.data} keyStyle={'color: rgb(130,40,144);'} stringStyle={'color: rgb(153,68,60);'} valueStyle={'color: rgb(25,1,199);'} booleanStyle={'color: rgb(94,105,192);'} /></div>
+    }
+    else if (pv.type === 'binary') {
+      return <div><pre>{pv.data}</pre></div>
     }
 
     return <div style={{ color: 'gray' }}>Not support preview</div>
@@ -203,12 +222,23 @@ class ViewFlow extends React.Component<Iprops, IState> {
                       <p>Request Body</p>
                       <div className="header-block-content">
                         <div>
+                          <div className="request-body-detail" style={{ marginBottom: '15px' }}>
+                            <span className={this.state.requestBodyViewTab === 'Raw' ? 'selected' : undefined} onClick={() => { this.setState({ requestBodyViewTab: 'Raw' }) }}>Raw</span>
+                            <span className={this.state.requestBodyViewTab === 'Preview' ? 'selected' : undefined} onClick={() => { this.setState({ requestBodyViewTab: 'Preview' }) }}>Preview</span>
+                          </div>
+
                           {
-                            !(flow.isTextRequest()) ? <div>
-                              <p><span style={{ color: 'gray' }}>Hex:</span></p>
-                              <div><pre>{flow.hexviewRequestBody()}</pre></div>
-                            </div> :
-                              flow.requestBody()
+                            !(this.state.requestBodyViewTab === 'Raw') ? null :
+                              <div>
+                                {
+                                  !(flow.isTextRequest()) ? <span style={{ color: 'gray' }}>Not text Request</span> : flow.requestBody()
+                                }
+                              </div>
+                          }
+
+                          {
+                            !(this.state.requestBodyViewTab === 'Preview') ? null :
+                              <div>{this.requestBodyPreview()}</div>
                           }
                         </div>
                       </div>

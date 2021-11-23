@@ -43,9 +43,9 @@ export interface IFlowPreview {
   contentType: string
 }
 
-interface IPreviewResponseBody {
-  type: 'image' | 'json'
-  data: string
+interface IPreviewBody {
+  type: 'image' | 'json' | 'binary'
+  data: string | null
 }
 
 export class Flow {
@@ -76,7 +76,8 @@ export class Flow {
   private _hexviewRequestBody: string | null = null
   private _responseBody: string | null
 
-  private _previewResponseBody: IPreviewResponseBody | null = null
+  private _previewResponseBody: IPreviewBody | null = null
+  private _previewRequestBody: IPreviewBody | null = null
   private _hexviewResponseBody: string | null = null
 
   constructor(msg: IMessage) {
@@ -195,7 +196,7 @@ export class Flow {
     return this._responseBody
   }
 
-  public previewResponseBody(): IPreviewResponseBody | null {
+  public previewResponseBody(): IPreviewBody | null {
     if (this._previewResponseBody) return this._previewResponseBody
 
     if (this.status < MessageType.RESPONSE_BODY) return null
@@ -219,6 +220,27 @@ export class Flow {
     }
 
     return this._previewResponseBody
+  }
+
+  public previewRequestBody(): IPreviewBody | null {
+    if (this._previewRequestBody) return this._previewRequestBody
+
+    if (this.status < MessageType.REQUEST_BODY) return null
+    if (!(this.request.body?.byteLength)) return null
+
+    if (!this.isTextRequest()) {
+      this._previewRequestBody = {
+        type: 'binary',
+        data: this.hexviewRequestBody(),
+      }
+    } else if (/json/.test(this.request.header['Content-Type'].join(''))) {
+      this._previewRequestBody = {
+        type: 'json',
+        data: this.requestBody(),
+      }
+    }
+
+    return this._previewRequestBody
   }
 
   public hexviewResponseBody(): string | null {
