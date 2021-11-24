@@ -11,7 +11,7 @@ import (
 	log "github.com/sirupsen/logrus"
 )
 
-const version = "0.0.9"
+const version = "0.1.0"
 
 type Config struct {
 	version   bool
