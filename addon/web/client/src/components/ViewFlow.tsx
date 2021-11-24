@@ -1,5 +1,6 @@
 import React from 'react'
 import Button from 'react-bootstrap/Button'
+import FormCheck from 'react-bootstrap/FormCheck'
 import fetchToCurl from 'fetch-to-curl'
 import copy from 'copy-to-clipboard'
 import JSONPretty from 'react-json-pretty'
@@ -19,6 +20,7 @@ interface IState {
   flowTab: 'Headers' | 'Preview' | 'Response' | 'Hexview'
   copied: boolean
   requestBodyViewTab: 'Raw' | 'Preview'
+  responseBodyLineBreak: boolean
 }
 
 class ViewFlow extends React.Component<Iprops, IState> {
@@ -29,6 +31,7 @@ class ViewFlow extends React.Component<Iprops, IState> {
       flowTab: 'Headers',
       copied: false,
       requestBodyViewTab: 'Raw',
+      responseBodyLineBreak: false,
     }
   }
 
@@ -253,7 +256,19 @@ class ViewFlow extends React.Component<Iprops, IState> {
               !(response.body && response.body.byteLength) ? <div style={{ color: 'gray' }}>No response</div> :
                 !(flow.isTextResponse()) ? <div style={{ color: 'gray' }}>Not text response</div> :
                   <div>
-                    {flow.responseBody()}
+                    <div style={{ marginBottom: '20px' }}>
+                      <FormCheck
+                        inline
+                        type="checkbox"
+                        checked={this.state.responseBodyLineBreak}
+                        onChange={e => {
+                          this.setState({ responseBodyLineBreak: e.target.checked })
+                        }}
+                        label="自动换行"></FormCheck>
+                    </div>
+                    <div style={{ whiteSpace: this.state.responseBodyLineBreak ? 'pre-wrap' : 'pre' }}>
+                      {flow.responseBody()}
+                    </div>
                   </div>
           }
 
