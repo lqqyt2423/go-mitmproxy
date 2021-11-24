@@ -47,14 +47,35 @@ export const bufHexView = (buf: ArrayBuffer) => {
   const bytes = new Uint8Array(buf)
   const len = bytes.byteLength
 
+  let viewStr = ''
+
   str += '00000000:  '
   for (let i = 0; i < len; i++) {
     str += bytes[i].toString(16).padStart(2, '0') + ' '
+
+    if (bytes[i] >= 32 && bytes[i] <= 126) {
+      viewStr += String.fromCharCode(bytes[i])
+    } else {
+      viewStr += '.'
+    }
+
     if ((i + 1) % 16 === 0) {
+      str += '   ' + viewStr
+      viewStr = ''
       str += `\n${(i + 1).toString(16).padStart(8, '0')}:  `
     } else if ((i + 1) % 8 === 0) {
       str += '  '
     }
   }
+
+  // 补充最后一行的空白
+  if (viewStr.length > 0) {
+    for (let i = viewStr.length; i < 16; i++) {
+      str += '  ' + ' '
+      if ((i + 1) % 8 === 0) str += '  '
+    }
+    str += ' ' + viewStr
+  }
+
   return str
 }
