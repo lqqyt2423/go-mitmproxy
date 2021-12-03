@@ -6,19 +6,24 @@ import (
 	"os"
 
 	"github.com/lqqyt2423/go-mitmproxy/addon"
+	"github.com/lqqyt2423/go-mitmproxy/addon/flowmapper"
 	"github.com/lqqyt2423/go-mitmproxy/addon/web"
 	"github.com/lqqyt2423/go-mitmproxy/proxy"
 	log "github.com/sirupsen/logrus"
 )
 
-const version = "0.1.0"
+const version = "0.1.1"
 
 type Config struct {
-	version   bool
-	addr      string
-	webAddr   string
+	version bool
+
+	addr    string
+	webAddr string
+
 	dump      string // dump filename
 	dumpLevel int    // dump level
+
+	mapperDir string
 }
 
 func loadConfig() *Config {
@@ -29,6 +34,7 @@ func loadConfig() *Config {
 	flag.StringVar(&config.webAddr, "web_addr", ":9081", "web interface listen addr")
 	flag.StringVar(&config.dump, "dump", "", "dump filename")
 	flag.IntVar(&config.dumpLevel, "dump_level", 0, "dump level: 0 - header, 1 - header + body")
+	flag.StringVar(&config.mapperDir, "mapper_dir", "", "mapper files dirpath")
 	flag.Parse()
 
 	return config
@@ -61,13 +67,18 @@ func main() {
 		log.Fatal(err)
 	}
 
+	p.AddAddon(&addon.Log{})
+	p.AddAddon(web.NewWebAddon(config.webAddr))
+
 	if config.dump != "" {
 		dumper := addon.NewDumper(config.dump, config.dumpLevel)
 		p.AddAddon(dumper)
 	}
 
-	p.AddAddon(&addon.Log{})
-	p.AddAddon(web.NewWebAddon(config.webAddr))
+	if config.mapperDir != "" {
+		mapper := flowmapper.NewMapper(config.mapperDir)
+		p.AddAddon(mapper)
+	}
 
 	log.Fatal(p.Start())
 }
