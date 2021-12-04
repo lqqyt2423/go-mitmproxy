@@ -16,14 +16,20 @@ interface IState {
   flows: Flow[]
   flow: Flow | null
   flowTab: 'Headers' | 'Preview' | 'Response'
+  wsStatus: 'open' | 'close' | 'connecting'
 }
+
+const wsReconnIntervals = [1, 1, 2, 2, 4, 4, 8, 8, 16, 16, 32, 32]
 
 class App extends React.Component<any, IState> {
   private flowMgr: FlowManager
   private ws: WebSocket | null
+  private wsUnmountClose: boolean
 
   private pageBottom: HTMLDivElement | null
   private autoScore = false
+
+  private wsReconnCount = -1
 
   constructor(props: any) {
     super(props)
@@ -33,11 +39,13 @@ class App extends React.Component<any, IState> {
     this.state = {
       flows: this.flowMgr.showList(),
       flow: null,
-
       flowTab: 'Headers', // Headers, Preview, Response
+      wsStatus: 'close',
     }
 
     this.ws = null
+    this.wsUnmountClose = false
+
     this.pageBottom = null
   }
 
@@ -47,12 +55,16 @@ class App extends React.Component<any, IState> {
 
   componentWillUnmount() {
     if (this.ws) {
+      this.wsUnmountClose = true
       this.ws.close()
+      this.ws = null
     }
   }
 
   initWs() {
     if (this.ws) return
+
+    this.setState({ wsStatus: 'connecting' })
 
     let host
     if (process.env.NODE_ENV === 'development') {
@@ -62,8 +74,30 @@ class App extends React.Component<any, IState> {
     }
     this.ws = new WebSocket(`ws://${host}/echo`)
     this.ws.binaryType = 'arraybuffer'
-    this.ws.onopen = () => { console.log('OPEN') }
-    this.ws.onclose = () => { console.log('CLOSE') }
+
+    this.ws.onopen = () => {
+      this.wsReconnCount = -1
+      this.setState({ wsStatus: 'open' })
+    }
+
+    this.ws.onerror = evt => {
+      console.error('ERROR:', evt)
+      this.ws?.close()
+    }
+
+    this.ws.onclose = () => {
+      this.setState({ wsStatus: 'close' })
+      if (this.wsUnmountClose) return
+
+      this.wsReconnCount++
+      this.ws = null
+      const waitSeconds = wsReconnIntervals[this.wsReconnCount] || wsReconnIntervals[wsReconnIntervals.length - 1]
+      console.info(`will reconnect after ${waitSeconds} seconds`)
+      setTimeout(() => {
+        this.initWs()
+      }, waitSeconds * 1000)
+    }
+
     this.ws.onmessage = evt => {
       const msg = parseMessage(evt.data)
       if (!msg) {
@@ -97,9 +131,6 @@ class App extends React.Component<any, IState> {
         flow.addResponseBody(msg)
         this.setState({ flows: this.state.flows })
       }
-    }
-    this.ws.onerror = evt => {
-      console.log('ERROR:', evt)
     }
   }
 
@@ -141,6 +172,8 @@ class App extends React.Component<any, IState> {
             const msg = buildMessageMeta(SendMessageType.CHANGE_BREAK_POINT_RULES, rules)
             if (this.ws) this.ws.send(msg)
           }} />
+
+          <span>status: {this.state.wsStatus}</span>
         </div>
 
         <Table striped bordered size="sm" style={{ tableLayout: 'fixed' }}>
