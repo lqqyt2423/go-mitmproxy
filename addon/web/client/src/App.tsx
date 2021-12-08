@@ -21,17 +21,20 @@ interface IState {
 
 const wsReconnIntervals = [1, 1, 2, 2, 4, 4, 8, 8, 16, 16, 32, 32]
 
-class App extends React.Component<any, IState> {
+interface IProps {
+  pageBottom: HTMLElement
+}
+
+class App extends React.Component<IProps, IState> {
   private flowMgr: FlowManager
   private ws: WebSocket | null
   private wsUnmountClose: boolean
 
-  private pageBottom: HTMLDivElement | null
   private autoScore = false
 
   private wsReconnCount = -1
 
-  constructor(props: any) {
+  constructor(props: IProps) {
     super(props)
 
     this.flowMgr = new FlowManager()
@@ -46,7 +49,7 @@ class App extends React.Component<any, IState> {
     this.ws = null
     this.wsUnmountClose = false
 
-    this.pageBottom = null
+    this.initScrollMonitor()
   }
 
   componentDidMount() {
@@ -110,7 +113,9 @@ class App extends React.Component<any, IState> {
         const flow = new Flow(msg)
         this.flowMgr.add(flow)
         this.setState({ flows: this.flowMgr.showList() }, () => {
-          if (this.pageBottom && this.autoScore) this.pageBottom.scrollIntoView({ behavior: 'auto' })
+          if (this.autoScore) {
+            this.props.pageBottom.scrollIntoView({ behavior: 'auto' })
+          }
         })
       }
       else if (msg.type === MessageType.REQUEST_BODY) {
@@ -135,9 +140,7 @@ class App extends React.Component<any, IState> {
   }
 
   initScrollMonitor() {
-    if (!this.pageBottom) return
-
-    const watcher = scrollMonitor.create(this.pageBottom)
+    const watcher = scrollMonitor.create(this.props.pageBottom)
     watcher.enterViewport(() => {
       this.autoScore = true
     })
@@ -215,12 +218,6 @@ class App extends React.Component<any, IState> {
           onReRenderFlows={() => { this.setState({ flows: this.state.flows }) }}
           onMessage={msg => { if (this.ws) this.ws.send(msg) }}
         />
-
-        <div ref={el => {
-          if (this.pageBottom) return
-          this.pageBottom = el
-          this.initScrollMonitor()
-        }} style={{ height: '0px', visibility: 'hidden' }}>bottom</div>
       </div>
     )
   }
