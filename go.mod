@@ -8,6 +8,6 @@ require (
 	github.com/gorilla/websocket v1.4.2
 	github.com/satori/go.uuid v1.2.0
 	github.com/sirupsen/logrus v1.8.1
-	golang.org/x/sys v0.0.0-20211205182925-97ca703d548d // indirect
+	golang.org/x/sys v0.0.0-20211216021012-1d35b9e2eb4e // indirect
 	gopkg.in/check.v1 v1.0.0-20201130134442-10cb98267c6c // indirect
 )
