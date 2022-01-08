@@ -21,25 +21,34 @@ func (l *listener) Accept() (net.Conn, error) { return <-l.connChan, nil }
 func (l *listener) Close() error              { return nil }
 func (l *listener) Addr() net.Addr            { return nil }
 
+type pipeAddr struct {
+	remoteAddr string
+}
+
+func (pipeAddr) Network() string   { return "pipe" }
+func (a *pipeAddr) String() string { return a.remoteAddr }
+
 // 建立客户端和服务端通信的通道
-func newPipes(host string) (net.Conn, *connBuf) {
+func newPipes(req *http.Request) (net.Conn, *connBuf) {
 	client, srv := net.Pipe()
-	server := newConnBuf(srv, host)
+	server := newConnBuf(srv, req)
 	return client, server
 }
 
 // add Peek method for conn
 type connBuf struct {
 	net.Conn
-	r    *bufio.Reader
-	host string
+	r          *bufio.Reader
+	host       string
+	remoteAddr string
 }
 
-func newConnBuf(c net.Conn, host string) *connBuf {
+func newConnBuf(c net.Conn, req *http.Request) *connBuf {
 	return &connBuf{
-		Conn: c,
-		r:    bufio.NewReader(c),
-		host: host,
+		Conn:       c,
+		r:          bufio.NewReader(c),
+		host:       req.Host,
+		remoteAddr: req.RemoteAddr,
 	}
 }
 
@@ -49,6 +58,10 @@ func (b *connBuf) Peek(n int) ([]byte, error) {
 
 func (b *connBuf) Read(data []byte) (int, error) {
 	return b.r.Read(data)
+}
+
+func (b *connBuf) RemoteAddr() net.Addr {
+	return &pipeAddr{remoteAddr: b.remoteAddr}
 }
 
 // Middle: man-in-the-middle
@@ -91,8 +104,8 @@ func (m *Middle) Start() error {
 	return m.Server.ServeTLS(m.Listener, "", "")
 }
 
-func (m *Middle) Dial(host string) (net.Conn, error) {
-	clientConn, serverConn := newPipes(host)
+func (m *Middle) Dial(req *http.Request) (net.Conn, error) {
+	clientConn, serverConn := newPipes(req)
 	go m.intercept(serverConn)
 	return clientConn, nil
 }

@@ -262,7 +262,7 @@ func (proxy *Proxy) handleConnect(res http.ResponseWriter, req *http.Request) {
 
 	log.Debug("receive connect")
 
-	conn, err := proxy.Interceptor.Dial(req.Host)
+	conn, err := proxy.Interceptor.Dial(req)
 	if err != nil {
 		log.Error(err)
 		res.WriteHeader(502)
