@@ -3,7 +3,6 @@ package proxy
 import (
 	"bytes"
 	"io"
-	"net"
 	"os"
 	"strings"
 	"sync"
@@ -40,11 +39,11 @@ func LogErr(log *_log.Entry, err error) (loged bool) {
 // 转发流量
 // Read a => Write b
 // Read b => Write a
-func Transfer(log *_log.Entry, a, b io.ReadWriteCloser) {
+func Transfer(log *_log.Entry, a, b io.ReadWriter) {
 	done := make(chan struct{})
 	defer close(done)
 
-	forward := func(dst io.WriteCloser, src io.Reader, ec chan<- error) {
+	forward := func(dst io.Writer, src io.Reader, ec chan<- error) {
 		_, err := io.Copy(dst, src)
 		if err != nil {
 			select {
@@ -53,12 +52,6 @@ func Transfer(log *_log.Entry, a, b io.ReadWriteCloser) {
 			case ec <- err:
 				return
 			}
-		}
-
-		if dstc, ok := dst.(*net.TCPConn); ok {
-			err = dstc.CloseWrite()
-		} else {
-			err = dst.Close()
 		}
 
 		select {

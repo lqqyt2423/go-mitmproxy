@@ -6,6 +6,7 @@ import (
 	"net"
 	"net/http"
 	"strings"
+	"time"
 
 	"github.com/lqqyt2423/go-mitmproxy/cert"
 )
@@ -85,6 +86,7 @@ func NewMiddle(proxy *Proxy) (Interceptor, error) {
 
 	server := &http.Server{
 		Handler:      m,
+		IdleTimeout:  5 * time.Second,
 		TLSNextProto: make(map[string]func(*http.Server, *tls.Conn, http.Handler)), // disable http2
 		TLSConfig: &tls.Config{
 			GetCertificate: func(chi *tls.ClientHelloInfo) (*tls.Certificate, error) {

@@ -33,8 +33,9 @@ func NewProxy(opts *Options) (*Proxy, error) {
 	proxy := new(Proxy)
 
 	proxy.Server = &http.Server{
-		Addr:    opts.Addr,
-		Handler: proxy,
+		Addr:        opts.Addr,
+		Handler:     proxy,
+		IdleTimeout: 5 * time.Second,
 	}
 
 	proxy.Client = &http.Client{
@@ -278,6 +279,9 @@ func (proxy *Proxy) handleConnect(res http.ResponseWriter, req *http.Request) {
 		res.WriteHeader(502)
 		return
 	}
+
+	// send RST other than FIN when finished, to avoid TIME_WAIT state
+	cconn.(*net.TCPConn).SetLinger(0)
 	defer cconn.Close()
 
 	_, err = io.WriteString(cconn, "HTTP/1.1 200 Connection Established\r\n\r\n")
