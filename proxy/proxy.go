@@ -18,6 +18,7 @@ var log = _log.WithField("at", "proxy")
 type Options struct {
 	Addr              string
 	StreamLargeBodies int64
+	SslInsecure       bool
 }
 
 type Proxy struct {
@@ -51,6 +52,7 @@ func NewProxy(opts *Options) (*Proxy, error) {
 			ForceAttemptHTTP2:     false, // disable http2
 			DisableCompression:    true,  // To get the original response from the server, set Transport.DisableCompression to true.
 			TLSClientConfig: &tls.Config{
+				InsecureSkipVerify: opts.SslInsecure,
 				KeyLogWriter: GetTlsKeyLogWriter(),
 			},
 		},
