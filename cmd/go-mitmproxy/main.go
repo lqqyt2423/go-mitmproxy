@@ -12,13 +12,13 @@ import (
 	log "github.com/sirupsen/logrus"
 )
 
-const version = "0.1.1"
+const version = "0.1.3"
 
 type Config struct {
 	version bool
 
-	addr    string
-	webAddr string
+	addr         string
+	webAddr      string
 	ssl_insecure bool
 
 	dump      string // dump filename

@@ -53,7 +53,7 @@ func NewProxy(opts *Options) (*Proxy, error) {
 			DisableCompression:    true,  // To get the original response from the server, set Transport.DisableCompression to true.
 			TLSClientConfig: &tls.Config{
 				InsecureSkipVerify: opts.SslInsecure,
-				KeyLogWriter: GetTlsKeyLogWriter(),
+				KeyLogWriter:       GetTlsKeyLogWriter(),
 			},
 		},
 		CheckRedirect: func(req *http.Request, via []*http.Request) error {

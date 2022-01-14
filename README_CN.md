@@ -46,6 +46,10 @@ Usage of go-mitmproxy:
     	dump filename
   -dump_level int
     	dump level: 0 - header, 1 - header + body
+  -mapper_dir string
+    	mapper files dirpath
+  -ssl_insecure
+    	not verify upstream server SSL/TLS certificates.
   -version
     	show version
   -web_addr string
