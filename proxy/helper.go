@@ -18,6 +18,7 @@ var NormalErrMsgs []string = []string{
 	"io: read/write on closed pipe",
 	"connect: connection refused",
 	"connect: connection reset by peer",
+	"use of closed network connection",
 }
 
 // 仅打印预料之外的错误信息
@@ -39,20 +40,14 @@ func LogErr(log *_log.Entry, err error) (loged bool) {
 // 转发流量
 // Read a => Write b
 // Read b => Write a
-func Transfer(log *_log.Entry, a, b io.ReadWriter) {
+func Transfer(log *_log.Entry, a, b io.ReadWriteCloser) {
 	done := make(chan struct{})
 	defer close(done)
 
-	forward := func(dst io.Writer, src io.Reader, ec chan<- error) {
+	forward := func(dst io.WriteCloser, src io.Reader, ec chan<- error) {
 		_, err := io.Copy(dst, src)
-		if err != nil {
-			select {
-			case <-done:
-				return
-			case ec <- err:
-				return
-			}
-		}
+
+		dst.Close() // 当一端读结束时，结束另一端的写
 
 		select {
 		case <-done:

@@ -3,6 +3,9 @@ package main
 import (
 	"flag"
 	"fmt"
+
+	// slog "log"
+
 	"os"
 
 	"github.com/lqqyt2423/go-mitmproxy/addon"
@@ -49,6 +52,10 @@ func main() {
 		fmt.Println("go-mitmproxy: " + version)
 		os.Exit(0)
 	}
+
+	// for debug
+	// slog.SetFlags(slog.LstdFlags | slog.Lshortfile)
+	// log.SetReportCaller(true)
 
 	log.SetLevel(log.InfoLevel)
 	log.SetReportCaller(false)

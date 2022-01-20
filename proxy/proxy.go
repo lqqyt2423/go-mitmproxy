@@ -42,12 +42,12 @@ func NewProxy(opts *Options) (*Proxy, error) {
 		Transport: &http.Transport{
 			Proxy: http.ProxyFromEnvironment,
 			DialContext: (&net.Dialer{
-				Timeout:   30 * time.Second,
+				Timeout:   15 * time.Second,
 				KeepAlive: 30 * time.Second,
 				DualStack: true,
 			}).DialContext,
 			MaxIdleConns:          100,
-			IdleConnTimeout:       90 * time.Second,
+			IdleConnTimeout:       5 * time.Second,
 			TLSHandshakeTimeout:   10 * time.Second,
 			ExpectContinueTimeout: 1 * time.Second,
 			ForceAttemptHTTP2:     false, // disable http2
@@ -280,8 +280,8 @@ func (proxy *Proxy) handleConnect(res http.ResponseWriter, req *http.Request) {
 		return
 	}
 
-	// send RST other than FIN when finished, to avoid TIME_WAIT state
-	cconn.(*net.TCPConn).SetLinger(0)
+	cconn.(*net.TCPConn).SetLinger(0) // send RST other than FIN when finished, to avoid TIME_WAIT state
+	cconn.(*net.TCPConn).SetKeepAlive(false)
 	defer cconn.Close()
 
 	_, err = io.WriteString(cconn, "HTTP/1.1 200 Connection Established\r\n\r\n")
