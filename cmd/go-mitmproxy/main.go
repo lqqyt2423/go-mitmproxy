@@ -15,8 +15,6 @@ import (
 	log "github.com/sirupsen/logrus"
 )
 
-const version = "0.1.4"
-
 type Config struct {
 	version bool
 
@@ -48,11 +46,6 @@ func loadConfig() *Config {
 func main() {
 	config := loadConfig()
 
-	if config.version {
-		fmt.Println("go-mitmproxy: " + version)
-		os.Exit(0)
-	}
-
 	// for debug
 	// slog.SetFlags(slog.LstdFlags | slog.Lshortfile)
 	// log.SetReportCaller(true)
@@ -64,8 +57,6 @@ func main() {
 		FullTimestamp: true,
 	})
 
-	log.Infof("go-mitmproxy version %v\n", version)
-
 	opts := &proxy.Options{
 		Addr:              config.addr,
 		StreamLargeBodies: 1024 * 1024 * 5,
@@ -76,6 +67,13 @@ func main() {
 	if err != nil {
 		log.Fatal(err)
 	}
+
+	if config.version {
+		fmt.Println("go-mitmproxy: " + p.Version)
+		os.Exit(0)
+	}
+
+	log.Infof("go-mitmproxy version %v\n", p.Version)
 
 	p.AddAddon(&addon.Log{})
 	p.AddAddon(web.NewWebAddon(config.webAddr))

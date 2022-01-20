@@ -22,6 +22,7 @@ type Options struct {
 }
 
 type Proxy struct {
+	Version           string
 	Server            *http.Server
 	Client            *http.Client
 	Interceptor       Interceptor
@@ -31,6 +32,7 @@ type Proxy struct {
 
 func NewProxy(opts *Options) (*Proxy, error) {
 	proxy := new(Proxy)
+	proxy.Version = "0.1.5"
 
 	proxy.Server = &http.Server{
 		Addr:        opts.Addr,
