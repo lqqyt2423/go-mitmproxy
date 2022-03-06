@@ -2,5 +2,5 @@
 .env
 /go-mitmproxy
 /dummycert
-
+/.idea
 dist/
