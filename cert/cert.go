@@ -70,20 +70,6 @@ func NewCA(path string) (*CA, error) {
 	return ca, nil
 }
 
-func CopyFile(dstName, srcName string) (written int64, err error) {
-	src, err := os.Open(srcName)
-	if err != nil {
-		return
-	}
-	defer src.Close()
-	dst, err := os.OpenFile(dstName, os.O_WRONLY|os.O_CREATE, 0644)
-	if err != nil {
-		return
-	}
-	defer dst.Close()
-	return io.Copy(dst, src)
-}
-
 func getStorePath(path string) (string, error) {
 	if path == "" {
 		homeDir, err := os.UserHomeDir()
@@ -261,15 +247,19 @@ func (ca *CA) saveCert() error {
 	}
 	defer file.Close()
 	err = ca.saveCertTo(file)
+	if err != nil {
+		return err
+	}
 
 	cerFile, err := os.Create(ca.caCertCerFile())
 	if err != nil {
 		return err
 	}
 	defer cerFile.Close()
-
-	CopyFile(cerFile.Name(), file.Name())
-
+	err = ca.saveCertTo(cerFile)
+	if err != nil {
+		return err
+	}
 	return err
 }
 

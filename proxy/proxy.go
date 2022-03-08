@@ -19,6 +19,7 @@ type Options struct {
 	Addr              string
 	StreamLargeBodies int64
 	SslInsecure       bool
+	CaRootPath        string
 }
 
 type Proxy struct {
@@ -30,7 +31,7 @@ type Proxy struct {
 	Addons            []addon.Addon
 }
 
-func NewProxy(opts *Options,path string) (*Proxy, error) {
+func NewProxy(opts *Options) (*Proxy, error) {
 	proxy := new(Proxy)
 	proxy.Version = "0.1.5"
 
@@ -65,7 +66,7 @@ func NewProxy(opts *Options,path string) (*Proxy, error) {
 		},
 	}
 
-	interceptor, err := NewMiddle(proxy,path)
+	interceptor, err := NewMiddle(proxy, opts.CaRootPath)
 	if err != nil {
 		return nil, err
 	}
