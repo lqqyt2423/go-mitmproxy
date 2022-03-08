@@ -73,8 +73,8 @@ type Middle struct {
 	Server   *http.Server
 }
 
-func NewMiddle(proxy *Proxy) (Interceptor, error) {
-	ca, err := cert.NewCA("")
+func NewMiddle(proxy *Proxy,path string) (Interceptor, error) {
+	ca, err := cert.NewCA(path)
 	if err != nil {
 		return nil, err
 	}

@@ -30,7 +30,7 @@ type Proxy struct {
 	Addons            []addon.Addon
 }
 
-func NewProxy(opts *Options) (*Proxy, error) {
+func NewProxy(opts *Options,path string) (*Proxy, error) {
 	proxy := new(Proxy)
 	proxy.Version = "0.1.5"
 
@@ -65,7 +65,7 @@ func NewProxy(opts *Options) (*Proxy, error) {
 		},
 	}
 
-	interceptor, err := NewMiddle(proxy)
+	interceptor, err := NewMiddle(proxy,path)
 	if err != nil {
 		return nil, err
 	}

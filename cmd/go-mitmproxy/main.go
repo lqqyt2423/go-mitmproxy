@@ -16,7 +16,8 @@ import (
 )
 
 type Config struct {
-	version bool
+	version  bool
+	certPath string
 
 	addr         string
 	webAddr      string
@@ -38,6 +39,7 @@ func loadConfig() *Config {
 	flag.StringVar(&config.dump, "dump", "", "dump filename")
 	flag.IntVar(&config.dumpLevel, "dump_level", 0, "dump level: 0 - header, 1 - header + body")
 	flag.StringVar(&config.mapperDir, "mapper_dir", "", "mapper files dirpath")
+	flag.StringVar(&config.certPath, "cert_path", "", "path of generate cert files")
 	flag.Parse()
 
 	return config
@@ -63,7 +65,7 @@ func main() {
 		SslInsecure:       config.ssl_insecure,
 	}
 
-	p, err := proxy.NewProxy(opts)
+	p, err := proxy.NewProxy(opts,config.certPath)
 	if err != nil {
 		log.Fatal(err)
 	}

@@ -67,8 +67,21 @@ func NewCA(path string) (*CA, error) {
 		return nil, err
 	}
 	log.Debug("create root ca")
-
 	return ca, nil
+}
+
+func CopyFile(dstName, srcName string) (written int64, err error) {
+	src, err := os.Open(srcName)
+	if err != nil {
+		return
+	}
+	defer src.Close()
+	dst, err := os.OpenFile(dstName, os.O_WRONLY|os.O_CREATE, 0644)
+	if err != nil {
+		return
+	}
+	defer dst.Close()
+	return io.Copy(dst, src)
 }
 
 func getStorePath(path string) (string, error) {
@@ -115,6 +128,10 @@ func (ca *CA) caFile() string {
 // The certificate in PEM format.
 func (ca *CA) caCertFile() string {
 	return filepath.Join(ca.StorePath, "mitmproxy-ca-cert.pem")
+}
+
+func (ca *CA) caCertCerFile() string {
+	return filepath.Join(ca.StorePath, "mitmproxy-ca-cert.cer")
 }
 
 func (ca *CA) load() error {
@@ -234,7 +251,6 @@ func (ca *CA) save() error {
 		return err
 	}
 	defer file.Close()
-
 	return ca.saveTo(file)
 }
 
@@ -244,8 +260,17 @@ func (ca *CA) saveCert() error {
 		return err
 	}
 	defer file.Close()
+	err = ca.saveCertTo(file)
 
-	return ca.saveCertTo(file)
+	cerFile, err := os.Create(ca.caCertCerFile())
+	if err != nil {
+		return err
+	}
+	defer cerFile.Close()
+
+	CopyFile(cerFile.Name(), file.Name())
+
+	return err
 }
 
 func (ca *CA) GetCert(commonName string) (*tls.Certificate, error) {
