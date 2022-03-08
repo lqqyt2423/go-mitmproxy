@@ -63,9 +63,10 @@ func main() {
 		Addr:              config.addr,
 		StreamLargeBodies: 1024 * 1024 * 5,
 		SslInsecure:       config.ssl_insecure,
+		CaRootPath:        config.certPath,
 	}
 
-	p, err := proxy.NewProxy(opts,config.certPath)
+	p, err := proxy.NewProxy(opts)
 	if err != nil {
 		log.Fatal(err)
 	}
