@@ -54,6 +54,8 @@ Usage of go-mitmproxy:
     	show version
   -web_addr string
     	web interface listen addr (default ":9081")
+  -cert_path string
+    	path of generate cert files
 ```
 
 ## 作为包引入
