@@ -12,13 +12,16 @@
 .main-table-wrap table th {
   background-color: white;
   position: sticky;
-  top: -1px;
+  top: 50px;
 }
 
 .top-control {
+  position: sticky;
   display: flex;
   align-items: center;
-  margin: 10px;
+  background-color: #fff;
+  top: 0;
+  padding: 10px;
 }
 
 .top-control > div {
