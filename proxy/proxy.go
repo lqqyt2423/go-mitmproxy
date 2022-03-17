@@ -33,7 +33,7 @@ type Proxy struct {
 
 func NewProxy(opts *Options) (*Proxy, error) {
 	proxy := new(Proxy)
-	proxy.Version = "0.1.6"
+	proxy.Version = "0.1.7"
 
 	proxy.Server = &http.Server{
 		Addr:        opts.Addr,
