@@ -15,6 +15,7 @@ import (
 	"net"
 	"os"
 	"path/filepath"
+	"strings"
 	"sync"
 	"time"
 
@@ -148,15 +149,26 @@ func (ca *CA) load() error {
 		return fmt.Errorf("%v 中不存在 CERTIFICATE", caFile)
 	}
 
+	var privateKey *rsa.PrivateKey
 	key, err := x509.ParsePKCS8PrivateKey(keyDERBlock.Bytes)
 	if err != nil {
-		return err
-	}
-	if v, ok := key.(*rsa.PrivateKey); ok {
-		ca.PrivateKey = *v
+		// fix #14
+		if strings.Contains(err.Error(), "use ParsePKCS1PrivateKey instead") {
+			privateKey, err = x509.ParsePKCS1PrivateKey(keyDERBlock.Bytes)
+			if err != nil {
+				return err
+			}
+		} else {
+			return err
+		}
 	} else {
-		return errors.New("found unknown rsa private key type in PKCS#8 wrapping")
+		if v, ok := key.(*rsa.PrivateKey); ok {
+			privateKey = v
+		} else {
+			return errors.New("found unknown rsa private key type in PKCS#8 wrapping")
+		}
 	}
+	ca.PrivateKey = *privateKey
 
 	x509Cert, err := x509.ParseCertificate(certDERBlock.Bytes)
 	if err != nil {
