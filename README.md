@@ -21,7 +21,7 @@
 ## Install
 
 ```
-GO111MODULE=on go get -u github.com/lqqyt2423/go-mitmproxy/cmd/go-mitmproxy
+go install github.com/lqqyt2423/go-mitmproxy/cmd/go-mitmproxy@latest
 ```
 
 ## Usage

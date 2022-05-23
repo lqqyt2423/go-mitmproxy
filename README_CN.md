@@ -11,9 +11,9 @@ Golang 版本的 [mitmproxy](https://mitmproxy.org/)。
 - HTTPS 证书相关逻辑参考 [mitmproxy](https://mitmproxy.org/) 且与之兼容，根证书也保存在 `~/.mitmproxy` 文件夹中，如果之前用过 `mitmproxy` 且根证书已经安装信任，则此 `go-mitmproxy` 可以直接使用
 - 支持插件机制，很方便扩展自己需要的功能，可参考 [addon/addon.go](./addon/addon.go)
 - 性能优势
-    - Golang 天生的性能优势
-    - 在进程内存中转发解析 HTTPS 流量，不需通过 tcp端口 或 unix socket 等进程间通信
-    - 生成不同域名证书时使用 LRU 缓存，避免重复计算
+  - Golang 天生的性能优势
+  - 在进程内存中转发解析 HTTPS 流量，不需通过 tcp 端口 或 unix socket 等进程间通信
+  - 生成不同域名证书时使用 LRU 缓存，避免重复计算
 - 通过环境变量 `SSLKEYLOGFILE` 支持 `Wireshark` 解析分析流量
 - 上传/下载大文件时支持流式传输
 - Web 界面
@@ -21,7 +21,7 @@ Golang 版本的 [mitmproxy](https://mitmproxy.org/)。
 ## 安装
 
 ```
-GO111MODULE=on go get -u github.com/lqqyt2423/go-mitmproxy/cmd/go-mitmproxy
+go install github.com/lqqyt2423/go-mitmproxy/cmd/go-mitmproxy@latest
 ```
 
 ## 命令行使用
