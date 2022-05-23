@@ -4,11 +4,9 @@ import 'bootstrap/dist/css/bootstrap.min.css'
 import App from './App'
 import reportWebVitals from './reportWebVitals'
 
-const pageBottom = document.getElementById('hidden-bottom')
-
 ReactDOM.render(
   <React.StrictMode>
-    <App pageBottom={pageBottom as HTMLElement} />
+    <App />
   </React.StrictMode>,
   document.getElementById('root')
 )

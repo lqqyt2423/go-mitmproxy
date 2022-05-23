@@ -1,6 +1,32 @@
 .main-table-wrap {
   font-family: Menlo,Monaco;
   font-size: 0.8rem;
+  display: flex;
+  flex-flow: column;
+  height: 100vh;
+}
+
+.table-wrap-div {
+  flex: 1;
+  overflow: auto;
+  border-top: 1px solid rgb(222, 226, 230);
+}
+
+.table-wrap-div .table>:not(:first-child) {
+  border-top: 0 solid rgb(222, 226, 230);
+}
+
+.table-wrap-div .table {
+  margin-bottom: 0;
+}
+
+/* https://codepen.io/Ray-H/pen/bMedLL */
+.table-wrap-div thead tr {
+  border-width: 0;
+  background-color: white;
+  position: sticky;
+  top: 0;
+  background: linear-gradient(to top,rgb(33, 37, 41), rgb(33, 37, 41) 2px, white 1px, white 100%);
 }
 
 .main-table-wrap table td {
@@ -8,19 +34,10 @@
   white-space: nowrap;
 }
 
-/* https://css-tricks.com/position-sticky-and-table-headers/ */
-.main-table-wrap table th {
-  background-color: white;
-  position: sticky;
-  top: 50px;
-}
-
 .top-control {
-  position: sticky;
   display: flex;
   align-items: center;
   background-color: #fff;
-  top: 0;
   padding: 10px;
 }
 
