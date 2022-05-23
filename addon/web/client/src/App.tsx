@@ -10,6 +10,7 @@ import ViewFlow from './components/ViewFlow'
 
 import { FlowManager } from './flow'
 import { parseMessage, SendMessageType, buildMessageMeta, Flow, MessageType } from './message'
+import { isInViewPort } from './utils'
 
 interface IState {
   flows: Flow[]
@@ -27,6 +28,7 @@ class App extends React.Component<IProps, IState> {
   private flowMgr: FlowManager
   private ws: WebSocket | null
   private wsUnmountClose: boolean
+  private tableBottomRef: React.RefObject<HTMLDivElement>
 
   private wsReconnCount = -1
 
@@ -44,6 +46,7 @@ class App extends React.Component<IProps, IState> {
 
     this.ws = null
     this.wsUnmountClose = false
+    this.tableBottomRef = React.createRef<HTMLDivElement>()
   }
 
   componentDidMount() {
@@ -106,7 +109,16 @@ class App extends React.Component<IProps, IState> {
       if (msg.type === MessageType.REQUEST) {
         const flow = new Flow(msg)
         this.flowMgr.add(flow)
-        this.setState({ flows: this.flowMgr.showList() })
+
+        let shouldScroll = false
+        if (this.tableBottomRef?.current && isInViewPort(this.tableBottomRef.current)) {
+          shouldScroll = true
+        }
+        this.setState({ flows: this.flowMgr.showList() }, () => {
+          if (shouldScroll) {
+            this.tableBottomRef?.current?.scrollIntoView({ behavior: 'auto' })
+          }
+        })
       }
       else if (msg.type === MessageType.REQUEST_BODY) {
         const flow = this.flowMgr.get(msg.id)
@@ -192,7 +204,7 @@ class App extends React.Component<IProps, IState> {
               }
             </tbody>
           </Table>
-          <div id="hidden-bottom" style={{ height: '0px', visibility: 'hidden' }}></div>
+          <div ref={this.tableBottomRef} id="hidden-bottom" style={{ height: '0px', visibility: 'hidden', marginBottom: '1px' }}></div>
         </div>
 
         <ViewFlow
