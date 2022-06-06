@@ -2,6 +2,7 @@ package proxy
 
 import (
 	"bytes"
+	"context"
 	"crypto/tls"
 	"io"
 	"net"
@@ -9,6 +10,7 @@ import (
 	"time"
 
 	"github.com/lqqyt2423/go-mitmproxy/addon"
+	"github.com/lqqyt2423/go-mitmproxy/connection"
 	"github.com/lqqyt2423/go-mitmproxy/flow"
 	_log "github.com/sirupsen/logrus"
 )
@@ -39,6 +41,13 @@ func NewProxy(opts *Options) (*Proxy, error) {
 		Addr:        opts.Addr,
 		Handler:     proxy,
 		IdleTimeout: 5 * time.Second,
+		ConnContext: func(ctx context.Context, c net.Conn) context.Context {
+			client := connection.NewClient(c)
+			for _, addon := range proxy.Addons {
+				addon.ClientConnected(client)
+			}
+			return ctx
+		},
 	}
 
 	proxy.Client = &http.Client{

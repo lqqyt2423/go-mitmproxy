@@ -3,6 +3,7 @@ package addon
 import (
 	"time"
 
+	"github.com/lqqyt2423/go-mitmproxy/connection"
 	"github.com/lqqyt2423/go-mitmproxy/flow"
 	_log "github.com/sirupsen/logrus"
 )
@@ -10,6 +11,9 @@ import (
 var log = _log.WithField("at", "addon")
 
 type Addon interface {
+	// A client has connected to mitmproxy. Note that a connection can correspond to multiple HTTP requests.
+	ClientConnected(*connection.Client)
+
 	// HTTP request headers were successfully read. At this point, the body is empty.
 	Requestheaders(*flow.Flow)
 
@@ -26,6 +30,8 @@ type Addon interface {
 // Base do nothing
 type Base struct{}
 
+func (addon *Base) ClientConnected(*connection.Client) {}
+
 func (addon *Base) Requestheaders(*flow.Flow)  {}
 func (addon *Base) Request(*flow.Flow)         {}
 func (addon *Base) Responseheaders(*flow.Flow) {}
@@ -34,6 +40,10 @@ func (addon *Base) Response(*flow.Flow)        {}
 // Log log http record
 type Log struct {
 	Base
+}
+
+func (addon *Log) ClientConnected(client *connection.Client) {
+	log.Infof("%v client connect\n", client.Conn.RemoteAddr())
 }
 
 func (addon *Log) Requestheaders(f *flow.Flow) {
