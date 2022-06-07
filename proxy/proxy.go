@@ -2,6 +2,7 @@ package proxy
 
 import (
 	"bytes"
+	"context"
 	"crypto/tls"
 	"io"
 	"net"
@@ -31,11 +32,7 @@ type Proxy struct {
 	StreamLargeBodies int64 // 当请求或响应体大于此字节时，转为 stream 模式
 	Addons            []addon.Addon
 
-	activeConn map[net.Conn]*proxyContext
-}
-
-type proxyContext struct {
-	client *connection.Client
+	activeConn map[net.Conn]*flow.ConnContext
 }
 
 func NewProxy(opts *Options) (*Proxy, error) {
@@ -46,13 +43,19 @@ func NewProxy(opts *Options) (*Proxy, error) {
 		Addr:        opts.Addr,
 		Handler:     proxy,
 		IdleTimeout: 5 * time.Second,
+
+		ConnContext: func(ctx context.Context, c net.Conn) context.Context {
+			client := connection.NewClient(c)
+			connCtx := &flow.ConnContext{
+				Client: client,
+			}
+			proxy.activeConn[c] = connCtx
+			return context.WithValue(ctx, flow.ConnContextKey, connCtx)
+		},
+
 		ConnState: func(c net.Conn, cs http.ConnState) {
 			if cs == http.StateNew {
-				client := connection.NewClient(c)
-				proxy.activeConn[c] = &proxyContext{
-					client,
-				}
-
+				client := proxy.activeConn[c].Client
 				for _, addon := range proxy.Addons {
 					addon.ClientConnected(client)
 				}
@@ -101,7 +104,7 @@ func NewProxy(opts *Options) (*Proxy, error) {
 
 	proxy.Addons = make([]addon.Addon, 0)
 
-	proxy.activeConn = make(map[net.Conn]*proxyContext)
+	proxy.activeConn = make(map[net.Conn]*flow.ConnContext)
 
 	return proxy, nil
 }
@@ -183,6 +186,7 @@ func (proxy *Proxy) ServeHTTP(res http.ResponseWriter, req *http.Request) {
 
 	f := flow.NewFlow()
 	f.Request = flow.NewRequest(req)
+	f.ConnContext = req.Context().Value(flow.ConnContextKey).(*flow.ConnContext)
 	defer f.Finish()
 
 	// trigger addon event Requestheaders
@@ -323,7 +327,7 @@ func (proxy *Proxy) handleConnect(res http.ResponseWriter, req *http.Request) {
 }
 
 func (proxy *Proxy) whenClientConnClose(c net.Conn) {
-	client := proxy.activeConn[c].client
+	client := proxy.activeConn[c].Client
 	for _, addon := range proxy.Addons {
 		addon.ClientDisconnected(client)
 	}

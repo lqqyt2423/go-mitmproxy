@@ -2,6 +2,7 @@ package proxy
 
 import (
 	"bufio"
+	"context"
 	"crypto/tls"
 	"net"
 	"net/http"
@@ -9,6 +10,7 @@ import (
 	"time"
 
 	"github.com/lqqyt2423/go-mitmproxy/cert"
+	"github.com/lqqyt2423/go-mitmproxy/flow"
 )
 
 // 模拟了标准库中 server 运行，目的是仅通过当前进程内存转发 socket 数据，不需要经过 tcp 或 unix socket
@@ -39,17 +41,19 @@ func newPipes(req *http.Request) (net.Conn, *connBuf) {
 // add Peek method for conn
 type connBuf struct {
 	net.Conn
-	r          *bufio.Reader
-	host       string
-	remoteAddr string
+	r           *bufio.Reader
+	host        string
+	remoteAddr  string
+	connContext *flow.ConnContext
 }
 
 func newConnBuf(c net.Conn, req *http.Request) *connBuf {
 	return &connBuf{
-		Conn:       c,
-		r:          bufio.NewReader(c),
-		host:       req.Host,
-		remoteAddr: req.RemoteAddr,
+		Conn:        c,
+		r:           bufio.NewReader(c),
+		host:        req.Host,
+		remoteAddr:  req.RemoteAddr,
+		connContext: req.Context().Value(flow.ConnContextKey).(*flow.ConnContext),
 	}
 }
 
@@ -85,8 +89,13 @@ func NewMiddle(proxy *Proxy, caPath string) (Interceptor, error) {
 	}
 
 	server := &http.Server{
-		Handler:      m,
-		IdleTimeout:  5 * time.Second,
+		Handler:     m,
+		IdleTimeout: 5 * time.Second,
+
+		ConnContext: func(ctx context.Context, c net.Conn) context.Context {
+			return context.WithValue(ctx, flow.ConnContextKey, c.(*tls.Conn).NetConn().(*connBuf).connContext)
+		},
+
 		TLSNextProto: make(map[string]func(*http.Server, *tls.Conn, http.Handler)), // disable http2
 		TLSConfig: &tls.Config{
 			GetCertificate: func(chi *tls.ClientHelloInfo) (*tls.Certificate, error) {

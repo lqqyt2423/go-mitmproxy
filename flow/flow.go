@@ -112,7 +112,8 @@ type Flow struct {
 	Stream bool
 	done   chan struct{}
 
-	Id uuid.UUID
+	Id          uuid.UUID
+	ConnContext *ConnContext
 }
 
 func (f *Flow) MarshalJSON() ([]byte, error) {
