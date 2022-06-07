@@ -112,8 +112,7 @@ type Flow struct {
 	Stream bool
 	done   chan struct{}
 
-	Id    uuid.UUID
-	State map[string]interface{} // Can add value by addon
+	Id uuid.UUID
 }
 
 func (f *Flow) MarshalJSON() ([]byte, error) {
@@ -126,9 +125,8 @@ func (f *Flow) MarshalJSON() ([]byte, error) {
 
 func NewFlow() *Flow {
 	return &Flow{
-		done:  make(chan struct{}),
-		Id:    uuid.NewV4(),
-		State: make(map[string]interface{}),
+		done: make(chan struct{}),
+		Id:   uuid.NewV4(),
 	}
 }
 
