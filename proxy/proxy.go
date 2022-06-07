@@ -2,7 +2,6 @@ package proxy
 
 import (
 	"bytes"
-	"context"
 	"crypto/tls"
 	"io"
 	"net"
@@ -31,6 +30,12 @@ type Proxy struct {
 	Interceptor       Interceptor
 	StreamLargeBodies int64 // 当请求或响应体大于此字节时，转为 stream 模式
 	Addons            []addon.Addon
+
+	activeConn map[net.Conn]*proxyContext
+}
+
+type proxyContext struct {
+	client *connection.Client
 }
 
 func NewProxy(opts *Options) (*Proxy, error) {
@@ -41,12 +46,19 @@ func NewProxy(opts *Options) (*Proxy, error) {
 		Addr:        opts.Addr,
 		Handler:     proxy,
 		IdleTimeout: 5 * time.Second,
-		ConnContext: func(ctx context.Context, c net.Conn) context.Context {
-			client := connection.NewClient(c)
-			for _, addon := range proxy.Addons {
-				addon.ClientConnected(client)
+		ConnState: func(c net.Conn, cs http.ConnState) {
+			if cs == http.StateNew {
+				client := connection.NewClient(c)
+				proxy.activeConn[c] = &proxyContext{
+					client,
+				}
+
+				for _, addon := range proxy.Addons {
+					addon.ClientConnected(client)
+				}
+			} else if cs == http.StateClosed {
+				proxy.whenClientConnClose(c)
 			}
-			return ctx
 		},
 	}
 
@@ -88,6 +100,8 @@ func NewProxy(opts *Options) (*Proxy, error) {
 	}
 
 	proxy.Addons = make([]addon.Addon, 0)
+
+	proxy.activeConn = make(map[net.Conn]*proxyContext)
 
 	return proxy, nil
 }
@@ -294,7 +308,10 @@ func (proxy *Proxy) handleConnect(res http.ResponseWriter, req *http.Request) {
 
 	cconn.(*net.TCPConn).SetLinger(0) // send RST other than FIN when finished, to avoid TIME_WAIT state
 	cconn.(*net.TCPConn).SetKeepAlive(false)
-	defer cconn.Close()
+	defer func() {
+		cconn.Close()
+		proxy.whenClientConnClose(cconn)
+	}()
 
 	_, err = io.WriteString(cconn, "HTTP/1.1 200 Connection Established\r\n\r\n")
 	if err != nil {
@@ -303,4 +320,13 @@ func (proxy *Proxy) handleConnect(res http.ResponseWriter, req *http.Request) {
 	}
 
 	Transfer(log, conn, cconn)
+}
+
+func (proxy *Proxy) whenClientConnClose(c net.Conn) {
+	client := proxy.activeConn[c].client
+	for _, addon := range proxy.Addons {
+		addon.ClientDisconnected(client)
+	}
+
+	delete(proxy.activeConn, c)
 }

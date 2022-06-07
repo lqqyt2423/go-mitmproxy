@@ -14,6 +14,9 @@ type Addon interface {
 	// A client has connected to mitmproxy. Note that a connection can correspond to multiple HTTP requests.
 	ClientConnected(*connection.Client)
 
+	// A client connection has been closed (either by us or the client).
+	ClientDisconnected(*connection.Client)
+
 	// HTTP request headers were successfully read. At this point, the body is empty.
 	Requestheaders(*flow.Flow)
 
@@ -30,7 +33,8 @@ type Addon interface {
 // Base do nothing
 type Base struct{}
 
-func (addon *Base) ClientConnected(*connection.Client) {}
+func (addon *Base) ClientConnected(*connection.Client)    {}
+func (addon *Base) ClientDisconnected(*connection.Client) {}
 
 func (addon *Base) Requestheaders(*flow.Flow)  {}
 func (addon *Base) Request(*flow.Flow)         {}
@@ -44,6 +48,10 @@ type Log struct {
 
 func (addon *Log) ClientConnected(client *connection.Client) {
 	log.Infof("%v client connect\n", client.Conn.RemoteAddr())
+}
+
+func (addon *Log) ClientDisconnected(client *connection.Client) {
+	log.Infof("%v client disconnect\n", client.Conn.RemoteAddr())
 }
 
 func (addon *Log) Requestheaders(f *flow.Flow) {
