@@ -154,6 +154,7 @@ func (m *Middle) intercept(serverConn *connBuf) {
 	if buf[0] == 0x16 && buf[1] == 0x03 && buf[2] <= 0x03 {
 		// tls
 		serverConn.connContext.Client.Tls = true
+		serverConn.connContext.InitHttpsServer(m.Proxy.Opts.SslInsecure)
 		m.Listener.(*listener).connChan <- serverConn
 	} else {
 		// ws

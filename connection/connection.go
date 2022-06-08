@@ -2,6 +2,7 @@ package connection
 
 import (
 	"net"
+	"net/http"
 
 	uuid "github.com/satori/go.uuid"
 )
@@ -17,5 +18,16 @@ func NewClient(c net.Conn) *Client {
 		Id:   uuid.NewV4(),
 		Conn: c,
 		Tls:  false,
+	}
+}
+
+type Server struct {
+	Id     uuid.UUID
+	Client *http.Client
+}
+
+func NewServer() *Server {
+	return &Server{
+		Id: uuid.NewV4(),
 	}
 }
