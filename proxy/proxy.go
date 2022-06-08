@@ -17,6 +17,7 @@ import (
 var log = _log.WithField("at", "proxy")
 
 type Options struct {
+	Debug             int
 	Addr              string
 	StreamLargeBodies int64 // 当请求或响应体大于此字节时，转为 stream 模式
 	SslInsecure       bool

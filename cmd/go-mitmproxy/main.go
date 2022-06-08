@@ -3,9 +3,7 @@ package main
 import (
 	"flag"
 	"fmt"
-
-	// slog "log"
-
+	rawLog "log"
 	"os"
 
 	"github.com/lqqyt2423/go-mitmproxy/addon"
@@ -16,6 +14,7 @@ import (
 )
 
 type Config struct {
+	debug    int
 	version  bool
 	certPath string
 
@@ -32,6 +31,7 @@ type Config struct {
 func loadConfig() *Config {
 	config := new(Config)
 
+	flag.IntVar(&config.debug, "debug", 0, "debug mode: 1 - print debug log, 2 - show debug from")
 	flag.BoolVar(&config.version, "version", false, "show version")
 	flag.StringVar(&config.addr, "addr", ":9080", "proxy listen addr")
 	flag.StringVar(&config.webAddr, "web_addr", ":9081", "web interface listen addr")
@@ -48,18 +48,22 @@ func loadConfig() *Config {
 func main() {
 	config := loadConfig()
 
-	// for debug
-	// slog.SetFlags(slog.LstdFlags | slog.Lshortfile)
-	// log.SetReportCaller(true)
-
-	log.SetLevel(log.InfoLevel)
-	log.SetReportCaller(false)
+	if config.debug > 0 {
+		rawLog.SetFlags(rawLog.LstdFlags | rawLog.Lshortfile)
+		log.SetLevel(log.DebugLevel)
+	} else {
+		log.SetLevel(log.InfoLevel)
+	}
+	if config.debug == 2 {
+		log.SetReportCaller(true)
+	}
 	log.SetOutput(os.Stdout)
 	log.SetFormatter(&log.TextFormatter{
 		FullTimestamp: true,
 	})
 
 	opts := &proxy.Options{
+		Debug:             config.debug,
 		Addr:              config.addr,
 		StreamLargeBodies: 1024 * 1024 * 5,
 		SslInsecure:       config.ssl_insecure,
