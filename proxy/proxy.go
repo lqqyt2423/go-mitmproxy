@@ -6,10 +6,9 @@ import (
 	"io"
 	"net"
 	"net/http"
-	"time"
+	"sync"
 
 	"github.com/lqqyt2423/go-mitmproxy/addon"
-	"github.com/lqqyt2423/go-mitmproxy/connection"
 	"github.com/lqqyt2423/go-mitmproxy/flow"
 	_log "github.com/sirupsen/logrus"
 )
@@ -30,8 +29,42 @@ type Proxy struct {
 	Server      *http.Server
 	Interceptor Interceptor
 	Addons      []addon.Addon
+}
 
-	activeConn map[net.Conn]*flow.ConnContext
+type proxyListener struct {
+	net.Listener
+	proxy *Proxy
+}
+
+func (l *proxyListener) Accept() (net.Conn, error) {
+	c, err := l.Listener.Accept()
+	if err != nil {
+		return nil, err
+	}
+
+	return &proxyConn{
+		Conn:  c,
+		proxy: l.proxy,
+	}, nil
+}
+
+type proxyConn struct {
+	net.Conn
+	proxy     *Proxy
+	connCtx   *flow.ConnContext
+	closeOnce sync.Once
+}
+
+func (c *proxyConn) Close() error {
+	log.Debugln("in proxyConn close")
+
+	c.closeOnce.Do(func() {
+		for _, addon := range c.proxy.Addons {
+			addon.ClientDisconnected(c.connCtx.Client)
+		}
+	})
+
+	return c.Conn.Close()
 }
 
 func NewProxy(opts *Options) (*Proxy, error) {
@@ -40,28 +73,17 @@ func NewProxy(opts *Options) (*Proxy, error) {
 	proxy.Version = "0.2.0"
 
 	proxy.Server = &http.Server{
-		Addr:        opts.Addr,
-		Handler:     proxy,
-		IdleTimeout: 5 * time.Second,
+		Addr:    opts.Addr,
+		Handler: proxy,
+		// IdleTimeout: 5 * time.Second,
 
 		ConnContext: func(ctx context.Context, c net.Conn) context.Context {
-			client := connection.NewClient(c)
-			connCtx := &flow.ConnContext{
-				Client: client,
+			connCtx := flow.NewConnContext(c)
+			for _, addon := range proxy.Addons {
+				addon.ClientConnected(connCtx.Client)
 			}
-			proxy.activeConn[c] = connCtx
+			c.(*proxyConn).connCtx = connCtx
 			return context.WithValue(ctx, flow.ConnContextKey, connCtx)
-		},
-
-		ConnState: func(c net.Conn, cs http.ConnState) {
-			if cs == http.StateNew {
-				client := proxy.activeConn[c].Client
-				for _, addon := range proxy.Addons {
-					addon.ClientConnected(client)
-				}
-			} else if cs == http.StateClosed {
-				proxy.whenClientConnClose(c)
-			}
 		},
 	}
 
@@ -77,8 +99,6 @@ func NewProxy(opts *Options) (*Proxy, error) {
 
 	proxy.Addons = make([]addon.Addon, 0)
 
-	proxy.activeConn = make(map[net.Conn]*flow.ConnContext)
-
 	return proxy, nil
 }
 
@@ -91,7 +111,20 @@ func (proxy *Proxy) Start() error {
 
 	go func() {
 		log.Infof("Proxy start listen at %v\n", proxy.Server.Addr)
-		err := proxy.Server.ListenAndServe()
+		addr := proxy.Server.Addr
+		if addr == "" {
+			addr = ":http"
+		}
+		ln, err := net.Listen("tcp", addr)
+		if err != nil {
+			errChan <- err
+			return
+		}
+		pln := &proxyListener{
+			Listener: ln,
+			proxy:    proxy,
+		}
+		err = proxy.Server.Serve(pln)
 		errChan <- err
 	}()
 
@@ -286,11 +319,10 @@ func (proxy *Proxy) handleConnect(res http.ResponseWriter, req *http.Request) {
 		return
 	}
 
-	cconn.(*net.TCPConn).SetLinger(0) // send RST other than FIN when finished, to avoid TIME_WAIT state
-	cconn.(*net.TCPConn).SetKeepAlive(false)
+	// cconn.(*net.TCPConn).SetLinger(0) // send RST other than FIN when finished, to avoid TIME_WAIT state
+	// cconn.(*net.TCPConn).SetKeepAlive(false)
 	defer func() {
 		cconn.Close()
-		proxy.whenClientConnClose(cconn)
 	}()
 
 	_, err = io.WriteString(cconn, "HTTP/1.1 200 Connection Established\r\n\r\n")
@@ -300,16 +332,4 @@ func (proxy *Proxy) handleConnect(res http.ResponseWriter, req *http.Request) {
 	}
 
 	Transfer(log, conn, cconn)
-}
-
-func (proxy *Proxy) whenClientConnClose(c net.Conn) {
-	connCtx := proxy.activeConn[c]
-
-	for _, addon := range proxy.Addons {
-		addon.ClientDisconnected(connCtx.Client)
-	}
-
-	connCtx.Server.Client.CloseIdleConnections()
-
-	delete(proxy.activeConn, c)
 }

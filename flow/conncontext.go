@@ -1,10 +1,10 @@
 package flow
 
 import (
+	"context"
 	"crypto/tls"
 	"net"
 	"net/http"
-	"time"
 
 	"github.com/lqqyt2423/go-mitmproxy/connection"
 )
@@ -14,6 +14,22 @@ var ConnContextKey = new(struct{})
 type ConnContext struct {
 	Client *connection.Client
 	Server *connection.Server
+}
+
+func NewConnContext(c net.Conn) *ConnContext {
+	client := connection.NewClient(c)
+	return &ConnContext{
+		Client: client,
+	}
+}
+
+type serverConn struct {
+	net.Conn
+}
+
+func (c *serverConn) Close() error {
+	log.Debugln("in http serverConn close")
+	return c.Conn.Close()
 }
 
 func (connCtx *ConnContext) InitHttpServer(SslInsecure bool) {
@@ -30,10 +46,19 @@ func (connCtx *ConnContext) InitHttpServer(SslInsecure bool) {
 			Proxy: http.ProxyFromEnvironment,
 
 			// todo: change here
-			DialContext: (&net.Dialer{
-				Timeout:   30 * time.Second,
-				KeepAlive: 30 * time.Second,
-			}).DialContext,
+			DialContext: func(ctx context.Context, network, addr string) (net.Conn, error) {
+				c, err := (&net.Dialer{
+					// Timeout:   30 * time.Second,
+					// KeepAlive: 30 * time.Second,
+				}).DialContext(ctx, network, addr)
+				if err != nil {
+					return nil, err
+				}
+
+				cw := &serverConn{c}
+				server.Conn = cw
+				return cw, nil
+			},
 			ForceAttemptHTTP2: false, // disable http2
 
 			DisableCompression: true, // To get the original response from the server, set Transport.DisableCompression to true.
@@ -65,8 +90,8 @@ func (connCtx *ConnContext) InitHttpsServer(SslInsecure bool) {
 
 			// todo: change here
 			DialContext: (&net.Dialer{
-				Timeout:   30 * time.Second,
-				KeepAlive: 30 * time.Second,
+				// Timeout:   30 * time.Second,
+				// KeepAlive: 30 * time.Second,
 			}).DialContext,
 			ForceAttemptHTTP2: false, // disable http2
 

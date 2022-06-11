@@ -16,13 +16,13 @@ import (
 // 模拟了标准库中 server 运行，目的是仅通过当前进程内存转发 socket 数据，不需要经过 tcp 或 unix socket
 
 // mock net.Listener
-type listener struct {
+type middleListener struct {
 	connChan chan net.Conn
 }
 
-func (l *listener) Accept() (net.Conn, error) { return <-l.connChan, nil }
-func (l *listener) Close() error              { return nil }
-func (l *listener) Addr() net.Addr            { return nil }
+func (l *middleListener) Accept() (net.Conn, error) { return <-l.connChan, nil }
+func (l *middleListener) Close() error              { return nil }
+func (l *middleListener) Addr() net.Addr            { return nil }
 
 type pipeAddr struct {
 	remoteAddr string
@@ -106,7 +106,7 @@ func NewMiddle(proxy *Proxy, caPath string) (Interceptor, error) {
 	}
 
 	m.Server = server
-	m.Listener = &listener{make(chan net.Conn)}
+	m.Listener = &middleListener{make(chan net.Conn)}
 
 	return m, nil
 }
@@ -155,7 +155,7 @@ func (m *Middle) intercept(serverConn *connBuf) {
 		// tls
 		serverConn.connContext.Client.Tls = true
 		serverConn.connContext.InitHttpsServer(m.Proxy.Opts.SslInsecure)
-		m.Listener.(*listener).connChan <- serverConn
+		m.Listener.(*middleListener).connChan <- serverConn
 	} else {
 		// ws
 		DefaultWebSocket.WS(serverConn, serverConn.host)

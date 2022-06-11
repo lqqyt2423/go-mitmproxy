@@ -23,6 +23,7 @@ func NewClient(c net.Conn) *Client {
 
 type Server struct {
 	Id     uuid.UUID
+	Conn   net.Conn
 	Client *http.Client
 }
 
