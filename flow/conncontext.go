@@ -23,7 +23,7 @@ func NewConnContext(c net.Conn) *ConnContext {
 	}
 }
 
-func (connCtx *ConnContext) InitHttpServer(sslInsecure bool, connWrap func(net.Conn) net.Conn, whenServerConnected func()) {
+func (connCtx *ConnContext) InitHttpServer(sslInsecure bool, connWrap func(net.Conn) net.Conn, whenConnected func()) {
 	if connCtx.Server != nil {
 		return
 	}
@@ -48,7 +48,7 @@ func (connCtx *ConnContext) InitHttpServer(sslInsecure bool, connWrap func(net.C
 
 				cw := connWrap(c)
 				server.Conn = cw
-				defer whenServerConnected()
+				defer whenConnected()
 				return cw, nil
 			},
 			ForceAttemptHTTP2: false, // disable http2
@@ -67,7 +67,7 @@ func (connCtx *ConnContext) InitHttpServer(sslInsecure bool, connWrap func(net.C
 	connCtx.Server = server
 }
 
-func (connCtx *ConnContext) InitHttpsServer(sslInsecure bool) {
+func (connCtx *ConnContext) InitHttpsServer(sslInsecure bool, connWrap func(net.Conn) net.Conn, whenConnected func()) {
 	if connCtx.Server != nil {
 		return
 	}
@@ -80,18 +80,33 @@ func (connCtx *ConnContext) InitHttpsServer(sslInsecure bool) {
 		Transport: &http.Transport{
 			Proxy: http.ProxyFromEnvironment,
 
-			// todo: change here
-			DialContext: (&net.Dialer{
-				// Timeout:   30 * time.Second,
-				// KeepAlive: 30 * time.Second,
-			}).DialContext,
+			DialTLSContext: func(ctx context.Context, network, addr string) (net.Conn, error) {
+				log.Debugln("in https DialTLSContext")
+
+				plainConn, err := (&net.Dialer{}).DialContext(ctx, network, addr)
+				if err != nil {
+					return nil, err
+				}
+
+				cw := connWrap(plainConn)
+				server.Conn = cw
+				whenConnected()
+
+				firstTLSHost, _, err := net.SplitHostPort(addr)
+				if err != nil {
+					return nil, err
+				}
+				cfg := &tls.Config{
+					InsecureSkipVerify: sslInsecure,
+					KeyLogWriter:       GetTlsKeyLogWriter(),
+					ServerName:         firstTLSHost,
+				}
+				tlsConn := tls.Client(cw, cfg)
+				return tlsConn, nil
+			},
 			ForceAttemptHTTP2: false, // disable http2
 
 			DisableCompression: true, // To get the original response from the server, set Transport.DisableCompression to true.
-			TLSClientConfig: &tls.Config{
-				InsecureSkipVerify: sslInsecure,
-				KeyLogWriter:       GetTlsKeyLogWriter(),
-			},
 		},
 		CheckRedirect: func(req *http.Request, via []*http.Request) error {
 			// 禁止自动重定向
