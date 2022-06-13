@@ -63,11 +63,11 @@ func (addon *Log) ClientDisconnected(client *connection.Client) {
 }
 
 func (addon *Log) ServerConnected(connCtx *flow.ConnContext) {
-	log.Infof("%v server connect %v\n", connCtx.Client.Conn.RemoteAddr(), connCtx.Server.Conn.RemoteAddr())
+	log.Infof("%v server connect %v (%v)\n", connCtx.Client.Conn.RemoteAddr(), connCtx.Server.Address, connCtx.Server.Conn.RemoteAddr())
 }
 
 func (addon *Log) ServerDisconnected(connCtx *flow.ConnContext) {
-	log.Infof("%v server disconnect %v\n", connCtx.Client.Conn.RemoteAddr(), connCtx.Server.Conn.RemoteAddr())
+	log.Infof("%v server disconnect %v (%v)\n", connCtx.Client.Conn.RemoteAddr(), connCtx.Server.Address, connCtx.Server.Conn.RemoteAddr())
 }
 
 func (addon *Log) Requestheaders(f *flow.Flow) {

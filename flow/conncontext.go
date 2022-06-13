@@ -48,6 +48,7 @@ func (connCtx *ConnContext) InitHttpServer(sslInsecure bool, connWrap func(net.C
 
 				cw := connWrap(c)
 				server.Conn = cw
+				server.Address = addr
 				defer whenConnected()
 				return cw, nil
 			},
@@ -90,6 +91,7 @@ func (connCtx *ConnContext) InitHttpsServer(sslInsecure bool, connWrap func(net.
 
 				cw := connWrap(plainConn)
 				server.Conn = cw
+				server.Address = addr
 				whenConnected()
 
 				firstTLSHost, _, err := net.SplitHostPort(addr)

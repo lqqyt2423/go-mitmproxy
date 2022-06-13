@@ -22,9 +22,10 @@ func NewClient(c net.Conn) *Client {
 }
 
 type Server struct {
-	Id     uuid.UUID
-	Conn   net.Conn
-	Client *http.Client
+	Id      uuid.UUID
+	Conn    net.Conn
+	Client  *http.Client
+	Address string
 }
 
 func NewServer() *Server {
