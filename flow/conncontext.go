@@ -23,16 +23,7 @@ func NewConnContext(c net.Conn) *ConnContext {
 	}
 }
 
-type serverConn struct {
-	net.Conn
-}
-
-func (c *serverConn) Close() error {
-	log.Debugln("in http serverConn close")
-	return c.Conn.Close()
-}
-
-func (connCtx *ConnContext) InitHttpServer(SslInsecure bool) {
+func (connCtx *ConnContext) InitHttpServer(sslInsecure bool, connWrap func(net.Conn) net.Conn, whenServerConnected func()) {
 	if connCtx.Server != nil {
 		return
 	}
@@ -55,15 +46,16 @@ func (connCtx *ConnContext) InitHttpServer(SslInsecure bool) {
 					return nil, err
 				}
 
-				cw := &serverConn{c}
+				cw := connWrap(c)
 				server.Conn = cw
+				defer whenServerConnected()
 				return cw, nil
 			},
 			ForceAttemptHTTP2: false, // disable http2
 
 			DisableCompression: true, // To get the original response from the server, set Transport.DisableCompression to true.
 			TLSClientConfig: &tls.Config{
-				InsecureSkipVerify: SslInsecure,
+				InsecureSkipVerify: sslInsecure,
 				KeyLogWriter:       GetTlsKeyLogWriter(),
 			},
 		},
@@ -75,7 +67,7 @@ func (connCtx *ConnContext) InitHttpServer(SslInsecure bool) {
 	connCtx.Server = server
 }
 
-func (connCtx *ConnContext) InitHttpsServer(SslInsecure bool) {
+func (connCtx *ConnContext) InitHttpsServer(sslInsecure bool) {
 	if connCtx.Server != nil {
 		return
 	}
@@ -97,7 +89,7 @@ func (connCtx *ConnContext) InitHttpsServer(SslInsecure bool) {
 
 			DisableCompression: true, // To get the original response from the server, set Transport.DisableCompression to true.
 			TLSClientConfig: &tls.Config{
-				InsecureSkipVerify: SslInsecure,
+				InsecureSkipVerify: sslInsecure,
 				KeyLogWriter:       GetTlsKeyLogWriter(),
 			},
 		},

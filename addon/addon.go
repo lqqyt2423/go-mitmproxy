@@ -17,6 +17,12 @@ type Addon interface {
 	// A client connection has been closed (either by us or the client).
 	ClientDisconnected(*connection.Client)
 
+	// Mitmproxy has connected to a server.
+	ServerConnected(*flow.ConnContext)
+
+	// A server connection has been closed (either by us or the server).
+	ServerDisconnected(*flow.ConnContext)
+
 	// HTTP request headers were successfully read. At this point, the body is empty.
 	Requestheaders(*flow.Flow)
 
@@ -35,6 +41,8 @@ type Base struct{}
 
 func (addon *Base) ClientConnected(*connection.Client)    {}
 func (addon *Base) ClientDisconnected(*connection.Client) {}
+func (addon *Base) ServerConnected(*flow.ConnContext)     {}
+func (addon *Base) ServerDisconnected(*flow.ConnContext)  {}
 
 func (addon *Base) Requestheaders(*flow.Flow)  {}
 func (addon *Base) Request(*flow.Flow)         {}
@@ -52,6 +60,14 @@ func (addon *Log) ClientConnected(client *connection.Client) {
 
 func (addon *Log) ClientDisconnected(client *connection.Client) {
 	log.Infof("%v client disconnect\n", client.Conn.RemoteAddr())
+}
+
+func (addon *Log) ServerConnected(connCtx *flow.ConnContext) {
+	log.Infof("%v server connect %v\n", connCtx.Client.Conn.RemoteAddr(), connCtx.Server.Conn.RemoteAddr())
+}
+
+func (addon *Log) ServerDisconnected(connCtx *flow.ConnContext) {
+	log.Infof("%v server disconnect %v\n", connCtx.Client.Conn.RemoteAddr(), connCtx.Server.Conn.RemoteAddr())
 }
 
 func (addon *Log) Requestheaders(f *flow.Flow) {

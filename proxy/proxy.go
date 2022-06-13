@@ -6,7 +6,6 @@ import (
 	"io"
 	"net"
 	"net/http"
-	"sync"
 
 	"github.com/lqqyt2423/go-mitmproxy/addon"
 	"github.com/lqqyt2423/go-mitmproxy/flow"
@@ -50,21 +49,56 @@ func (l *proxyListener) Accept() (net.Conn, error) {
 
 type proxyConn struct {
 	net.Conn
-	proxy     *Proxy
-	connCtx   *flow.ConnContext
-	closeOnce sync.Once
+	proxy    *Proxy
+	connCtx  *flow.ConnContext
+	closed   bool
+	closeErr error
 }
 
 func (c *proxyConn) Close() error {
 	log.Debugln("in proxyConn close")
+	if c.closed {
+		return c.closeErr
+	}
 
-	c.closeOnce.Do(func() {
-		for _, addon := range c.proxy.Addons {
-			addon.ClientDisconnected(c.connCtx.Client)
-		}
-	})
+	c.closed = true
+	c.closeErr = c.Conn.Close()
 
-	return c.Conn.Close()
+	for _, addon := range c.proxy.Addons {
+		addon.ClientDisconnected(c.connCtx.Client)
+	}
+
+	if c.connCtx.Server != nil && c.connCtx.Server.Conn != nil {
+		c.connCtx.Server.Conn.Close()
+	}
+
+	return c.closeErr
+}
+
+type serverConn struct {
+	net.Conn
+	proxy    *Proxy
+	connCtx  *flow.ConnContext
+	closed   bool
+	closeErr error
+}
+
+func (c *serverConn) Close() error {
+	log.Debugln("in http serverConn close")
+	if c.closed {
+		return c.closeErr
+	}
+
+	c.closed = true
+	c.closeErr = c.Conn.Close()
+
+	for _, addon := range c.proxy.Addons {
+		addon.ServerDisconnected(c.connCtx)
+	}
+
+	c.connCtx.Client.Conn.Close()
+
+	return c.closeErr
 }
 
 func NewProxy(opts *Options) (*Proxy, error) {
@@ -246,7 +280,21 @@ func (proxy *Proxy) ServeHTTP(res http.ResponseWriter, req *http.Request) {
 		}
 	}
 
-	f.ConnContext.InitHttpServer(proxy.Opts.SslInsecure)
+	f.ConnContext.InitHttpServer(
+		proxy.Opts.SslInsecure,
+		func(c net.Conn) net.Conn {
+			return &serverConn{
+				Conn:    c,
+				proxy:   proxy,
+				connCtx: f.ConnContext,
+			}
+		},
+		func() {
+			for _, addon := range proxy.Addons {
+				addon.ServerConnected(f.ConnContext)
+			}
+		},
+	)
 
 	proxyRes, err := f.ConnContext.Server.Client.Do(proxyReq)
 	if err != nil {
