@@ -38,7 +38,7 @@ func LogErr(log *_log.Entry, err error) (loged bool) {
 // 转发流量
 // Read a => Write b
 // Read b => Write a
-func Transfer(log *_log.Entry, a, b io.ReadWriteCloser) {
+func transfer(log *_log.Entry, a, b io.ReadWriteCloser) {
 	done := make(chan struct{})
 	defer close(done)
 

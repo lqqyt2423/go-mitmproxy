@@ -369,9 +369,7 @@ func (proxy *Proxy) handleConnect(res http.ResponseWriter, req *http.Request) {
 
 	// cconn.(*net.TCPConn).SetLinger(0) // send RST other than FIN when finished, to avoid TIME_WAIT state
 	// cconn.(*net.TCPConn).SetKeepAlive(false)
-	defer func() {
-		cconn.Close()
-	}()
+	defer cconn.Close()
 
 	_, err = io.WriteString(cconn, "HTTP/1.1 200 Connection Established\r\n\r\n")
 	if err != nil {
@@ -379,5 +377,5 @@ func (proxy *Proxy) handleConnect(res http.ResponseWriter, req *http.Request) {
 		return
 	}
 
-	Transfer(log, conn, cconn)
+	transfer(log, conn, cconn)
 }

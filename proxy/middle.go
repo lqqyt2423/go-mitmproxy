@@ -7,7 +7,6 @@ import (
 	"net"
 	"net/http"
 	"strings"
-	"time"
 
 	"github.com/lqqyt2423/go-mitmproxy/cert"
 	"github.com/lqqyt2423/go-mitmproxy/flow"
@@ -89,8 +88,8 @@ func NewMiddle(proxy *Proxy, caPath string) (Interceptor, error) {
 	}
 
 	server := &http.Server{
-		Handler:     m,
-		IdleTimeout: 5 * time.Second,
+		Handler: m,
+		// IdleTimeout: 5 * time.Second,
 
 		ConnContext: func(ctx context.Context, c net.Conn) context.Context {
 			return context.WithValue(ctx, flow.ConnContextKey, c.(*tls.Conn).NetConn().(*pipeConn).connContext)
@@ -115,6 +114,7 @@ func (m *Middle) Start() error {
 	return m.Server.ServeTLS(m.Listener, "", "")
 }
 
+// todo: should block until ServerConnected
 func (m *Middle) Dial(req *http.Request) (net.Conn, error) {
 	pipeClientConn, pipeServerConn := newPipes(req)
 	go m.intercept(pipeServerConn)

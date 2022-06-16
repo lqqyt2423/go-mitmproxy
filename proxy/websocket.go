@@ -24,7 +24,7 @@ func (s *WebSocket) WS(conn net.Conn, host string) {
 		return
 	}
 	defer remoteConn.Close()
-	Transfer(log, conn, remoteConn)
+	transfer(log, conn, remoteConn)
 }
 
 func (s *WebSocket) WSS(res http.ResponseWriter, req *http.Request) {
@@ -61,5 +61,5 @@ func (s *WebSocket) WSS(res http.ResponseWriter, req *http.Request) {
 		log.Errorf("wss upgrade: %v\n", err)
 		return
 	}
-	Transfer(log, conn, cconn)
+	transfer(log, conn, cconn)
 }
