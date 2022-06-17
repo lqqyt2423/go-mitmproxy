@@ -9,6 +9,7 @@ import (
 	"strings"
 
 	"github.com/lqqyt2423/go-mitmproxy/cert"
+	log "github.com/sirupsen/logrus"
 )
 
 // 模拟了标准库中 server 运行，目的是仅通过当前进程内存转发 socket 数据，不需要经过 tcp 或 unix socket
@@ -150,7 +151,7 @@ func (m *middle) intercept(pipeServerConn *pipeConn) {
 	if buf[0] == 0x16 && buf[1] == 0x03 && buf[2] <= 0x03 {
 		// tls
 		pipeServerConn.connContext.ClientConn.Tls = true
-		pipeServerConn.connContext.InitHttpsServerConn()
+		pipeServerConn.connContext.initHttpsServerConn()
 		m.listener.connChan <- pipeServerConn
 	} else {
 		// ws

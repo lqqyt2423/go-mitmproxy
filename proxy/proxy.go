@@ -7,10 +7,8 @@ import (
 	"net"
 	"net/http"
 
-	_log "github.com/sirupsen/logrus"
+	log "github.com/sirupsen/logrus"
 )
-
-var log = _log.WithField("at", "proxy")
 
 type Options struct {
 	Debug             int
@@ -103,7 +101,7 @@ func (proxy *Proxy) ServeHTTP(res http.ResponseWriter, req *http.Request) {
 		return
 	}
 
-	log := log.WithFields(_log.Fields{
+	log := log.WithFields(log.Fields{
 		"in":     "Proxy.ServeHTTP",
 		"url":    req.URL,
 		"method": req.Method,
@@ -206,7 +204,7 @@ func (proxy *Proxy) ServeHTTP(res http.ResponseWriter, req *http.Request) {
 		}
 	}
 
-	f.ConnContext.InitHttpServerConn()
+	f.ConnContext.initHttpServerConn()
 	proxyRes, err := f.ConnContext.ServerConn.client.Do(proxyReq)
 	if err != nil {
 		logErr(log, err)
@@ -256,7 +254,7 @@ func (proxy *Proxy) ServeHTTP(res http.ResponseWriter, req *http.Request) {
 }
 
 func (proxy *Proxy) handleConnect(res http.ResponseWriter, req *http.Request) {
-	log := log.WithFields(_log.Fields{
+	log := log.WithFields(log.Fields{
 		"in":   "Proxy.handleConnect",
 		"host": req.Host,
 	})

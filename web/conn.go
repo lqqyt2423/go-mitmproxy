@@ -6,6 +6,7 @@ import (
 
 	"github.com/gorilla/websocket"
 	"github.com/lqqyt2423/go-mitmproxy/proxy"
+	log "github.com/sirupsen/logrus"
 )
 
 type breakPointRule struct {

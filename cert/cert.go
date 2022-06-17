@@ -21,16 +21,14 @@ import (
 
 	"github.com/golang/groupcache/lru"
 	"github.com/golang/groupcache/singleflight"
-	_log "github.com/sirupsen/logrus"
+	log "github.com/sirupsen/logrus"
 )
-
-var log = _log.WithField("at", "cert")
 
 // reference
 // https://docs.mitmproxy.org/stable/concepts-certificates/
 // https://github.com/mitmproxy/mitmproxy/blob/master/mitmproxy/certs.py
 
-var caErrNotFound = errors.New("ca not found")
+var errCaNotFound = errors.New("ca not found")
 
 type CA struct {
 	rsa.PrivateKey
@@ -56,7 +54,7 @@ func NewCA(path string) (*CA, error) {
 	}
 
 	if err := ca.load(); err != nil {
-		if err != caErrNotFound {
+		if err != errCaNotFound {
 			return nil, err
 		}
 	} else {
@@ -126,7 +124,7 @@ func (ca *CA) load() error {
 	stat, err := os.Stat(caFile)
 	if err != nil {
 		if os.IsNotExist(err) {
-			return caErrNotFound
+			return errCaNotFound
 		}
 		return err
 	}

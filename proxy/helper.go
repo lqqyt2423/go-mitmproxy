@@ -7,7 +7,7 @@ import (
 	"strings"
 	"sync"
 
-	_log "github.com/sirupsen/logrus"
+	log "github.com/sirupsen/logrus"
 )
 
 var normalErrMsgs []string = []string{
@@ -22,7 +22,7 @@ var normalErrMsgs []string = []string{
 }
 
 // 仅打印预料之外的错误信息
-func logErr(log *_log.Entry, err error) (loged bool) {
+func logErr(log *log.Entry, err error) (loged bool) {
 	msg := err.Error()
 
 	for _, str := range normalErrMsgs {
@@ -40,7 +40,7 @@ func logErr(log *_log.Entry, err error) (loged bool) {
 // 转发流量
 // Read a => Write b
 // Read b => Write a
-func transfer(log *_log.Entry, a, b io.ReadWriteCloser) {
+func transfer(log *log.Entry, a, b io.ReadWriteCloser) {
 	done := make(chan struct{})
 	defer close(done)
 

@@ -45,8 +45,6 @@ func (d *Dumper) Requestheaders(f *proxy.Flow) {
 func (d *Dumper) dump(f *proxy.Flow) {
 	// 参考 httputil.DumpRequest
 
-	log := log.WithField("in", "Dumper")
-
 	buf := bytes.NewBuffer(make([]byte, 0))
 	fmt.Fprintf(buf, "%s %s %s\r\n", f.Request.Method, f.Request.URL.RequestURI(), f.Request.Proto)
 	fmt.Fprintf(buf, "Host: %s\r\n", f.Request.URL.Host)

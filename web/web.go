@@ -8,10 +8,8 @@ import (
 
 	"github.com/gorilla/websocket"
 	"github.com/lqqyt2423/go-mitmproxy/proxy"
-	_log "github.com/sirupsen/logrus"
+	log "github.com/sirupsen/logrus"
 )
-
-var log = _log.WithField("at", "web addon")
 
 //go:embed client/build
 var assets embed.FS
@@ -42,7 +40,6 @@ func NewWebAddon(addr string) *WebAddon {
 	serverMux.Handle("/", http.FileServer(http.FS(fsys)))
 
 	server := &http.Server{Addr: addr, Handler: serverMux}
-	log = log.WithField("in", "WebAddon")
 	web.conns = make([]*concurrentConn, 0)
 
 	go func() {

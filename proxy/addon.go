@@ -2,6 +2,8 @@ package proxy
 
 import (
 	"time"
+
+	log "github.com/sirupsen/logrus"
 )
 
 type Addon interface {

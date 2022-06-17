@@ -7,6 +7,7 @@ import (
 	"net/http"
 
 	uuid "github.com/satori/go.uuid"
+	log "github.com/sirupsen/logrus"
 )
 
 // client connection
@@ -58,7 +59,7 @@ func newConnContext(c net.Conn, proxy *Proxy) *ConnContext {
 	}
 }
 
-func (connCtx *ConnContext) InitHttpServerConn() {
+func (connCtx *ConnContext) initHttpServerConn() {
 	if connCtx.ServerConn != nil {
 		return
 	}
@@ -104,7 +105,7 @@ func (connCtx *ConnContext) InitHttpServerConn() {
 	connCtx.ServerConn = serverConn
 }
 
-func (connCtx *ConnContext) InitHttpsServerConn() {
+func (connCtx *ConnContext) initHttpsServerConn() {
 	if connCtx.ServerConn != nil {
 		return
 	}

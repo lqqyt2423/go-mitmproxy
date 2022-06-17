@@ -6,6 +6,8 @@ import (
 	"net/http"
 	"net/http/httputil"
 	"strings"
+
+	log "github.com/sirupsen/logrus"
 )
 
 // 当前仅做了转发 websocket 流量
