@@ -7,8 +7,7 @@ import (
 	"sync"
 
 	"github.com/gorilla/websocket"
-	"github.com/lqqyt2423/go-mitmproxy/addon"
-	"github.com/lqqyt2423/go-mitmproxy/flow"
+	"github.com/lqqyt2423/go-mitmproxy/proxy"
 	_log "github.com/sirupsen/logrus"
 )
 
@@ -17,25 +16,8 @@ var log = _log.WithField("at", "web addon")
 //go:embed client/build
 var assets embed.FS
 
-func (web *WebAddon) echo(w http.ResponseWriter, r *http.Request) {
-	c, err := web.upgrader.Upgrade(w, r, nil)
-	if err != nil {
-		log.Print("upgrade:", err)
-		return
-	}
-
-	conn := newConn(c)
-	web.addConn(conn)
-	defer func() {
-		web.removeConn(conn)
-		c.Close()
-	}()
-
-	conn.readloop()
-}
-
 type WebAddon struct {
-	addon.Base
+	proxy.BaseAddon
 	upgrader *websocket.Upgrader
 
 	conns   []*concurrentConn
@@ -72,6 +54,23 @@ func NewWebAddon(addr string) *WebAddon {
 	return web
 }
 
+func (web *WebAddon) echo(w http.ResponseWriter, r *http.Request) {
+	c, err := web.upgrader.Upgrade(w, r, nil)
+	if err != nil {
+		log.Print("upgrade:", err)
+		return
+	}
+
+	conn := newConn(c)
+	web.addConn(conn)
+	defer func() {
+		web.removeConn(conn)
+		c.Close()
+	}()
+
+	conn.readloop()
+}
+
 func (web *WebAddon) addConn(c *concurrentConn) {
 	web.connsMu.Lock()
 	web.conns = append(web.conns, c)
@@ -96,7 +95,7 @@ func (web *WebAddon) removeConn(conn *concurrentConn) {
 	web.conns = append(web.conns[:index], web.conns[index+1:]...)
 }
 
-func (web *WebAddon) sendFlow(f *flow.Flow, msgFn func() *messageFlow) bool {
+func (web *WebAddon) sendFlow(f *proxy.Flow, msgFn func() *messageFlow) bool {
 	web.connsMu.RLock()
 	conns := web.conns
 	web.connsMu.RUnlock()
@@ -113,25 +112,25 @@ func (web *WebAddon) sendFlow(f *flow.Flow, msgFn func() *messageFlow) bool {
 	return true
 }
 
-func (web *WebAddon) Requestheaders(f *flow.Flow) {
+func (web *WebAddon) Requestheaders(f *proxy.Flow) {
 	web.sendFlow(f, func() *messageFlow {
 		return newMessageFlow(messageTypeRequest, f)
 	})
 }
 
-func (web *WebAddon) Request(f *flow.Flow) {
+func (web *WebAddon) Request(f *proxy.Flow) {
 	web.sendFlow(f, func() *messageFlow {
 		return newMessageFlow(messageTypeRequestBody, f)
 	})
 }
 
-func (web *WebAddon) Responseheaders(f *flow.Flow) {
+func (web *WebAddon) Responseheaders(f *proxy.Flow) {
 	web.sendFlow(f, func() *messageFlow {
 		return newMessageFlow(messageTypeResponse, f)
 	})
 }
 
-func (web *WebAddon) Response(f *flow.Flow) {
+func (web *WebAddon) Response(f *proxy.Flow) {
 	web.sendFlow(f, func() *messageFlow {
 		return newMessageFlow(messageTypeResponseBody, f)
 	})

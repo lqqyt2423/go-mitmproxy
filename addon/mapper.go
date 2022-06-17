@@ -1,46 +1,131 @@
-package flowmapper
+package addon
 
 import (
 	"errors"
 	"io/ioutil"
 	"net/http"
 	"net/url"
+	"path/filepath"
 	"regexp"
 	"strconv"
 	"strings"
 
-	"github.com/lqqyt2423/go-mitmproxy/flow"
+	"github.com/lqqyt2423/go-mitmproxy/proxy"
+	log "github.com/sirupsen/logrus"
 )
 
-type Parser struct {
-	lines    []string
-	url      string
-	request  *flow.Request
-	response *flow.Response
+var httpsRegexp = regexp.MustCompile(`^https://`)
+
+type Mapper struct {
+	proxy.BaseAddon
+	reqResMap map[string]*proxy.Response
 }
 
-func NewParserFromFile(filename string) (*Parser, error) {
+func NewMapper(dirname string) *Mapper {
+	infos, err := ioutil.ReadDir(dirname)
+	if err != nil {
+		panic(err)
+	}
+
+	filenames := make([]string, 0)
+
+	for _, info := range infos {
+		if info.IsDir() {
+			continue
+		}
+		if !strings.HasSuffix(info.Name(), ".map.txt") {
+			continue
+		}
+
+		filenames = append(filenames, filepath.Join(dirname, info.Name()))
+	}
+
+	if len(filenames) == 0 {
+		return &Mapper{
+			reqResMap: make(map[string]*proxy.Response),
+		}
+	}
+
+	ch := make(chan interface{}, len(filenames))
+	for _, filename := range filenames {
+		go func(filename string, ch chan<- interface{}) {
+			f, err := parseFlowFromFile(filename)
+			if err != nil {
+				log.Error(err)
+				ch <- err
+				return
+			}
+			ch <- f
+		}(filename, ch)
+	}
+
+	reqResMap := make(map[string]*proxy.Response)
+
+	for i := 0; i < len(filenames); i++ {
+		flowOrErr := <-ch
+		if f, ok := flowOrErr.(*proxy.Flow); ok {
+			key := buildReqKey(f.Request)
+			log.Infof("add request mapper: %v", key)
+			reqResMap[key] = f.Response
+		}
+	}
+
+	return &Mapper{
+		reqResMap: reqResMap,
+	}
+}
+
+func parseFlowFromFile(filename string) (*proxy.Flow, error) {
+	p, err := newMapperParserFromFile(filename)
+	if err != nil {
+		return nil, err
+	}
+	return p.parse()
+}
+
+func (c *Mapper) Request(f *proxy.Flow) {
+	key := buildReqKey(f.Request)
+	if resp, ok := c.reqResMap[key]; ok {
+		f.Response = resp
+	}
+}
+
+func buildReqKey(req *proxy.Request) string {
+	url := req.URL.String()
+	url = httpsRegexp.ReplaceAllString(url, "http://")
+	key := req.Method + " " + url
+	return key
+}
+
+type mapperParser struct {
+	lines    []string
+	url      string
+	request  *proxy.Request
+	response *proxy.Response
+}
+
+func newMapperParserFromFile(filename string) (*mapperParser, error) {
 	bytes, err := ioutil.ReadFile(filename)
 	if err != nil {
 		return nil, err
 	}
 
-	return NewParserFromString(string(bytes))
+	return newMapperParserFromString(string(bytes))
 }
 
-func NewParserFromString(content string) (*Parser, error) {
+func newMapperParserFromString(content string) (*mapperParser, error) {
 	content = strings.TrimSpace(content)
 	lines := strings.Split(content, "\n")
 	if len(lines) == 0 {
 		return nil, errors.New("no lines")
 	}
 
-	return &Parser{
+	return &mapperParser{
 		lines: lines,
 	}, nil
 }
 
-func (p *Parser) Parse() (*flow.Flow, error) {
+func (p *mapperParser) parse() (*proxy.Flow, error) {
 	if err := p.parseRequest(); err != nil {
 		return nil, err
 	}
@@ -49,13 +134,13 @@ func (p *Parser) Parse() (*flow.Flow, error) {
 		return nil, err
 	}
 
-	return &flow.Flow{
+	return &proxy.Flow{
 		Request:  p.request,
 		Response: p.response,
 	}, nil
 }
 
-func (p *Parser) parseRequest() error {
+func (p *mapperParser) parseRequest() error {
 	if err := p.parseReqHead(); err != nil {
 		return err
 	}
@@ -85,7 +170,7 @@ func (p *Parser) parseRequest() error {
 	return nil
 }
 
-func (p *Parser) parseReqHead() error {
+func (p *mapperParser) parseReqHead() error {
 	line, _ := p.getLine()
 	re := regexp.MustCompile(`^(GET|POST|PUT|DELETE)\s+?(.+)`)
 	matches := re.FindStringSubmatch(line)
@@ -93,7 +178,7 @@ func (p *Parser) parseReqHead() error {
 		return errors.New("request head parse error")
 	}
 
-	p.request = &flow.Request{
+	p.request = &proxy.Request{
 		Method: matches[1],
 	}
 	p.url = matches[2]
@@ -101,7 +186,7 @@ func (p *Parser) parseReqHead() error {
 	return nil
 }
 
-func (p *Parser) parseHeader() (http.Header, error) {
+func (p *mapperParser) parseHeader() (http.Header, error) {
 	header := make(http.Header)
 	re := regexp.MustCompile(`^([\w-]+?):\s*(.+)$`)
 
@@ -127,7 +212,7 @@ func (p *Parser) parseHeader() (http.Header, error) {
 	return header, nil
 }
 
-func (p *Parser) parseReqBody() {
+func (p *mapperParser) parseReqBody() {
 	bodyLines := make([]string, 0)
 
 	for {
@@ -155,7 +240,7 @@ func (p *Parser) parseReqBody() {
 	p.request.Body = []byte(body)
 }
 
-func (p *Parser) parseResponse() error {
+func (p *mapperParser) parseResponse() error {
 	if err := p.parseResHead(); err != nil {
 		return err
 	}
@@ -175,7 +260,7 @@ func (p *Parser) parseResponse() error {
 	return nil
 }
 
-func (p *Parser) parseResHead() error {
+func (p *mapperParser) parseResHead() error {
 	line, ok := p.getLine()
 	if !ok {
 		return errors.New("response no head line")
@@ -188,14 +273,14 @@ func (p *Parser) parseResHead() error {
 	}
 
 	code, _ := strconv.Atoi(matches[1])
-	p.response = &flow.Response{
+	p.response = &proxy.Response{
 		StatusCode: code,
 	}
 
 	return nil
 }
 
-func (p *Parser) getLine() (string, bool) {
+func (p *mapperParser) getLine() (string, bool) {
 	if len(p.lines) == 0 {
 		return "", false
 	}

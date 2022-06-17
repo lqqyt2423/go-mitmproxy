@@ -5,7 +5,7 @@ import (
 	"sync"
 
 	"github.com/gorilla/websocket"
-	"github.com/lqqyt2423/go-mitmproxy/flow"
+	"github.com/lqqyt2423/go-mitmproxy/proxy"
 )
 
 type breakPointRule struct {
@@ -31,7 +31,7 @@ func newConn(c *websocket.Conn) *concurrentConn {
 	}
 }
 
-func (c *concurrentConn) writeMessage(msg *messageFlow, f *flow.Flow) {
+func (c *concurrentConn) writeMessage(msg *messageFlow, f *proxy.Flow) {
 	if c.isIntercpt(f, msg) {
 		msg.waitIntercept = 1
 	}
@@ -94,7 +94,7 @@ func (c *concurrentConn) initWaitChan(key string) chan interface{} {
 }
 
 // 是否拦截
-func (c *concurrentConn) isIntercpt(f *flow.Flow, after *messageFlow) bool {
+func (c *concurrentConn) isIntercpt(f *proxy.Flow, after *messageFlow) bool {
 	if after.mType != messageTypeRequestBody && after.mType != messageTypeResponseBody {
 		return false
 	}
@@ -129,13 +129,13 @@ func (c *concurrentConn) isIntercpt(f *flow.Flow, after *messageFlow) bool {
 }
 
 // 拦截
-func (c *concurrentConn) waitIntercept(f *flow.Flow, after *messageFlow) {
+func (c *concurrentConn) waitIntercept(f *proxy.Flow, after *messageFlow) {
 	ch := c.initWaitChan(f.Id.String())
 	msg := (<-ch).(*messageEdit)
 
 	// drop
 	if msg.mType == messageTypeDropRequest || msg.mType == messageTypeDropResponse {
-		f.Response = &flow.Response{
+		f.Response = &proxy.Response{
 			StatusCode: 502,
 		}
 		return

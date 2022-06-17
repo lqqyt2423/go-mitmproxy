@@ -1,4 +1,4 @@
-package flow
+package proxy
 
 import (
 	"bytes"
@@ -12,9 +12,7 @@ import (
 	"github.com/andybalholm/brotli"
 )
 
-// handle http header: content-encoding
-
-var EncodingNotSupport = errors.New("content-encoding not support")
+var errEncodingNotSupport = errors.New("content-encoding not support")
 
 var textContentTypes = []string{
 	"text",
@@ -59,7 +57,7 @@ func (r *Response) DecodedBody() ([]byte, error) {
 		return r.decodedBody, nil
 	}
 
-	decodedBody, decodedErr := Decode(enc, r.Body)
+	decodedBody, decodedErr := decode(enc, r.Body)
 	if decodedErr != nil {
 		r.decodedErr = decodedErr
 		log.Error(r.decodedErr)
@@ -83,7 +81,7 @@ func (r *Response) ReplaceToDecodedBody() {
 	r.Header.Del("Transfer-Encoding")
 }
 
-func Decode(enc string, body []byte) ([]byte, error) {
+func decode(enc string, body []byte) ([]byte, error) {
 	if enc == "gzip" {
 		dreader, err := gzip.NewReader(bytes.NewReader(body))
 		if err != nil {
@@ -117,5 +115,5 @@ func Decode(enc string, body []byte) ([]byte, error) {
 		return buf.Bytes(), nil
 	}
 
-	return nil, EncodingNotSupport
+	return nil, errEncodingNotSupport
 }

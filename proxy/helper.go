@@ -3,12 +3,14 @@ package proxy
 import (
 	"bytes"
 	"io"
+	"os"
 	"strings"
+	"sync"
 
 	_log "github.com/sirupsen/logrus"
 )
 
-var NormalErrMsgs []string = []string{
+var normalErrMsgs []string = []string{
 	"read: connection reset by peer",
 	"write: broken pipe",
 	"i/o timeout",
@@ -20,10 +22,10 @@ var NormalErrMsgs []string = []string{
 }
 
 // 仅打印预料之外的错误信息
-func LogErr(log *_log.Entry, err error) (loged bool) {
+func logErr(log *_log.Entry, err error) (loged bool) {
 	msg := err.Error()
 
-	for _, str := range NormalErrMsgs {
+	for _, str := range normalErrMsgs {
 		if strings.Contains(msg, str) {
 			log.Debug(err)
 			return
@@ -61,7 +63,7 @@ func transfer(log *_log.Entry, a, b io.ReadWriteCloser) {
 
 	for i := 0; i < 2; i++ {
 		if err := <-errChan; err != nil {
-			LogErr(log, err)
+			logErr(log, err)
 			return // 如果有错误，直接返回
 		}
 	}
@@ -70,7 +72,7 @@ func transfer(log *_log.Entry, a, b io.ReadWriteCloser) {
 // 尝试将 Reader 读取至 buffer 中
 // 如果未达到 limit，则成功读取进入 buffer
 // 否则 buffer 返回 nil，且返回新 Reader，状态为未读取前
-func ReaderToBuffer(r io.Reader, limit int64) ([]byte, io.Reader, error) {
+func readerToBuffer(r io.Reader, limit int64) ([]byte, io.Reader, error) {
 	buf := bytes.NewBuffer(make([]byte, 0))
 	lr := io.LimitReader(r, limit)
 
@@ -87,4 +89,26 @@ func ReaderToBuffer(r io.Reader, limit int64) ([]byte, io.Reader, error) {
 
 	// 返回 buffer
 	return buf.Bytes(), nil, nil
+}
+
+// Wireshark 解析 https 设置
+var tlsKeyLogWriter io.Writer
+var tlsKeyLogOnce sync.Once
+
+func getTlsKeyLogWriter() io.Writer {
+	tlsKeyLogOnce.Do(func() {
+		logfile := os.Getenv("SSLKEYLOGFILE")
+		if logfile == "" {
+			return
+		}
+
+		writer, err := os.OpenFile(logfile, os.O_WRONLY|os.O_CREATE|os.O_APPEND, 0666)
+		if err != nil {
+			log.WithField("in", "getTlsKeyLogWriter").Debug(err)
+			return
+		}
+
+		tlsKeyLogWriter = writer
+	})
+	return tlsKeyLogWriter
 }

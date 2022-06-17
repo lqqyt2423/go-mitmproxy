@@ -5,17 +5,15 @@ import (
 
 	log "github.com/sirupsen/logrus"
 
-	"github.com/lqqyt2423/go-mitmproxy/addon"
-	"github.com/lqqyt2423/go-mitmproxy/flow"
 	"github.com/lqqyt2423/go-mitmproxy/proxy"
 )
 
 type AddHeader struct {
-	addon.Base
+	proxy.BaseAddon
 	count int
 }
 
-func (a *AddHeader) Responseheaders(f *flow.Flow) {
+func (a *AddHeader) Responseheaders(f *proxy.Flow) {
 	a.count += 1
 	f.Response.Header.Add("x-count", strconv.Itoa(a.count))
 }

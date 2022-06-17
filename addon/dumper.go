@@ -9,30 +9,40 @@ import (
 	"strings"
 	"unicode"
 
-	"github.com/lqqyt2423/go-mitmproxy/flow"
+	"github.com/lqqyt2423/go-mitmproxy/proxy"
+	log "github.com/sirupsen/logrus"
 )
 
 type Dumper struct {
-	Base
+	proxy.BaseAddon
+	out   io.Writer
 	level int // 0: header 1: header + body
-	Out   io.Writer
 }
 
-func NewDumper(file string, level int) *Dumper {
-	out, err := os.OpenFile(file, os.O_WRONLY|os.O_CREATE|os.O_APPEND, 0666)
-	if err != nil {
-		panic(err)
-	}
-
+func NewDumper(out io.Writer, level int) *Dumper {
 	if level != 0 && level != 1 {
 		level = 0
 	}
+	return &Dumper{out: out, level: level}
+}
 
-	return &Dumper{Out: out, level: level}
+func NewDumperWithFilename(filename string, level int) *Dumper {
+	out, err := os.OpenFile(filename, os.O_WRONLY|os.O_CREATE|os.O_APPEND, 0666)
+	if err != nil {
+		panic(err)
+	}
+	return NewDumper(out, level)
+}
+
+func (d *Dumper) Requestheaders(f *proxy.Flow) {
+	go func() {
+		<-f.Done()
+		d.dump(f)
+	}()
 }
 
 // call when <-f.Done()
-func (d *Dumper) dump(f *flow.Flow) {
+func (d *Dumper) dump(f *proxy.Flow) {
 	// 参考 httputil.DumpRequest
 
 	log := log.WithField("in", "Dumper")
@@ -53,7 +63,7 @@ func (d *Dumper) dump(f *flow.Flow) {
 	}
 	buf.WriteString("\r\n")
 
-	if d.level == 1 && f.Request.Body != nil && len(f.Request.Body) > 0 && CanPrint(f.Request.Body) {
+	if d.level == 1 && f.Request.Body != nil && len(f.Request.Body) > 0 && canPrint(f.Request.Body) {
 		buf.Write(f.Request.Body)
 		buf.WriteString("\r\n\r\n")
 	}
@@ -77,20 +87,13 @@ func (d *Dumper) dump(f *flow.Flow) {
 
 	buf.WriteString("\r\n\r\n")
 
-	_, err = d.Out.Write(buf.Bytes())
+	_, err = d.out.Write(buf.Bytes())
 	if err != nil {
 		log.Error(err)
 	}
 }
 
-func (d *Dumper) Requestheaders(f *flow.Flow) {
-	go func() {
-		<-f.Done()
-		d.dump(f)
-	}()
-}
-
-func CanPrint(content []byte) bool {
+func canPrint(content []byte) bool {
 	for _, c := range string(content) {
 		if !unicode.IsPrint(c) && !unicode.IsSpace(c) {
 			return false

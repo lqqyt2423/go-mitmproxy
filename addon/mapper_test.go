@@ -1,4 +1,4 @@
-package flowmapper
+package addon
 
 import "testing"
 
@@ -14,11 +14,11 @@ HTTP/1.1 200
 
 ok
 `
-	p, err := NewParserFromString(content)
+	p, err := newMapperParserFromString(content)
 	if err != nil {
 		t.Fatal(err)
 	}
-	f, err := p.Parse()
+	f, err := p.parse()
 	if err != nil {
 		t.Fatal(err)
 	}

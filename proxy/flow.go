@@ -1,4 +1,4 @@
-package flow
+package proxy
 
 import (
 	"encoding/json"
@@ -7,11 +7,9 @@ import (
 	"net/url"
 
 	uuid "github.com/satori/go.uuid"
-	_log "github.com/sirupsen/logrus"
 )
 
-var log = _log.WithField("at", "flow")
-
+// flow http request
 type Request struct {
 	Method string
 	URL    *url.URL
@@ -20,6 +18,20 @@ type Request struct {
 	Body   []byte
 
 	raw *http.Request
+}
+
+func newRequest(req *http.Request) *Request {
+	return &Request{
+		Method: req.Method,
+		URL:    req.URL,
+		Proto:  req.Proto,
+		Header: req.Header,
+		raw:    req,
+	}
+}
+
+func (r *Request) Raw() *http.Request {
+	return r.raw
 }
 
 func (req *Request) MarshalJSON() ([]byte, error) {
@@ -79,20 +91,7 @@ func (req *Request) UnmarshalJSON(data []byte) error {
 	return nil
 }
 
-func NewRequest(req *http.Request) *Request {
-	return &Request{
-		Method: req.Method,
-		URL:    req.URL,
-		Proto:  req.Proto,
-		Header: req.Header,
-		raw:    req,
-	}
-}
-
-func (r *Request) Raw() *http.Request {
-	return r.raw
-}
-
+// flow http response
 type Response struct {
 	StatusCode int         `json:"statusCode"`
 	Header     http.Header `json:"header"`
@@ -103,17 +102,33 @@ type Response struct {
 	decodedErr  error
 }
 
+// flow
 type Flow struct {
-	*Request
-	*Response
+	Id          uuid.UUID
+	ConnContext *ConnContext
+	Request     *Request
+	Response    *Response
 
 	// https://docs.mitmproxy.org/stable/overview-features/#streaming
 	// 如果为 true，则不缓冲 Request.Body 和 Response.Body，且不进入之后的 Addon.Request 和 Addon.Response
 	Stream bool
-	done   chan struct{}
 
-	Id          uuid.UUID
-	ConnContext *ConnContext
+	done chan struct{}
+}
+
+func newFlow() *Flow {
+	return &Flow{
+		Id:   uuid.NewV4(),
+		done: make(chan struct{}),
+	}
+}
+
+func (f *Flow) Done() <-chan struct{} {
+	return f.done
+}
+
+func (f *Flow) finish() {
+	close(f.done)
 }
 
 func (f *Flow) MarshalJSON() ([]byte, error) {
@@ -122,19 +137,4 @@ func (f *Flow) MarshalJSON() ([]byte, error) {
 	j["request"] = f.Request
 	j["response"] = f.Response
 	return json.Marshal(j)
-}
-
-func NewFlow() *Flow {
-	return &Flow{
-		done: make(chan struct{}),
-		Id:   uuid.NewV4(),
-	}
-}
-
-func (f *Flow) Done() <-chan struct{} {
-	return f.done
-}
-
-func (f *Flow) Finish() {
-	close(f.done)
 }

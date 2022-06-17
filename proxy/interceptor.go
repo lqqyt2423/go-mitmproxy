@@ -6,7 +6,7 @@ import (
 )
 
 // 拦截 https 流量通用接口
-type Interceptor interface {
+type interceptor interface {
 	// 初始化
 	Start() error
 	// 传入当前客户端 req
@@ -14,12 +14,12 @@ type Interceptor interface {
 }
 
 // 直接转发 https 流量
-type Forward struct{}
+type forward struct{}
 
-func (i *Forward) Start() error {
+func (i *forward) Start() error {
 	return nil
 }
 
-func (i *Forward) Dial(req *http.Request) (net.Conn, error) {
+func (i *forward) Dial(req *http.Request) (net.Conn, error) {
 	return net.Dial("tcp", req.Host)
 }

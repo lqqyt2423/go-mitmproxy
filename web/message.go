@@ -6,7 +6,7 @@ import (
 	"encoding/json"
 	"errors"
 
-	"github.com/lqqyt2423/go-mitmproxy/flow"
+	"github.com/lqqyt2423/go-mitmproxy/proxy"
 	uuid "github.com/satori/go.uuid"
 )
 
@@ -74,7 +74,7 @@ type messageFlow struct {
 	content       []byte
 }
 
-func newMessageFlow(mType messageType, f *flow.Flow) *messageFlow {
+func newMessageFlow(mType messageType, f *proxy.Flow) *messageFlow {
 	var content []byte
 	var err error = nil
 
@@ -114,8 +114,8 @@ func (m *messageFlow) bytes() []byte {
 type messageEdit struct {
 	mType    messageType
 	id       uuid.UUID
-	request  *flow.Request
-	response *flow.Response
+	request  *proxy.Request
+	response *proxy.Response
 }
 
 func parseMessageEdit(data []byte) *messageEdit {
@@ -158,7 +158,7 @@ func parseMessageEdit(data []byte) *messageEdit {
 	bodyContent := data[42+hl+4:]
 
 	if mType == messageTypeChangeRequest {
-		req := new(flow.Request)
+		req := new(proxy.Request)
 		err := json.Unmarshal(headerContent, req)
 		if err != nil {
 			return nil
@@ -166,7 +166,7 @@ func parseMessageEdit(data []byte) *messageEdit {
 		req.Body = bodyContent
 		msg.request = req
 	} else if mType == messageTypeChangeResponse {
-		res := new(flow.Response)
+		res := new(proxy.Response)
 		err := json.Unmarshal(headerContent, res)
 		if err != nil {
 			return nil

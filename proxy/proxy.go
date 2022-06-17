@@ -7,8 +7,6 @@ import (
 	"net"
 	"net/http"
 
-	"github.com/lqqyt2423/go-mitmproxy/addon"
-	"github.com/lqqyt2423/go-mitmproxy/flow"
 	_log "github.com/sirupsen/logrus"
 )
 
@@ -23,120 +21,48 @@ type Options struct {
 }
 
 type Proxy struct {
-	Opts        *Options
-	Version     string
-	Server      *http.Server
-	Interceptor Interceptor
-	Addons      []addon.Addon
-}
+	Opts    *Options
+	Version string
+	Addons  []Addon
 
-type proxyListener struct {
-	net.Listener
-	proxy *Proxy
-}
-
-func (l *proxyListener) Accept() (net.Conn, error) {
-	c, err := l.Listener.Accept()
-	if err != nil {
-		return nil, err
-	}
-
-	return &proxyConn{
-		Conn:  c,
-		proxy: l.proxy,
-	}, nil
-}
-
-type proxyConn struct {
-	net.Conn
-	proxy    *Proxy
-	connCtx  *flow.ConnContext
-	closed   bool
-	closeErr error
-}
-
-func (c *proxyConn) Close() error {
-	log.Debugln("in proxyConn close")
-	if c.closed {
-		return c.closeErr
-	}
-
-	c.closed = true
-	c.closeErr = c.Conn.Close()
-
-	for _, addon := range c.proxy.Addons {
-		addon.ClientDisconnected(c.connCtx.Client)
-	}
-
-	if c.connCtx.Server != nil && c.connCtx.Server.Conn != nil {
-		c.connCtx.Server.Conn.Close()
-	}
-
-	return c.closeErr
-}
-
-type serverConn struct {
-	net.Conn
-	proxy    *Proxy
-	connCtx  *flow.ConnContext
-	closed   bool
-	closeErr error
-}
-
-func (c *serverConn) Close() error {
-	log.Debugln("in http serverConn close")
-	if c.closed {
-		return c.closeErr
-	}
-
-	c.closed = true
-	c.closeErr = c.Conn.Close()
-
-	for _, addon := range c.proxy.Addons {
-		addon.ServerDisconnected(c.connCtx)
-	}
-
-	c.connCtx.Client.Conn.Close()
-
-	return c.closeErr
+	server      *http.Server
+	interceptor interceptor
 }
 
 func NewProxy(opts *Options) (*Proxy, error) {
-	proxy := new(Proxy)
-	proxy.Opts = opts
-	proxy.Version = "0.2.0"
-
-	proxy.Server = &http.Server{
-		Addr:    opts.Addr,
-		Handler: proxy,
-		// IdleTimeout: 5 * time.Second,
-
-		ConnContext: func(ctx context.Context, c net.Conn) context.Context {
-			connCtx := flow.NewConnContext(c)
-			for _, addon := range proxy.Addons {
-				addon.ClientConnected(connCtx.Client)
-			}
-			c.(*proxyConn).connCtx = connCtx
-			return context.WithValue(ctx, flow.ConnContextKey, connCtx)
-		},
-	}
-
-	interceptor, err := NewMiddle(proxy, opts.CaRootPath)
-	if err != nil {
-		return nil, err
-	}
-	proxy.Interceptor = interceptor
-
 	if opts.StreamLargeBodies <= 0 {
 		opts.StreamLargeBodies = 1024 * 1024 * 5 // default: 5mb
 	}
 
-	proxy.Addons = make([]addon.Addon, 0)
+	proxy := &Proxy{
+		Opts:    opts,
+		Version: "1.0.0",
+		Addons:  make([]Addon, 0),
+	}
+
+	proxy.server = &http.Server{
+		Addr:    opts.Addr,
+		Handler: proxy,
+		ConnContext: func(ctx context.Context, c net.Conn) context.Context {
+			connCtx := newConnContext(c, proxy)
+			for _, addon := range proxy.Addons {
+				addon.ClientConnected(connCtx.ClientConn)
+			}
+			c.(*wrapClientConn).connCtx = connCtx
+			return context.WithValue(ctx, connContextKey, connCtx)
+		},
+	}
+
+	interceptor, err := newMiddle(proxy)
+	if err != nil {
+		return nil, err
+	}
+	proxy.interceptor = interceptor
 
 	return proxy, nil
 }
 
-func (proxy *Proxy) AddAddon(addon addon.Addon) {
+func (proxy *Proxy) AddAddon(addon Addon) {
 	proxy.Addons = append(proxy.Addons, addon)
 }
 
@@ -144,8 +70,8 @@ func (proxy *Proxy) Start() error {
 	errChan := make(chan error)
 
 	go func() {
-		log.Infof("Proxy start listen at %v\n", proxy.Server.Addr)
-		addr := proxy.Server.Addr
+		log.Infof("Proxy start listen at %v\n", proxy.server.Addr)
+		addr := proxy.server.Addr
 		if addr == "" {
 			addr = ":http"
 		}
@@ -154,16 +80,16 @@ func (proxy *Proxy) Start() error {
 			errChan <- err
 			return
 		}
-		pln := &proxyListener{
+		pln := &wrapListener{
 			Listener: ln,
 			proxy:    proxy,
 		}
-		err = proxy.Server.Serve(pln)
+		err = proxy.server.Serve(pln)
 		errChan <- err
 	}()
 
 	go func() {
-		err := proxy.Interceptor.Start()
+		err := proxy.interceptor.Start()
 		errChan <- err
 	}()
 
@@ -194,7 +120,7 @@ func (proxy *Proxy) ServeHTTP(res http.ResponseWriter, req *http.Request) {
 		return
 	}
 
-	reply := func(response *flow.Response, body io.Reader) {
+	reply := func(response *Response, body io.Reader) {
 		if response.Header != nil {
 			for key, value := range response.Header {
 				for _, v := range value {
@@ -207,12 +133,12 @@ func (proxy *Proxy) ServeHTTP(res http.ResponseWriter, req *http.Request) {
 		if body != nil {
 			_, err := io.Copy(res, body)
 			if err != nil {
-				LogErr(log, err)
+				logErr(log, err)
 			}
 		} else if response.Body != nil && len(response.Body) > 0 {
 			_, err := res.Write(response.Body)
 			if err != nil {
-				LogErr(log, err)
+				logErr(log, err)
 			}
 		}
 	}
@@ -224,10 +150,10 @@ func (proxy *Proxy) ServeHTTP(res http.ResponseWriter, req *http.Request) {
 		}
 	}()
 
-	f := flow.NewFlow()
-	f.Request = flow.NewRequest(req)
-	f.ConnContext = req.Context().Value(flow.ConnContextKey).(*flow.ConnContext)
-	defer f.Finish()
+	f := newFlow()
+	f.Request = newRequest(req)
+	f.ConnContext = req.Context().Value(connContextKey).(*ConnContext)
+	defer f.finish()
 
 	// trigger addon event Requestheaders
 	for _, addon := range proxy.Addons {
@@ -241,7 +167,7 @@ func (proxy *Proxy) ServeHTTP(res http.ResponseWriter, req *http.Request) {
 	// Read request body
 	var reqBody io.Reader = req.Body
 	if !f.Stream {
-		reqBuf, r, err := ReaderToBuffer(req.Body, proxy.Opts.StreamLargeBodies)
+		reqBuf, r, err := readerToBuffer(req.Body, proxy.Opts.StreamLargeBodies)
 		reqBody = r
 		if err != nil {
 			log.Error(err)
@@ -280,31 +206,16 @@ func (proxy *Proxy) ServeHTTP(res http.ResponseWriter, req *http.Request) {
 		}
 	}
 
-	f.ConnContext.InitHttpServer(
-		proxy.Opts.SslInsecure,
-		func(c net.Conn) net.Conn {
-			return &serverConn{
-				Conn:    c,
-				proxy:   proxy,
-				connCtx: f.ConnContext,
-			}
-		},
-		func() {
-			for _, addon := range proxy.Addons {
-				addon.ServerConnected(f.ConnContext)
-			}
-		},
-	)
-
-	proxyRes, err := f.ConnContext.Server.Client.Do(proxyReq)
+	f.ConnContext.InitHttpServerConn()
+	proxyRes, err := f.ConnContext.ServerConn.client.Do(proxyReq)
 	if err != nil {
-		LogErr(log, err)
+		logErr(log, err)
 		res.WriteHeader(502)
 		return
 	}
 	defer proxyRes.Body.Close()
 
-	f.Response = &flow.Response{
+	f.Response = &Response{
 		StatusCode: proxyRes.StatusCode,
 		Header:     proxyRes.Header,
 	}
@@ -321,7 +232,7 @@ func (proxy *Proxy) ServeHTTP(res http.ResponseWriter, req *http.Request) {
 	// Read response body
 	var resBody io.Reader = proxyRes.Body
 	if !f.Stream {
-		resBuf, r, err := ReaderToBuffer(proxyRes.Body, proxy.Opts.StreamLargeBodies)
+		resBuf, r, err := readerToBuffer(proxyRes.Body, proxy.Opts.StreamLargeBodies)
 		resBody = r
 		if err != nil {
 			log.Error(err)
@@ -352,7 +263,7 @@ func (proxy *Proxy) handleConnect(res http.ResponseWriter, req *http.Request) {
 
 	log.Debug("receive connect")
 
-	conn, err := proxy.Interceptor.Dial(req)
+	conn, err := proxy.interceptor.Dial(req)
 	if err != nil {
 		log.Error(err)
 		res.WriteHeader(502)

@@ -7,9 +7,8 @@ import (
 	"os"
 
 	"github.com/lqqyt2423/go-mitmproxy/addon"
-	"github.com/lqqyt2423/go-mitmproxy/addon/flowmapper"
-	"github.com/lqqyt2423/go-mitmproxy/addon/web"
 	"github.com/lqqyt2423/go-mitmproxy/proxy"
+	"github.com/lqqyt2423/go-mitmproxy/web"
 	log "github.com/sirupsen/logrus"
 )
 
@@ -82,16 +81,16 @@ func main() {
 
 	log.Infof("go-mitmproxy version %v\n", p.Version)
 
-	p.AddAddon(&addon.Log{})
+	p.AddAddon(&proxy.LogAddon{})
 	p.AddAddon(web.NewWebAddon(config.webAddr))
 
 	if config.dump != "" {
-		dumper := addon.NewDumper(config.dump, config.dumpLevel)
+		dumper := addon.NewDumperWithFilename(config.dump, config.dumpLevel)
 		p.AddAddon(dumper)
 	}
 
 	if config.mapperDir != "" {
-		mapper := flowmapper.NewMapper(config.mapperDir)
+		mapper := addon.NewMapper(config.mapperDir)
 		p.AddAddon(mapper)
 	}
 
