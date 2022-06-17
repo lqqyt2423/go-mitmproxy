@@ -107,8 +107,6 @@ func (proxy *Proxy) ServeHTTP(res http.ResponseWriter, req *http.Request) {
 		"method": req.Method,
 	})
 
-	log.Debug("receive request")
-
 	if !req.URL.IsAbs() || req.URL.Host == "" {
 		res.WriteHeader(400)
 		_, err := io.WriteString(res, "此为代理服务器，不能直接发起请求")
@@ -258,8 +256,6 @@ func (proxy *Proxy) handleConnect(res http.ResponseWriter, req *http.Request) {
 		"in":   "Proxy.handleConnect",
 		"host": req.Host,
 	})
-
-	log.Debug("receive connect")
 
 	conn, err := proxy.interceptor.Dial(req)
 	if err != nil {

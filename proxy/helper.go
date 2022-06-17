@@ -104,7 +104,7 @@ func getTlsKeyLogWriter() io.Writer {
 
 		writer, err := os.OpenFile(logfile, os.O_WRONLY|os.O_CREATE|os.O_APPEND, 0666)
 		if err != nil {
-			log.WithField("in", "getTlsKeyLogWriter").Debug(err)
+			log.Debugf("getTlsKeyLogWriter OpenFile error: %v", err)
 			return
 		}
 

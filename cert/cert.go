@@ -277,7 +277,7 @@ func (ca *CA) GetCert(commonName string) (*tls.Certificate, error) {
 	ca.cacheMu.Lock()
 	if val, ok := ca.cache.Get(commonName); ok {
 		ca.cacheMu.Unlock()
-		log.WithField("commonName", commonName).Debug("GetCert")
+		log.Debugf("ca GetCert: %v", commonName)
 		return val.(*tls.Certificate), nil
 	}
 	ca.cacheMu.Unlock()
@@ -301,7 +301,7 @@ func (ca *CA) GetCert(commonName string) (*tls.Certificate, error) {
 
 // TODO: 是否应该支持多个 SubjectAltName
 func (ca *CA) DummyCert(commonName string) (*tls.Certificate, error) {
-	log.WithField("commonName", commonName).Debug("DummyCert")
+	log.Debugf("ca DummyCert: %v", commonName)
 	template := &x509.Certificate{
 		SerialNumber: big.NewInt(time.Now().UnixNano() / 100000),
 		Subject: pkix.Name{
