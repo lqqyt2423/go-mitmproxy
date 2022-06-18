@@ -48,7 +48,8 @@ type ConnContext struct {
 	ClientConn *ClientConn
 	ServerConn *ServerConn
 
-	proxy *Proxy
+	proxy    *Proxy
+	pipeConn *pipeConn
 }
 
 func newConnContext(c net.Conn, proxy *Proxy) *ConnContext {
@@ -105,36 +106,38 @@ func (connCtx *ConnContext) initHttpServerConn() {
 	connCtx.ServerConn = serverConn
 }
 
-func (connCtx *ConnContext) initHttpsServerConn() {
-	if connCtx.ServerConn != nil {
-		return
+func (connCtx *ConnContext) initServerTcpConn() error {
+	log.Debugln("in initServerTcpConn")
+	ServerConn := newServerConn()
+	connCtx.ServerConn = ServerConn
+	ServerConn.Address = connCtx.pipeConn.host
+
+	plainConn, err := (&net.Dialer{}).DialContext(context.Background(), "tcp", ServerConn.Address)
+	if err != nil {
+		return err
 	}
+	ServerConn.Conn = &wrapServerConn{
+		Conn:    plainConn,
+		proxy:   connCtx.proxy,
+		connCtx: connCtx,
+	}
+
+	for _, addon := range connCtx.proxy.Addons {
+		addon.ServerConnected(connCtx)
+	}
+
+	return nil
+}
+
+func (connCtx *ConnContext) initHttpsServerConn() {
 	if !connCtx.ClientConn.Tls {
 		return
 	}
-
-	ServerConn := newServerConn()
-	ServerConn.client = &http.Client{
+	connCtx.ServerConn.client = &http.Client{
 		Transport: &http.Transport{
 			Proxy: http.ProxyFromEnvironment,
 			DialTLSContext: func(ctx context.Context, network, addr string) (net.Conn, error) {
 				log.Debugln("in https DialTLSContext")
-				plainConn, err := (&net.Dialer{}).DialContext(ctx, network, addr)
-				if err != nil {
-					return nil, err
-				}
-				cw := &wrapServerConn{
-					Conn:    plainConn,
-					proxy:   connCtx.proxy,
-					connCtx: connCtx,
-				}
-				ServerConn.Conn = cw
-				ServerConn.Address = addr
-
-				for _, addon := range connCtx.proxy.Addons {
-					addon.ServerConnected(connCtx)
-				}
-
 				firstTLSHost, _, err := net.SplitHostPort(addr)
 				if err != nil {
 					return nil, err
@@ -144,7 +147,7 @@ func (connCtx *ConnContext) initHttpsServerConn() {
 					KeyLogWriter:       getTlsKeyLogWriter(),
 					ServerName:         firstTLSHost,
 				}
-				tlsConn := tls.Client(cw, cfg)
+				tlsConn := tls.Client(connCtx.ServerConn.Conn, cfg)
 				return tlsConn, nil
 			},
 			ForceAttemptHTTP2:  false, // disable http2
@@ -155,7 +158,6 @@ func (connCtx *ConnContext) initHttpsServerConn() {
 			return http.ErrUseLastResponse
 		},
 	}
-	connCtx.ServerConn = ServerConn
 }
 
 // wrap tcpConn for remote client

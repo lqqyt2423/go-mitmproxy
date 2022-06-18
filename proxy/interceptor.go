@@ -44,19 +44,22 @@ func (a *pipeAddr) String() string { return a.remoteAddr }
 type pipeConn struct {
 	net.Conn
 	r           *bufio.Reader
-	host        string
-	remoteAddr  string
+	host        string // server host:port
+	remoteAddr  string // client ip:port
 	connContext *ConnContext
 }
 
 func newPipeConn(c net.Conn, req *http.Request) *pipeConn {
-	return &pipeConn{
+	connContext := req.Context().Value(connContextKey).(*ConnContext)
+	pipeConn := &pipeConn{
 		Conn:        c,
 		r:           bufio.NewReader(c),
 		host:        req.Host,
 		remoteAddr:  req.RemoteAddr,
-		connContext: req.Context().Value(connContextKey).(*ConnContext),
+		connContext: connContext,
 	}
+	connContext.pipeConn = pipeConn
+	return pipeConn
 }
 
 func (c *pipeConn) Peek(n int) ([]byte, error) {
@@ -116,9 +119,9 @@ func newMiddle(proxy *Proxy) (interceptor, error) {
 		},
 		TLSNextProto: make(map[string]func(*http.Server, *tls.Conn, http.Handler)), // disable http2
 		TLSConfig: &tls.Config{
-			GetCertificate: func(chi *tls.ClientHelloInfo) (*tls.Certificate, error) {
-				log.Debugf("middle GetCertificate ServerName: %v\n", chi.ServerName)
-				return ca.GetCert(chi.ServerName)
+			GetCertificate: func(clientHello *tls.ClientHelloInfo) (*tls.Certificate, error) {
+				log.Debugf("middle GetCertificate ServerName: %v\n", clientHello.ServerName)
+				return ca.GetCert(clientHello.ServerName)
 			},
 		},
 	}
@@ -130,9 +133,14 @@ func (m *middle) Start() error {
 	return m.server.ServeTLS(m.listener, "", "")
 }
 
-// todo: should block until ServerConnected
 func (m *middle) Dial(req *http.Request) (net.Conn, error) {
 	pipeClientConn, pipeServerConn := newPipes(req)
+	err := pipeServerConn.connContext.initServerTcpConn()
+	if err != nil {
+		pipeClientConn.Close()
+		pipeServerConn.Close()
+		return nil, err
+	}
 	go m.intercept(pipeServerConn)
 	return pipeClientConn, nil
 }
