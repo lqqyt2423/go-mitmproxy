@@ -119,9 +119,10 @@ func newMiddle(proxy *Proxy) (interceptor, error) {
 		},
 		TLSNextProto: make(map[string]func(*http.Server, *tls.Conn, http.Handler)), // disable http2
 		TLSConfig: &tls.Config{
+			SessionTicketsDisabled: true, // 设置此值为 true ，确保每次都会调用下面的 GetCertificate 方法
 			GetCertificate: func(clientHello *tls.ClientHelloInfo) (*tls.Certificate, error) {
-				log.Debugf("middle GetCertificate ServerName: %v\n", clientHello.ServerName)
-				return ca.GetCert(clientHello.ServerName)
+				connCtx := clientHello.Context().Value(connContextKey).(*ConnContext)
+				return connCtx.getCertificate(clientHello)
 			},
 		},
 	}
