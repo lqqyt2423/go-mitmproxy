@@ -125,6 +125,11 @@ func newMiddle(proxy *Proxy) (interceptor, error) {
 				if err := connCtx.tlsHandshake(clientHello); err != nil {
 					return nil, err
 				}
+
+				for _, addon := range connCtx.proxy.Addons {
+					addon.TlsEstablishedServer(connCtx)
+				}
+
 				return ca.GetCert(clientHello.ServerName)
 			},
 		},

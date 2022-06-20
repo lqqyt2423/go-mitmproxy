@@ -19,6 +19,9 @@ type Addon interface {
 	// A server connection has been closed (either by us or the server).
 	ServerDisconnected(*ConnContext)
 
+	// The TLS handshake with the server has been completed successfully.
+	TlsEstablishedServer(*ConnContext)
+
 	// HTTP request headers were successfully read. At this point, the body is empty.
 	Requestheaders(*Flow)
 
@@ -39,6 +42,8 @@ func (addon *BaseAddon) ClientConnected(*ClientConn)     {}
 func (addon *BaseAddon) ClientDisconnected(*ClientConn)  {}
 func (addon *BaseAddon) ServerConnected(*ConnContext)    {}
 func (addon *BaseAddon) ServerDisconnected(*ConnContext) {}
+
+func (addon *BaseAddon) TlsEstablishedServer(*ConnContext) {}
 
 func (addon *BaseAddon) Requestheaders(*Flow)  {}
 func (addon *BaseAddon) Request(*Flow)         {}
