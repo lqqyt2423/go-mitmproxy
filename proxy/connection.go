@@ -160,7 +160,7 @@ func (connCtx *ConnContext) initHttpsServerConn() {
 	}
 }
 
-func (connCtx *ConnContext) getCertificate(clientHello *tls.ClientHelloInfo) (*tls.Certificate, error) {
+func (connCtx *ConnContext) tlsHandshake(clientHello *tls.ClientHelloInfo) error {
 	cfg := &tls.Config{
 		InsecureSkipVerify: connCtx.proxy.Opts.SslInsecure,
 		KeyLogWriter:       getTlsKeyLogWriter(),
@@ -189,7 +189,7 @@ func (connCtx *ConnContext) getCertificate(clientHello *tls.ClientHelloInfo) (*t
 	if err != nil {
 		connCtx.ServerConn.tlsHandshakeErr = err
 		close(connCtx.ServerConn.tlsHandshaked)
-		return nil, err
+		return err
 	}
 
 	connCtx.ServerConn.tlsConn = tlsConn
@@ -197,8 +197,7 @@ func (connCtx *ConnContext) getCertificate(clientHello *tls.ClientHelloInfo) (*t
 	connCtx.ServerConn.tlsState = &tlsState
 	close(connCtx.ServerConn.tlsHandshaked)
 
-	// todo: change here
-	return connCtx.proxy.interceptor.(*middle).ca.GetCert(clientHello.ServerName)
+	return nil
 }
 
 // wrap tcpConn for remote client

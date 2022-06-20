@@ -122,7 +122,10 @@ func newMiddle(proxy *Proxy) (interceptor, error) {
 			SessionTicketsDisabled: true, // 设置此值为 true ，确保每次都会调用下面的 GetCertificate 方法
 			GetCertificate: func(clientHello *tls.ClientHelloInfo) (*tls.Certificate, error) {
 				connCtx := clientHello.Context().Value(connContextKey).(*ConnContext)
-				return connCtx.getCertificate(clientHello)
+				if err := connCtx.tlsHandshake(clientHello); err != nil {
+					return nil, err
+				}
+				return ca.GetCert(clientHello.ServerName)
 			},
 		},
 	}
