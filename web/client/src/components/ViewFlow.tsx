@@ -17,7 +17,7 @@ interface Iprops {
 }
 
 interface IState {
-  flowTab: 'Headers' | 'Preview' | 'Response' | 'Hexview'
+  flowTab: 'Headers' | 'Preview' | 'Response' | 'Hexview' | 'Detail'
   copied: boolean
   requestBodyViewTab: 'Raw' | 'Preview'
   responseBodyLineBreak: boolean
@@ -28,7 +28,7 @@ class ViewFlow extends React.Component<Iprops, IState> {
     super(props)
 
     this.state = {
-      flowTab: 'Headers',
+      flowTab: 'Detail',
       copied: false,
       requestBodyViewTab: 'Raw',
       responseBodyLineBreak: false,
@@ -88,6 +88,13 @@ class ViewFlow extends React.Component<Iprops, IState> {
     return <pre>{flow.hexviewResponseBody()}</pre>
   }
 
+  detail() {
+    const { flow } = this.props
+    if (!flow) return null
+
+    return <div>detail todo</div>
+  }
+
   render() {
     if (!this.props.flow) return null
 
@@ -109,6 +116,7 @@ class ViewFlow extends React.Component<Iprops, IState> {
       <div className="flow-detail">
         <div className="header-tabs">
           <span onClick={() => { this.props.onClose() }}>x</span>
+          <span className={flowTab === 'Detail' ? 'selected' : undefined} onClick={() => { this.setState({ flowTab: 'Detail' }) }}>Detail</span>
           <span className={flowTab === 'Headers' ? 'selected' : undefined} onClick={() => { this.setState({ flowTab: 'Headers' }) }}>Headers</span>
           <span className={flowTab === 'Preview' ? 'selected' : undefined} onClick={() => { this.setState({ flowTab: 'Preview' }) }}>Preview</span>
           <span className={flowTab === 'Response' ? 'selected' : undefined} onClick={() => { this.setState({ flowTab: 'Response' }) }}>Response</span>
@@ -280,6 +288,11 @@ class ViewFlow extends React.Component<Iprops, IState> {
           {
             !(flowTab === 'Hexview') ? null :
               <div>{this.hexview()}</div>
+          }
+
+          {
+            !(flowTab === 'Detail') ? null :
+              <div>{this.detail()}</div>
           }
         </div>
 

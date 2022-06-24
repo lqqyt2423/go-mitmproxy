@@ -13,7 +13,7 @@ import (
 
 // message:
 
-// type: 1/2/3/4
+// type: 0/1/2/3/4
 // messageFlow
 // version 1 byte + type 1 byte + id 36 byte + waitIntercept 1 byte + content left bytes
 
@@ -30,6 +30,7 @@ const messageVersion = 1
 type messageType byte
 
 const (
+	messageTypeConn         messageType = 0
 	messageTypeRequest      messageType = 1
 	messageTypeRequestBody  messageType = 2
 	messageTypeResponse     messageType = 3
@@ -44,6 +45,7 @@ const (
 )
 
 var allMessageTypes = []messageType{
+	messageTypeConn,
 	messageTypeRequest,
 	messageTypeRequestBody,
 	messageTypeResponse,
@@ -79,8 +81,13 @@ func newMessageFlow(mType messageType, f *proxy.Flow) *messageFlow {
 	var content []byte
 	var err error = nil
 
-	if mType == messageTypeRequest {
-		content, err = json.Marshal(f.Request)
+	if mType == messageTypeConn {
+		content, err = json.Marshal(f.ConnContext)
+	} else if mType == messageTypeRequest {
+		m := make(map[string]interface{})
+		m["request"] = f.Request
+		m["connId"] = f.ConnContext.Id().String()
+		content, err = json.Marshal(m)
 	} else if mType == messageTypeRequestBody {
 		content = f.Request.Body
 	} else if mType == messageTypeResponse {
@@ -95,9 +102,14 @@ func newMessageFlow(mType messageType, f *proxy.Flow) *messageFlow {
 		panic(err)
 	}
 
+	id := f.Id
+	if mType == messageTypeConn {
+		id = f.ConnContext.Id()
+	}
+
 	return &messageFlow{
 		mType:   mType,
-		id:      f.Id,
+		id:      id,
 		content: content,
 	}
 }

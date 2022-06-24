@@ -3,6 +3,7 @@ package proxy
 import (
 	"context"
 	"crypto/tls"
+	"encoding/json"
 	"net"
 	"net/http"
 
@@ -25,6 +26,14 @@ func newClientConn(c net.Conn) *ClientConn {
 	}
 }
 
+func (c *ClientConn) MarshalJSON() ([]byte, error) {
+	m := make(map[string]interface{})
+	m["id"] = c.Id
+	m["tls"] = c.Tls
+	m["address"] = c.Conn.RemoteAddr().String()
+	return json.Marshal(m)
+}
+
 // server connection
 type ServerConn struct {
 	Id      uuid.UUID
@@ -45,6 +54,14 @@ func newServerConn() *ServerConn {
 	}
 }
 
+func (c *ServerConn) MarshalJSON() ([]byte, error) {
+	m := make(map[string]interface{})
+	m["id"] = c.Id
+	m["address"] = c.Address
+	m["peername"] = c.Conn.RemoteAddr().String()
+	return json.Marshal(m)
+}
+
 func (c *ServerConn) TlsState() *tls.ConnectionState {
 	<-c.tlsHandshaked
 	return c.tlsState
@@ -55,8 +72,8 @@ var connContextKey = new(struct{})
 
 // connection context
 type ConnContext struct {
-	ClientConn *ClientConn
-	ServerConn *ServerConn
+	ClientConn *ClientConn `json:"clientConn"`
+	ServerConn *ServerConn `json:"serverConn"`
 
 	proxy    *Proxy
 	pipeConn *pipeConn
@@ -68,6 +85,10 @@ func newConnContext(c net.Conn, proxy *Proxy) *ConnContext {
 		ClientConn: clientConn,
 		proxy:      proxy,
 	}
+}
+
+func (connCtx *ConnContext) Id() uuid.UUID {
+	return connCtx.ClientConn.Id
 }
 
 func (connCtx *ConnContext) initHttpServerConn() {

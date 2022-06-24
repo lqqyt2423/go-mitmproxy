@@ -1,6 +1,7 @@
 import { arrayBufferToBase64, bufHexView, getSize, isTextBody } from './utils'
 
 export enum MessageType {
+  CONN = 0,
   REQUEST = 1,
   REQUEST_BODY = 2,
   RESPONSE = 3,
@@ -9,12 +10,31 @@ export enum MessageType {
 
 export type Header = Record<string, string[]>
 
+export interface IConnection {
+  id: string
+  clientConn: {
+    id: string
+    tls: boolean
+    address: string
+  }
+  serverConn: {
+    id: string
+    address: string
+    peername: string
+  }
+}
+
 export interface IRequest {
   method: string
   url: string
   proto: string
   header: Header
   body?: ArrayBuffer
+}
+
+interface IFlowRequest {
+  connId: string
+  request: IRequest
 }
 
 export interface IResponse {
@@ -27,7 +47,7 @@ export interface IMessage {
   type: MessageType
   id: string
   waitIntercept: boolean
-  content?: ArrayBuffer | IRequest | IResponse
+  content?: ArrayBuffer | IFlowRequest | IResponse
 }
 
 export interface IFlowPreview {
@@ -51,6 +71,7 @@ interface IPreviewBody {
 export class Flow {
   public no: number
   public id: string
+  public connId: string
   public waitIntercept: boolean
   public request: IRequest
   public response: IResponse | null = null
@@ -84,7 +105,10 @@ export class Flow {
     this.no = ++Flow.curNo
     this.id = msg.id
     this.waitIntercept = msg.waitIntercept
-    this.request = msg.content as IRequest
+
+    const flowRequestMsg = msg.content as IFlowRequest
+    this.connId = flowRequestMsg.connId
+    this.request = flowRequestMsg.request
 
     this.url = new URL(this.request.url)
     this.path = this.url.pathname + this.url.search
@@ -255,6 +279,7 @@ export class Flow {
 }
 
 const allMessageBytes = [
+  MessageType.CONN,
   MessageType.REQUEST,
   MessageType.REQUEST_BODY,
   MessageType.RESPONSE,
@@ -262,7 +287,7 @@ const allMessageBytes = [
 ]
 
 
-// type: 1/2/3/4
+// type: 0/1/2/3/4
 // messageFlow
 // version 1 byte + type 1 byte + id 36 byte + waitIntercept 1 byte + content left bytes
 export const parseMessage = (data: ArrayBuffer): IMessage | null => {

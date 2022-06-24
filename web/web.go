@@ -92,6 +92,19 @@ func (web *WebAddon) removeConn(conn *concurrentConn) {
 	web.conns = append(web.conns[:index], web.conns[index+1:]...)
 }
 
+func (web *WebAddon) forEachConn(do func(c *concurrentConn)) bool {
+	web.connsMu.RLock()
+	conns := web.conns
+	web.connsMu.RUnlock()
+	if len(conns) == 0 {
+		return false
+	}
+	for _, c := range conns {
+		do(c)
+	}
+	return true
+}
+
 func (web *WebAddon) sendFlow(f *proxy.Flow, msgFn func() *messageFlow) bool {
 	web.connsMu.RLock()
 	conns := web.conns
@@ -110,6 +123,12 @@ func (web *WebAddon) sendFlow(f *proxy.Flow, msgFn func() *messageFlow) bool {
 }
 
 func (web *WebAddon) Requestheaders(f *proxy.Flow) {
+	if f.ConnContext.ClientConn.Tls {
+		web.forEachConn(func(c *concurrentConn) {
+			c.trySendConnMessage(f)
+		})
+	}
+
 	web.sendFlow(f, func() *messageFlow {
 		return newMessageFlow(messageTypeRequest, f)
 	})
@@ -122,6 +141,12 @@ func (web *WebAddon) Request(f *proxy.Flow) {
 }
 
 func (web *WebAddon) Responseheaders(f *proxy.Flow) {
+	if !f.ConnContext.ClientConn.Tls {
+		web.forEachConn(func(c *concurrentConn) {
+			c.trySendConnMessage(f)
+		})
+	}
+
 	web.sendFlow(f, func() *messageFlow {
 		return newMessageFlow(messageTypeResponse, f)
 	})
@@ -130,5 +155,11 @@ func (web *WebAddon) Responseheaders(f *proxy.Flow) {
 func (web *WebAddon) Response(f *proxy.Flow) {
 	web.sendFlow(f, func() *messageFlow {
 		return newMessageFlow(messageTypeResponseBody, f)
+	})
+}
+
+func (web *WebAddon) ServerDisconnected(connCtx *proxy.ConnContext) {
+	web.forEachConn(func(c *concurrentConn) {
+		c.whenConnClose(connCtx)
 	})
 }

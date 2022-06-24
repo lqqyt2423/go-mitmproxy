@@ -19,6 +19,8 @@ type concurrentConn struct {
 	conn *websocket.Conn
 	mu   sync.Mutex
 
+	sendConnMessageMap map[string]bool
+
 	waitChans   map[string]chan interface{}
 	waitChansMu sync.Mutex
 
@@ -27,9 +29,30 @@ type concurrentConn struct {
 
 func newConn(c *websocket.Conn) *concurrentConn {
 	return &concurrentConn{
-		conn:      c,
-		waitChans: make(map[string]chan interface{}),
+		conn:               c,
+		sendConnMessageMap: make(map[string]bool),
+		waitChans:          make(map[string]chan interface{}),
 	}
+}
+
+func (c *concurrentConn) trySendConnMessage(f *proxy.Flow) {
+	key := f.ConnContext.Id().String()
+	if send := c.sendConnMessageMap[key]; send {
+		return
+	}
+	c.sendConnMessageMap[key] = true
+	msg := newMessageFlow(messageTypeConn, f)
+	c.mu.Lock()
+	err := c.conn.WriteMessage(websocket.BinaryMessage, msg.bytes())
+	c.mu.Unlock()
+	if err != nil {
+		log.Error(err)
+		return
+	}
+}
+
+func (c *concurrentConn) whenConnClose(connCtx *proxy.ConnContext) {
+	delete(c.sendConnMessageMap, connCtx.Id().String())
 }
 
 func (c *concurrentConn) writeMessage(msg *messageFlow, f *proxy.Flow) {
