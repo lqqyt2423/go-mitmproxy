@@ -1,0 +1,33 @@
+export interface IConnection {
+  id: string
+  clientConn: {
+    id: string
+    tls: boolean
+    address: string
+  }
+  serverConn: {
+    id: string
+    address: string
+    peername: string
+  }
+}
+
+export class ConnectionManager {
+  private _map: Map<string, IConnection>
+
+  constructor() {
+    this._map = new Map()
+  }
+
+  get(id: string) {
+    return this._map.get(id)
+  }
+
+  set(id: string, conn: IConnection) {
+    this._map.set(id, conn)
+  }
+
+  delete(id: string) {
+    this._map.delete(id)
+  }
+}

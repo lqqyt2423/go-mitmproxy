@@ -1,4 +1,4 @@
-import { IRequest, IResponse } from './message'
+import type { IRequest, IResponse } from './flow'
 
 export const isTextBody = (payload: IRequest | IResponse) => {
   if (!payload) return false

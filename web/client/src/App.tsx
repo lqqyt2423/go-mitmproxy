@@ -8,9 +8,10 @@ import BreakPoint from './components/BreakPoint'
 import FlowPreview from './components/FlowPreview'
 import ViewFlow from './components/ViewFlow'
 
-import { FlowManager } from './flow'
-import { parseMessage, SendMessageType, buildMessageMeta, Flow, MessageType } from './message'
-import { isInViewPort } from './utils'
+import { Flow, FlowManager } from './lib/flow'
+import { parseMessage, SendMessageType, buildMessageMeta, MessageType } from './lib/message'
+import { isInViewPort } from './lib/utils'
+import { ConnectionManager, IConnection } from './lib/connection'
 
 interface IState {
   flows: Flow[]
@@ -25,6 +26,7 @@ const wsReconnIntervals = [1, 1, 2, 2, 4, 4, 8, 8, 16, 16, 32, 32]
 interface IProps {}
 
 class App extends React.Component<IProps, IState> {
+  private connMgr: ConnectionManager
   private flowMgr: FlowManager
   private ws: WebSocket | null
   private wsUnmountClose: boolean
@@ -35,6 +37,7 @@ class App extends React.Component<IProps, IState> {
   constructor(props: IProps) {
     super(props)
 
+    this.connMgr = new ConnectionManager()
     this.flowMgr = new FlowManager()
 
     this.state = {
@@ -106,7 +109,9 @@ class App extends React.Component<IProps, IState> {
       }
       // console.log('msg:', msg)
 
-      if (msg.type === MessageType.REQUEST) {
+      if (msg.type === MessageType.CONN) {
+        this.connMgr.set(msg.id, msg.content as IConnection)
+      } else if (msg.type === MessageType.REQUEST) {
         const flow = new Flow(msg)
         this.flowMgr.add(flow)
 

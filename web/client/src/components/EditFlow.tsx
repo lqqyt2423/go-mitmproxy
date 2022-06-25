@@ -3,10 +3,9 @@ import Button from 'react-bootstrap/Button'
 import Modal from 'react-bootstrap/Modal'
 import Form from 'react-bootstrap/Form'
 import Alert from 'react-bootstrap/Alert'
-
-import { SendMessageType, buildMessageEdit, IRequest, IResponse, Header, Flow } from '../message'
-import { isTextBody } from '../utils'
-
+import { SendMessageType, buildMessageEdit } from '../lib/message'
+import { isTextBody } from '../lib/utils'
+import type { Flow, Header, IRequest, IResponse } from '../lib/flow'
 
 const stringifyRequest = (request: IRequest) => {
   const firstLine = `${request.method} ${request.url}`

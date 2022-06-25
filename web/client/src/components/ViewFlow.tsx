@@ -4,9 +4,8 @@ import FormCheck from 'react-bootstrap/FormCheck'
 import fetchToCurl from 'fetch-to-curl'
 import copy from 'copy-to-clipboard'
 import JSONPretty from 'react-json-pretty'
-import { Flow, IResponse } from '../message'
-import { isTextBody } from '../utils'
-
+import { isTextBody } from '../lib/utils'
+import type { Flow, IResponse } from '../lib/flow'
 import EditFlow from './EditFlow'
 
 interface Iprops {

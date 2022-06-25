@@ -1,28 +1,7 @@
+import { IMessage, MessageType } from './message'
 import { arrayBufferToBase64, bufHexView, getSize, isTextBody } from './utils'
 
-export enum MessageType {
-  CONN = 0,
-  REQUEST = 1,
-  REQUEST_BODY = 2,
-  RESPONSE = 3,
-  RESPONSE_BODY = 4,
-}
-
 export type Header = Record<string, string[]>
-
-export interface IConnection {
-  id: string
-  clientConn: {
-    id: string
-    tls: boolean
-    address: string
-  }
-  serverConn: {
-    id: string
-    address: string
-    peername: string
-  }
-}
 
 export interface IRequest {
   method: string
@@ -32,7 +11,7 @@ export interface IRequest {
   body?: ArrayBuffer
 }
 
-interface IFlowRequest {
+export interface IFlowRequest {
   connId: string
   request: IRequest
 }
@@ -43,11 +22,9 @@ export interface IResponse {
   body?: ArrayBuffer
 }
 
-export interface IMessage {
-  type: MessageType
-  id: string
-  waitIntercept: boolean
-  content?: ArrayBuffer | IFlowRequest | IResponse
+export interface IPreviewBody {
+  type: 'image' | 'json' | 'binary'
+  data: string | null
 }
 
 export interface IFlowPreview {
@@ -61,11 +38,6 @@ export interface IFlowPreview {
   size: string
   costTime: string
   contentType: string
-}
-
-interface IPreviewBody {
-  type: 'image' | 'json' | 'binary'
-  data: string | null
 }
 
 export class Flow {
@@ -278,121 +250,81 @@ export class Flow {
   }
 }
 
-const allMessageBytes = [
-  MessageType.CONN,
-  MessageType.REQUEST,
-  MessageType.REQUEST_BODY,
-  MessageType.RESPONSE,
-  MessageType.RESPONSE_BODY,
-]
+export class FlowManager {
+  private items: Flow[]
+  private _map: Map<string, Flow>
+  private filterText: string
+  private filterTimer: number | null
+  private num: number
+  private max: number
 
+  constructor() {
+    this.items = []
+    this._map = new Map()
+    this.filterText = ''
+    this.filterTimer = null
+    this.num = 0
 
-// type: 0/1/2/3/4
-// messageFlow
-// version 1 byte + type 1 byte + id 36 byte + waitIntercept 1 byte + content left bytes
-export const parseMessage = (data: ArrayBuffer): IMessage | null => {
-  if (data.byteLength < 39) return null
-  const meta = new Int8Array(data.slice(0, 39))
-  const version = meta[0]
-  if (version !== 1) return null
-  const type = meta[1] as MessageType
-  if (!allMessageBytes.includes(type)) return null
-  const id = new TextDecoder().decode(data.slice(2, 38))
-  const waitIntercept = meta[38] === 1
-
-  const resp: IMessage = {
-    type,
-    id,
-    waitIntercept,
-  }
-  if (data.byteLength === 39) return resp
-  if (type === MessageType.REQUEST_BODY || type === MessageType.RESPONSE_BODY) {
-    resp.content = data.slice(39)
-    return resp
+    this.max = 1000
   }
 
-  const contentStr = new TextDecoder().decode(data.slice(39))
-  let content: any
-  try {
-    content = JSON.parse(contentStr)
-  } catch (err) {
-    return null
+  showList() {
+    let text = this.filterText
+    if (text) text = text.trim()
+    if (!text) return this.items
+
+    // regexp
+    if (text.startsWith('/') && text.endsWith('/')) {
+      text = text.slice(1, text.length - 1).trim()
+      if (!text) return this.items
+      try {
+        const reg = new RegExp(text)
+        return this.items.filter(item => {
+          return reg.test(item.request.url)
+        })
+      } catch (err) {
+        return this.items
+      }
+    }
+
+    return this.items.filter(item => {
+      return item.request.url.includes(text)
+    })
   }
 
-  resp.content = content
-  return resp
-}
+  add(item: Flow) {
+    item.no = ++this.num
+    this.items.push(item)
+    this._map.set(item.id, item)
 
-
-export enum SendMessageType {
-  CHANGE_REQUEST = 11,
-  CHANGE_RESPONSE = 12,
-  DROP_REQUEST = 13,
-  DROP_RESPONSE = 14,
-  CHANGE_BREAK_POINT_RULES = 21,
-}
-
-// type: 11/12/13/14
-// messageEdit
-// version 1 byte + type 1 byte + id 36 byte + header len 4 byte + header content bytes + body len 4 byte + [body content bytes]
-export const buildMessageEdit = (messageType: SendMessageType, flow: Flow) => {
-  if (messageType === SendMessageType.DROP_REQUEST || messageType === SendMessageType.DROP_RESPONSE) {
-    const view = new Uint8Array(38)
-    view[0] = 1
-    view[1] = messageType
-    view.set(new TextEncoder().encode(flow.id), 2)
-    return view
+    if (this.items.length > this.max) {
+      const oldest = this.items.shift()
+      if (oldest) this._map.delete(oldest.id)
+    }
   }
 
-  let header: Omit<IRequest, 'body'> | Omit<IResponse, 'body'>
-  let body: ArrayBuffer | Uint8Array | undefined
-
-  if (messageType === SendMessageType.CHANGE_REQUEST) {
-    ({ body, ...header } = flow.request)
-  } else if (messageType === SendMessageType.CHANGE_RESPONSE) {
-    ({ body, ...header } = flow.response as IResponse)
-  } else {
-    throw new Error('invalid message type')
+  get(id: string) {
+    return this._map.get(id)
   }
 
-  if (body instanceof ArrayBuffer) body = new Uint8Array(body)
-  const bodyLen = (body && body.byteLength) ? body.byteLength : 0
-
-  if ('Content-Encoding' in header.header) delete header.header['Content-Encoding']
-  if ('Transfer-Encoding' in header.header) delete header.header['Transfer-Encoding']
-  header.header['Content-Length'] = [String(bodyLen)]
-
-  const headerBytes = new TextEncoder().encode(JSON.stringify(header))
-  const len = 2 + 36 + 4 + headerBytes.byteLength + 4 + bodyLen
-  const data = new ArrayBuffer(len)
-  const view = new Uint8Array(data)
-  view[0] = 1
-  view[1] = messageType
-  view.set(new TextEncoder().encode(flow.id), 2)
-  view.set(headerBytes, 2 + 36 + 4)
-  if (bodyLen) view.set(body as Uint8Array, 2 + 36 + 4 + headerBytes.byteLength + 4)
-
-  const view2 = new DataView(data)
-  view2.setUint32(2 + 36, headerBytes.byteLength)
-  view2.setUint32(2 + 36 + 4 + headerBytes.byteLength, bodyLen)
-
-  return view
-}
-
-
-// type: 21
-// messageMeta
-// version 1 byte + type 1 byte + content left bytes
-export const buildMessageMeta = (messageType: SendMessageType, rules: any) => {
-  if (messageType !== SendMessageType.CHANGE_BREAK_POINT_RULES) {
-    throw new Error('invalid message type')
+  changeFilter(text: string) {
+    this.filterText = text
   }
 
-  const rulesBytes = new TextEncoder().encode(JSON.stringify(rules))
-  const view = new Uint8Array(2 + rulesBytes.byteLength)
-  view[0] = 1
-  view[1] = messageType
-  view.set(rulesBytes, 2)
+  changeFilterLazy(text: string, callback: () => void) {
+    if (this.filterTimer) {
+      clearTimeout(this.filterTimer)
+      this.filterTimer = null
+    }
 
-  return view
+    this.filterTimer = setTimeout(() => {
+      this.filterText = text
+      callback()
+    }, 300) as any
+  }
+
+  clear() {
+    this.items = []
+    this._map = new Map()
+  }
 }
