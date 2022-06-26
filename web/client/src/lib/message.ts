@@ -33,7 +33,7 @@ export const parseMessage = (data: ArrayBuffer): IMessage | null => {
   if (data.byteLength < 39) return null
   const meta = new Int8Array(data.slice(0, 39))
   const version = meta[0]
-  if (version !== 1) return null
+  if (version !== 2) return null
   const type = meta[1] as MessageType
   if (!allMessageBytes.includes(type)) return null
   const id = new TextDecoder().decode(data.slice(2, 38))

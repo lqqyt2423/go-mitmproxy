@@ -13,7 +13,7 @@ import (
 
 // message:
 
-// type: 0/1/2/3/4
+// type: 0/1/2/3/4/5
 // messageFlow
 // version 1 byte + type 1 byte + id 36 byte + waitIntercept 1 byte + content left bytes
 
@@ -25,7 +25,7 @@ import (
 // messageMeta
 // version 1 byte + type 1 byte + content left bytes
 
-const messageVersion = 1
+const messageVersion = 2
 
 type messageType byte
 
