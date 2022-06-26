@@ -31,6 +31,7 @@ type messageType byte
 
 const (
 	messageTypeConn         messageType = 0
+	messageTypeConnClose    messageType = 5
 	messageTypeRequest      messageType = 1
 	messageTypeRequestBody  messageType = 2
 	messageTypeResponse     messageType = 3
@@ -46,6 +47,7 @@ const (
 
 var allMessageTypes = []messageType{
 	messageTypeConn,
+	messageTypeConnClose,
 	messageTypeRequest,
 	messageTypeRequestBody,
 	messageTypeResponse,
@@ -111,6 +113,13 @@ func newMessageFlow(mType messageType, f *proxy.Flow) *messageFlow {
 		mType:   mType,
 		id:      id,
 		content: content,
+	}
+}
+
+func newMessageConnClose(connCtx *proxy.ConnContext) *messageFlow {
+	return &messageFlow{
+		mType: messageTypeConnClose,
+		id:    connCtx.Id(),
 	}
 }
 

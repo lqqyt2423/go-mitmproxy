@@ -3,6 +3,7 @@ import type { Flow, IFlowRequest, IRequest, IResponse } from './flow'
 
 export enum MessageType {
   CONN = 0,
+  CONN_CLOSE = 5,
   REQUEST = 1,
   REQUEST_BODY = 2,
   RESPONSE = 3,
@@ -11,6 +12,7 @@ export enum MessageType {
 
 const allMessageBytes = [
   MessageType.CONN,
+  MessageType.CONN_CLOSE,
   MessageType.REQUEST,
   MessageType.REQUEST_BODY,
   MessageType.RESPONSE,

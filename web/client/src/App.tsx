@@ -110,8 +110,13 @@ class App extends React.Component<IProps, IState> {
       if (msg.type === MessageType.CONN) {
         this.connMgr.add(msg.id, msg.content as IConnection)
         this.setState({ flows: this.state.flows })
-      } else if (msg.type === MessageType.REQUEST) {
+      }
+      else if (msg.type === MessageType.CONN_CLOSE) {
+        this.connMgr.delete(msg.id)
+      }
+      else if (msg.type === MessageType.REQUEST) {
         const flow = new Flow(msg, this.connMgr)
+        flow.getConn()
         this.flowMgr.add(flow)
 
         let shouldScroll = false
@@ -133,6 +138,7 @@ class App extends React.Component<IProps, IState> {
       else if (msg.type === MessageType.RESPONSE) {
         const flow = this.flowMgr.get(msg.id)
         if (!flow) return
+        flow.getConn()
         flow.addResponse(msg)
         this.setState({ flows: this.state.flows })
       }

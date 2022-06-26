@@ -53,6 +53,15 @@ func (c *concurrentConn) trySendConnMessage(f *proxy.Flow) {
 
 func (c *concurrentConn) whenConnClose(connCtx *proxy.ConnContext) {
 	delete(c.sendConnMessageMap, connCtx.Id().String())
+
+	msg := newMessageConnClose(connCtx)
+	c.mu.Lock()
+	err := c.conn.WriteMessage(websocket.BinaryMessage, msg.bytes())
+	c.mu.Unlock()
+	if err != nil {
+		log.Error(err)
+		return
+	}
 }
 
 func (c *concurrentConn) writeMessage(msg *messageFlow, f *proxy.Flow) {
