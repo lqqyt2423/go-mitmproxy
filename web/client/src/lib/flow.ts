@@ -1,3 +1,4 @@
+import type { ConnectionManager, IConnection } from './connection'
 import { IMessage, MessageType } from './message'
 import { arrayBufferToBase64, bufHexView, getSize, isTextBody } from './utils'
 
@@ -73,7 +74,10 @@ export class Flow {
   private _previewRequestBody: IPreviewBody | null = null
   private _hexviewResponseBody: string | null = null
 
-  constructor(msg: IMessage) {
+  private connMgr: ConnectionManager;
+  private conn: IConnection | undefined;
+
+  constructor(msg: IMessage, connMgr: ConnectionManager) {
     this.no = ++Flow.curNo
     this.id = msg.id
     this.waitIntercept = msg.waitIntercept
@@ -89,6 +93,8 @@ export class Flow {
     this._isTextResponse = null
     this._requestBody = null
     this._responseBody = null
+
+    this.connMgr = connMgr
   }
 
   public addRequestBody(msg: IMessage): Flow {
@@ -247,6 +253,12 @@ export class Flow {
 
     this._hexviewResponseBody = bufHexView(this.response.body)
     return this._hexviewResponseBody
+  }
+
+  public getConn(): IConnection | undefined {
+    if (this.conn) return this.conn
+    this.conn = this.connMgr.get(this.connId)
+    return this.conn
   }
 }
 

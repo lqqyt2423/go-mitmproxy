@@ -1,5 +1,4 @@
 export interface IConnection {
-  id: string
   clientConn: {
     id: string
     tls: boolean
@@ -23,7 +22,7 @@ export class ConnectionManager {
     return this._map.get(id)
   }
 
-  set(id: string, conn: IConnection) {
+  add(id: string, conn: IConnection) {
     this._map.set(id, conn)
   }
 

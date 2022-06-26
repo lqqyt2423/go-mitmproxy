@@ -16,7 +16,6 @@ import { ConnectionManager, IConnection } from './lib/connection'
 interface IState {
   flows: Flow[]
   flow: Flow | null
-  flowTab: 'Headers' | 'Preview' | 'Response'
   wsStatus: 'open' | 'close' | 'connecting'
 }
 
@@ -43,7 +42,6 @@ class App extends React.Component<IProps, IState> {
     this.state = {
       flows: this.flowMgr.showList(),
       flow: null,
-      flowTab: 'Headers', // Headers, Preview, Response
       wsStatus: 'close',
     }
 
@@ -110,9 +108,10 @@ class App extends React.Component<IProps, IState> {
       // console.log('msg:', msg)
 
       if (msg.type === MessageType.CONN) {
-        this.connMgr.set(msg.id, msg.content as IConnection)
+        this.connMgr.add(msg.id, msg.content as IConnection)
+        this.setState({ flows: this.state.flows })
       } else if (msg.type === MessageType.REQUEST) {
-        const flow = new Flow(msg)
+        const flow = new Flow(msg, this.connMgr)
         this.flowMgr.add(flow)
 
         let shouldScroll = false

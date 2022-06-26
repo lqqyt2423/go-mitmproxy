@@ -91,7 +91,26 @@ class ViewFlow extends React.Component<Iprops, IState> {
     const { flow } = this.props
     if (!flow) return null
 
-    return <div>detail todo</div>
+    const conn = flow.getConn()
+    if (!conn) return null
+
+    return (
+      <div>
+        <div className="header-block">
+          <p>Server Connection</p>
+          <div className="header-block-content">
+            <p>Address: {conn.serverConn.address}</p>
+            <p>Resolved Address: {conn.serverConn.peername}</p>
+          </div>
+        </div>
+        <div className="header-block">
+          <p>Client Connection</p>
+          <div className="header-block-content">
+            <p>Address: {conn.clientConn.address}</p>
+          </div>
+        </div>
+      </div>
+    )
   }
 
   render() {
