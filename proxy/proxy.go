@@ -116,7 +116,13 @@ func (proxy *Proxy) ServeHTTP(res http.ResponseWriter, req *http.Request) {
 		return
 	}
 
-	reply := func(response *Response, body io.Reader) {
+	reply := func(response *Response, body io.Reader, streamFunc StreamFunc) {
+		var f StreamFunc
+		if streamFunc != nil {
+			f = streamFunc
+		} else {
+			f = io.Copy
+		}
 		if response.Header != nil {
 			for key, value := range response.Header {
 				for _, v := range value {
@@ -127,7 +133,7 @@ func (proxy *Proxy) ServeHTTP(res http.ResponseWriter, req *http.Request) {
 		res.WriteHeader(response.StatusCode)
 
 		if body != nil {
-			_, err := io.Copy(res, body)
+			_, err := f(res, body)
 			if err != nil {
 				logErr(log, err)
 			}
@@ -155,7 +161,7 @@ func (proxy *Proxy) ServeHTTP(res http.ResponseWriter, req *http.Request) {
 	for _, addon := range proxy.Addons {
 		addon.Requestheaders(f)
 		if f.Response != nil {
-			reply(f.Response, nil)
+			reply(f.Response, nil, nil)
 			return
 		}
 	}
@@ -181,7 +187,7 @@ func (proxy *Proxy) ServeHTTP(res http.ResponseWriter, req *http.Request) {
 			for _, addon := range proxy.Addons {
 				addon.Request(f)
 				if f.Response != nil {
-					reply(f.Response, nil)
+					reply(f.Response, nil, nil)
 					return
 				}
 			}
@@ -220,7 +226,7 @@ func (proxy *Proxy) ServeHTTP(res http.ResponseWriter, req *http.Request) {
 	for _, addon := range proxy.Addons {
 		addon.Responseheaders(f)
 		if f.Response.Body != nil {
-			reply(f.Response, nil)
+			reply(f.Response, nil, nil)
 			return
 		}
 	}
@@ -248,7 +254,7 @@ func (proxy *Proxy) ServeHTTP(res http.ResponseWriter, req *http.Request) {
 		}
 	}
 
-	reply(f.Response, resBody)
+	reply(f.Response, resBody, f.StreamFunc)
 }
 
 func (proxy *Proxy) handleConnect(res http.ResponseWriter, req *http.Request) {

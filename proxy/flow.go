@@ -3,6 +3,7 @@ package proxy
 import (
 	"encoding/json"
 	"errors"
+	"io"
 	"net/http"
 	"net/url"
 
@@ -102,6 +103,8 @@ type Response struct {
 	decodedErr  error
 }
 
+type StreamFunc func(dst io.Writer, src io.Reader) (int64, error)
+
 // flow
 type Flow struct {
 	Id          uuid.UUID
@@ -111,7 +114,8 @@ type Flow struct {
 
 	// https://docs.mitmproxy.org/stable/overview-features/#streaming
 	// 如果为 true，则不缓冲 Request.Body 和 Response.Body，且不进入之后的 Addon.Request 和 Addon.Response
-	Stream bool
+	Stream     bool
+	StreamFunc StreamFunc
 
 	done chan struct{}
 }
