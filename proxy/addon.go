@@ -36,10 +36,10 @@ type Addon interface {
 	Response(*Flow)
 
 	// Stream request body modifier
-	StreamRequestModifier(io.Reader) io.Reader
+	StreamRequestModifier(*Flow, io.Reader) io.Reader
 
 	// Stream response body modifier
-	StreamResponseModifier(io.Reader) io.Reader
+	StreamResponseModifier(*Flow, io.Reader) io.Reader
 }
 
 // BaseAddon do nothing
@@ -56,10 +56,10 @@ func (addon *BaseAddon) Requestheaders(*Flow)  {}
 func (addon *BaseAddon) Request(*Flow)         {}
 func (addon *BaseAddon) Responseheaders(*Flow) {}
 func (addon *BaseAddon) Response(*Flow)        {}
-func (addon *BaseAddon) StreamRequestModifier(in io.Reader) io.Reader {
+func (addon *BaseAddon) StreamRequestModifier(f *Flow, in io.Reader) io.Reader {
 	return in
 }
-func (addon *BaseAddon) StreamResponseModifier(in io.Reader) io.Reader {
+func (addon *BaseAddon) StreamResponseModifier(f *Flow, in io.Reader) io.Reader {
 	return in
 }
 

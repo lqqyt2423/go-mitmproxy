@@ -132,18 +132,16 @@ func (proxy *Proxy) ServeHTTP(res http.ResponseWriter, req *http.Request) {
 				logErr(log, err)
 			}
 		}
-		if response.Body != nil {
-			if response.BodyReader != nil {
-				_, err := io.Copy(res, response.BodyReader)
-				if err != nil {
-					logErr(log, err)
-				}
+		if response.BodyReader != nil {
+			_, err := io.Copy(res, response.BodyReader)
+			if err != nil {
+				logErr(log, err)
 			}
-			if len(response.Body) > 0 {
-				_, err := res.Write(response.Body)
-				if err != nil {
-					logErr(log, err)
-				}
+		}
+		if response.Body != nil && len(response.Body) > 0 {
+			_, err := res.Write(response.Body)
+			if err != nil {
+				logErr(log, err)
 			}
 		}
 	}
@@ -199,7 +197,7 @@ func (proxy *Proxy) ServeHTTP(res http.ResponseWriter, req *http.Request) {
 	}
 
 	for _, addon := range proxy.Addons {
-		reqBody = addon.StreamRequestModifier(reqBody)
+		reqBody = addon.StreamRequestModifier(f, reqBody)
 	}
 	proxyReq, err := http.NewRequest(f.Request.Method, f.Request.URL.String(), reqBody)
 	if err != nil {
@@ -260,7 +258,7 @@ func (proxy *Proxy) ServeHTTP(res http.ResponseWriter, req *http.Request) {
 		}
 	}
 	for _, addon := range proxy.Addons {
-		resBody = addon.StreamResponseModifier(resBody)
+		resBody = addon.StreamResponseModifier(f, resBody)
 	}
 
 	reply(f.Response, resBody)
