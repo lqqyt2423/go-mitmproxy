@@ -189,6 +189,9 @@ func (proxy *Proxy) ServeHTTP(res http.ResponseWriter, req *http.Request) {
 		}
 	}
 
+	for _, addon := range proxy.Addons {
+		reqBody = addon.StreamRequestModifier(reqBody)
+	}
 	proxyReq, err := http.NewRequest(f.Request.Method, f.Request.URL.String(), reqBody)
 	if err != nil {
 		log.Error(err)
@@ -246,6 +249,9 @@ func (proxy *Proxy) ServeHTTP(res http.ResponseWriter, req *http.Request) {
 				addon.Response(f)
 			}
 		}
+	}
+	for _, addon := range proxy.Addons {
+		resBody = addon.StreamResponseModifier(resBody)
 	}
 
 	reply(f.Response, resBody)
