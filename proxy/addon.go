@@ -1,6 +1,7 @@
 package proxy
 
 import (
+	"io"
 	"time"
 
 	log "github.com/sirupsen/logrus"
@@ -33,6 +34,12 @@ type Addon interface {
 
 	// The full HTTP response has been read.
 	Response(*Flow)
+
+	// Stream request body modifier
+	StreamRequestModifier(*Flow, io.Reader) io.Reader
+
+	// Stream response body modifier
+	StreamResponseModifier(*Flow, io.Reader) io.Reader
 }
 
 // BaseAddon do nothing
@@ -49,6 +56,12 @@ func (addon *BaseAddon) Requestheaders(*Flow)  {}
 func (addon *BaseAddon) Request(*Flow)         {}
 func (addon *BaseAddon) Responseheaders(*Flow) {}
 func (addon *BaseAddon) Response(*Flow)        {}
+func (addon *BaseAddon) StreamRequestModifier(f *Flow, in io.Reader) io.Reader {
+	return in
+}
+func (addon *BaseAddon) StreamResponseModifier(f *Flow, in io.Reader) io.Reader {
+	return in
+}
 
 // LogAddon log connection and flow
 type LogAddon struct {
