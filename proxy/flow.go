@@ -3,6 +3,7 @@ package proxy
 import (
 	"encoding/json"
 	"errors"
+	"io"
 	"net/http"
 	"net/url"
 
@@ -96,6 +97,7 @@ type Response struct {
 	StatusCode int         `json:"statusCode"`
 	Header     http.Header `json:"header"`
 	Body       []byte      `json:"-"`
+	BodyReader io.Reader
 
 	decodedBody []byte
 	decoded     bool // decoded reports whether the response was sent compressed but was decoded to decodedBody.

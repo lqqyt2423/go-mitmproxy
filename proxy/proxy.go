@@ -131,10 +131,19 @@ func (proxy *Proxy) ServeHTTP(res http.ResponseWriter, req *http.Request) {
 			if err != nil {
 				logErr(log, err)
 			}
-		} else if response.Body != nil && len(response.Body) > 0 {
-			_, err := res.Write(response.Body)
-			if err != nil {
-				logErr(log, err)
+		}
+		if response.Body != nil {
+			if response.BodyReader != nil {
+				_, err := io.Copy(res, response.BodyReader)
+				if err != nil {
+					logErr(log, err)
+				}
+			}
+			if len(response.Body) > 0 {
+				_, err := res.Write(response.Body)
+				if err != nil {
+					logErr(log, err)
+				}
 			}
 		}
 	}
