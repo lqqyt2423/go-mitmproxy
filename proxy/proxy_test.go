@@ -482,3 +482,114 @@ func TestProxyWhenServerNotKeepAlive(t *testing.T) {
 		})
 	})
 }
+
+func TestProxyWhenServerKeepAliveButCloseImmediately(t *testing.T) {
+	mux := http.NewServeMux()
+	mux.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
+		w.Write([]byte("ok"))
+	})
+	server := &http.Server{
+		Handler:     mux,
+		IdleTimeout: time.Millisecond * 10,
+	}
+
+	// start http server
+	ln, err := net.Listen("tcp", "127.0.0.1:0")
+	handleError(t, err)
+	defer ln.Close()
+	go server.Serve(ln)
+
+	// start https server
+	tlsLn, err := net.Listen("tcp", "127.0.0.1:0")
+	handleError(t, err)
+	defer tlsLn.Close()
+	ca, err := cert.NewCAMemory()
+	handleError(t, err)
+	cert, err := ca.GetCert("localhost")
+	handleError(t, err)
+	tlsConfig := &tls.Config{
+		Certificates: []tls.Certificate{*cert},
+	}
+	go server.Serve(tls.NewListener(tlsLn, tlsConfig))
+
+	httpEndpoint := "http://" + ln.Addr().String() + "/"
+	httpsPort := tlsLn.Addr().(*net.TCPAddr).Port
+	httpsEndpoint := "https://localhost:" + strconv.Itoa(httpsPort) + "/"
+
+	// start proxy
+	testProxy, err := NewProxy(&Options{
+		Addr:        ":29082", // some random port
+		SslInsecure: true,
+	})
+	handleError(t, err)
+	testProxy.AddAddon(&interceptAddon{})
+	testOrderAddonInstance := &testOrderAddon{
+		orders: make([]string, 0),
+	}
+	testProxy.AddAddon(testOrderAddonInstance)
+	go testProxy.Start()
+	time.Sleep(time.Millisecond * 10) // wait for test proxy startup
+
+	getProxyClient := func() *http.Client {
+		return &http.Client{
+			Transport: &http.Transport{
+				TLSClientConfig: &tls.Config{
+					InsecureSkipVerify: true,
+				},
+				Proxy: func(r *http.Request) (*url.URL, error) {
+					return url.Parse("http://127.0.0.1:29082")
+				},
+			},
+		}
+	}
+
+	t.Run("should not have eof error when server close connection immediately", func(t *testing.T) {
+		proxyClient := getProxyClient()
+		t.Run("http", func(t *testing.T) {
+			for i := 0; i < 10; i++ {
+				testSendRequest(t, httpEndpoint, proxyClient, "ok")
+			}
+		})
+		t.Run("http wait server closed", func(t *testing.T) {
+			for i := 0; i < 10; i++ {
+				testSendRequest(t, httpEndpoint, proxyClient, "ok")
+				time.Sleep(time.Millisecond * 20)
+			}
+		})
+		t.Run("https", func(t *testing.T) {
+			for i := 0; i < 10; i++ {
+				testSendRequest(t, httpsEndpoint, proxyClient, "ok")
+			}
+		})
+		t.Run("https wait server closed", func(t *testing.T) {
+			for i := 0; i < 10; i++ {
+				testSendRequest(t, httpsEndpoint, proxyClient, "ok")
+				time.Sleep(time.Millisecond * 20)
+			}
+		})
+	})
+
+	t.Run("should trigger disconnect functions when server close connection immediately", func(t *testing.T) {
+		proxyClient := getProxyClient()
+
+		t.Run("http", func(t *testing.T) {
+			time.Sleep(time.Millisecond * 10)
+			testOrderAddonInstance.reset()
+			testSendRequest(t, httpEndpoint, proxyClient, "ok")
+			time.Sleep(time.Millisecond * 20)
+			testOrderAddonInstance.contains(t, "ClientDisconnected")
+			testOrderAddonInstance.contains(t, "ServerDisconnected")
+			testOrderAddonInstance.before(t, "ServerDisconnected", "ClientDisconnected")
+		})
+
+		t.Run("https", func(t *testing.T) {
+			time.Sleep(time.Millisecond * 10)
+			testOrderAddonInstance.reset()
+			testSendRequest(t, httpsEndpoint, proxyClient, "ok")
+			time.Sleep(time.Millisecond * 20)
+			testOrderAddonInstance.contains(t, "ClientDisconnected")
+			testOrderAddonInstance.contains(t, "ServerDisconnected")
+			testOrderAddonInstance.before(t, "ServerDisconnected", "ClientDisconnected")
+		})
+	})
+}
