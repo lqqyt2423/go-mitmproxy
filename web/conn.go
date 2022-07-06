@@ -36,15 +36,16 @@ func newConn(c *websocket.Conn) *concurrentConn {
 }
 
 func (c *concurrentConn) trySendConnMessage(f *proxy.Flow) {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+
 	key := f.ConnContext.Id().String()
 	if send := c.sendConnMessageMap[key]; send {
 		return
 	}
 	c.sendConnMessageMap[key] = true
 	msg := newMessageFlow(messageTypeConn, f)
-	c.mu.Lock()
 	err := c.conn.WriteMessage(websocket.BinaryMessage, msg.bytes())
-	c.mu.Unlock()
 	if err != nil {
 		log.Error(err)
 		return
@@ -52,12 +53,13 @@ func (c *concurrentConn) trySendConnMessage(f *proxy.Flow) {
 }
 
 func (c *concurrentConn) whenConnClose(connCtx *proxy.ConnContext) {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+
 	delete(c.sendConnMessageMap, connCtx.Id().String())
 
 	msg := newMessageConnClose(connCtx)
-	c.mu.Lock()
 	err := c.conn.WriteMessage(websocket.BinaryMessage, msg.bytes())
-	c.mu.Unlock()
 	if err != nil {
 		log.Error(err)
 		return
