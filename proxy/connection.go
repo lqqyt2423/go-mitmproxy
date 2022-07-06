@@ -235,7 +235,7 @@ func (c *wrapClientConn) Close() error {
 	if c.closed {
 		return c.closeErr
 	}
-	log.Debugln("in wrapClientConn close")
+	log.Debugln("in wrapClientConn close", c.connCtx.ClientConn.Conn.RemoteAddr())
 
 	c.closed = true
 	c.closeErr = c.Conn.Close()
@@ -245,7 +245,7 @@ func (c *wrapClientConn) Close() error {
 	}
 
 	if c.connCtx.ServerConn != nil && c.connCtx.ServerConn.Conn != nil {
-		c.connCtx.ServerConn.Conn.(*wrapServerConn).Conn.(*net.TCPConn).CloseRead()
+		c.connCtx.ServerConn.Conn.Close()
 	}
 
 	return c.closeErr
@@ -282,7 +282,7 @@ func (c *wrapServerConn) Close() error {
 	if c.closed {
 		return c.closeErr
 	}
-	log.Debugln("in wrapServerConn close")
+	log.Debugln("in wrapServerConn close", c.connCtx.ClientConn.Conn.RemoteAddr())
 
 	c.closed = true
 	c.closeErr = c.Conn.Close()
