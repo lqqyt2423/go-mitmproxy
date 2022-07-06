@@ -124,6 +124,9 @@ func (proxy *Proxy) ServeHTTP(res http.ResponseWriter, req *http.Request) {
 				}
 			}
 		}
+		if response.close {
+			res.Header().Add("Connection", "close")
+		}
 		res.WriteHeader(response.StatusCode)
 
 		if body != nil {
@@ -219,11 +222,17 @@ func (proxy *Proxy) ServeHTTP(res http.ResponseWriter, req *http.Request) {
 		res.WriteHeader(502)
 		return
 	}
+
+	if proxyRes.Close {
+		f.ConnContext.closeAfterResponse = true
+	}
+
 	defer proxyRes.Body.Close()
 
 	f.Response = &Response{
 		StatusCode: proxyRes.StatusCode,
 		Header:     proxyRes.Header,
+		close:      proxyRes.Close,
 	}
 
 	// trigger addon event Responseheaders

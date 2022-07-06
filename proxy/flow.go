@@ -99,6 +99,8 @@ type Response struct {
 	Body       []byte      `json:"-"`
 	BodyReader io.Reader
 
+	close bool // connection close
+
 	decodedBody []byte
 	decoded     bool // decoded reports whether the response was sent compressed but was decoded to decodedBody.
 	decodedErr  error

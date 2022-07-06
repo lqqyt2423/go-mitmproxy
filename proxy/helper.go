@@ -3,6 +3,7 @@ package proxy
 import (
 	"bytes"
 	"io"
+	"net"
 	"os"
 	"strings"
 	"sync"
@@ -38,28 +39,39 @@ func logErr(log *log.Entry, err error) (loged bool) {
 }
 
 // 转发流量
-// Read a => Write b
-// Read b => Write a
-func transfer(log *log.Entry, a, b io.ReadWriteCloser) {
+func transfer(log *log.Entry, server, client io.ReadWriteCloser) {
 	done := make(chan struct{})
 	defer close(done)
 
-	forward := func(dst io.WriteCloser, src io.Reader, ec chan<- error) {
-		_, err := io.Copy(dst, src)
+	errChan := make(chan error)
+	go func() {
+		_, err := io.Copy(server, client)
+		log.Debugln("client copy end", err)
+		client.Close()
+		select {
+		case <-done:
+			return
+		case errChan <- err:
+			return
+		}
+	}()
+	go func() {
+		_, err := io.Copy(client, server)
+		log.Debugln("server copy end", err)
+		server.Close()
 
-		dst.Close() // 当一端读结束时，结束另一端的写
+		if clientConn, ok := client.(*wrapClientConn); ok {
+			err := clientConn.Conn.(*net.TCPConn).CloseRead()
+			log.Debugln("clientConn.Conn.(*net.TCPConn).CloseRead()", err)
+		}
 
 		select {
 		case <-done:
 			return
-		case ec <- err:
+		case errChan <- err:
 			return
 		}
-	}
-
-	errChan := make(chan error)
-	go forward(a, b, errChan)
-	go forward(b, a, errChan)
+	}()
 
 	for i := 0; i < 2; i++ {
 		if err := <-errChan; err != nil {

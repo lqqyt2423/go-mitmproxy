@@ -75,8 +75,9 @@ type ConnContext struct {
 	ClientConn *ClientConn `json:"clientConn"`
 	ServerConn *ServerConn `json:"serverConn"`
 
-	proxy    *Proxy
-	pipeConn *pipeConn
+	proxy              *Proxy
+	pipeConn           *pipeConn
+	closeAfterResponse bool // after http response, http server will close the connection
 }
 
 func newConnContext(c net.Conn, proxy *Proxy) *ConnContext {
@@ -231,10 +232,10 @@ type wrapClientConn struct {
 }
 
 func (c *wrapClientConn) Close() error {
-	log.Debugln("in wrapClientConn close")
 	if c.closed {
 		return c.closeErr
 	}
+	log.Debugln("in wrapClientConn close")
 
 	c.closed = true
 	c.closeErr = c.Conn.Close()
@@ -244,7 +245,7 @@ func (c *wrapClientConn) Close() error {
 	}
 
 	if c.connCtx.ServerConn != nil && c.connCtx.ServerConn.Conn != nil {
-		c.connCtx.ServerConn.Conn.Close()
+		c.connCtx.ServerConn.Conn.(*wrapServerConn).Conn.(*net.TCPConn).CloseRead()
 	}
 
 	return c.closeErr
@@ -278,10 +279,10 @@ type wrapServerConn struct {
 }
 
 func (c *wrapServerConn) Close() error {
-	log.Debugln("in wrapServerConn close")
 	if c.closed {
 		return c.closeErr
 	}
+	log.Debugln("in wrapServerConn close")
 
 	c.closed = true
 	c.closeErr = c.Conn.Close()
@@ -290,7 +291,14 @@ func (c *wrapServerConn) Close() error {
 		addon.ServerDisconnected(c.connCtx)
 	}
 
-	c.connCtx.ClientConn.Conn.Close()
+	if !c.connCtx.ClientConn.Tls {
+		c.connCtx.ClientConn.Conn.(*wrapClientConn).Conn.(*net.TCPConn).CloseRead()
+	} else {
+		// if keep-alive connection close
+		if !c.connCtx.closeAfterResponse {
+			c.connCtx.pipeConn.Close()
+		}
+	}
 
 	return c.closeErr
 }
