@@ -41,6 +41,82 @@ func testSendRequest(t *testing.T, endpoint string, client *http.Client, bodyWan
 	}
 }
 
+type testProxyHelper struct {
+	server    *http.Server
+	proxyAddr string
+
+	ln                     net.Listener
+	tlsPlainLn             net.Listener
+	tlsLn                  net.Listener
+	httpEndpoint           string
+	httpsEndpoint          string
+	testOrderAddonInstance *testOrderAddon
+	testProxy              *Proxy
+	getProxyClient         func() *http.Client
+}
+
+func (helper *testProxyHelper) init(t *testing.T) {
+	t.Helper()
+
+	mux := http.NewServeMux()
+	mux.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
+		w.Write([]byte("ok"))
+	})
+	helper.server.Handler = mux
+
+	// start http server
+	ln, err := net.Listen("tcp", "127.0.0.1:0")
+	handleError(t, err)
+	helper.ln = ln
+
+	// start https server
+	tlsPlainLn, err := net.Listen("tcp", "127.0.0.1:0")
+	handleError(t, err)
+	helper.tlsPlainLn = tlsPlainLn
+	ca, err := cert.NewCAMemory()
+	handleError(t, err)
+	cert, err := ca.GetCert("localhost")
+	handleError(t, err)
+	tlsConfig := &tls.Config{
+		Certificates: []tls.Certificate{*cert},
+	}
+	helper.tlsLn = tls.NewListener(tlsPlainLn, tlsConfig)
+
+	httpEndpoint := "http://" + ln.Addr().String() + "/"
+	httpsPort := tlsPlainLn.Addr().(*net.TCPAddr).Port
+	httpsEndpoint := "https://localhost:" + strconv.Itoa(httpsPort) + "/"
+	helper.httpEndpoint = httpEndpoint
+	helper.httpsEndpoint = httpsEndpoint
+
+	// start proxy
+	testProxy, err := NewProxy(&Options{
+		Addr:        helper.proxyAddr, // some random port
+		SslInsecure: true,
+	})
+	handleError(t, err)
+	testProxy.AddAddon(&interceptAddon{})
+	testOrderAddonInstance := &testOrderAddon{
+		orders: make([]string, 0),
+	}
+	testProxy.AddAddon(testOrderAddonInstance)
+	helper.testOrderAddonInstance = testOrderAddonInstance
+	helper.testProxy = testProxy
+
+	getProxyClient := func() *http.Client {
+		return &http.Client{
+			Transport: &http.Transport{
+				TLSClientConfig: &tls.Config{
+					InsecureSkipVerify: true,
+				},
+				Proxy: func(r *http.Request) (*url.URL, error) {
+					return url.Parse("http://127.0.0.1" + helper.proxyAddr)
+				},
+			},
+		}
+	}
+	helper.getProxyClient = getProxyClient
+}
+
 // addon for test intercept
 type interceptAddon struct {
 	BaseAddon
@@ -172,32 +248,22 @@ func (addon *testOrderAddon) StreamResponseModifier(f *Flow, in io.Reader) io.Re
 }
 
 func TestProxy(t *testing.T) {
-	// start http server
-	ln, err := net.Listen("tcp", "127.0.0.1:0")
-	handleError(t, err)
-	defer ln.Close()
-	go http.Serve(ln, nil)
-
-	// start https server
-	tlsLn, err := net.Listen("tcp", "127.0.0.1:0")
-	handleError(t, err)
-	defer tlsLn.Close()
-	ca, err := cert.NewCAMemory()
-	handleError(t, err)
-	cert, err := ca.GetCert("localhost")
-	handleError(t, err)
-	tlsConfig := &tls.Config{
-		Certificates: []tls.Certificate{*cert},
+	helper := &testProxyHelper{
+		server:    &http.Server{},
+		proxyAddr: ":29080",
 	}
-	go http.Serve(tls.NewListener(tlsLn, tlsConfig), nil)
-
-	http.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
-		w.Write([]byte("ok"))
-	})
-
-	httpEndpoint := "http://" + ln.Addr().String() + "/"
-	httpsPort := tlsLn.Addr().(*net.TCPAddr).Port
-	httpsEndpoint := "https://localhost:" + strconv.Itoa(httpsPort) + "/"
+	helper.init(t)
+	httpEndpoint := helper.httpEndpoint
+	httpsEndpoint := helper.httpsEndpoint
+	testOrderAddonInstance := helper.testOrderAddonInstance
+	testProxy := helper.testProxy
+	getProxyClient := helper.getProxyClient
+	defer helper.ln.Close()
+	go helper.server.Serve(helper.ln)
+	defer helper.tlsPlainLn.Close()
+	go helper.server.Serve(helper.tlsLn)
+	go testProxy.Start()
+	time.Sleep(time.Millisecond * 10) // wait for test proxy startup
 
 	t.Run("test http server", func(t *testing.T) {
 		testSendRequest(t, httpEndpoint, nil, "ok")
@@ -225,33 +291,6 @@ func TestProxy(t *testing.T) {
 			testSendRequest(t, httpsEndpoint, client, "ok")
 		})
 	})
-
-	// start proxy
-	testProxy, err := NewProxy(&Options{
-		Addr:        ":29080", // some random port
-		SslInsecure: true,
-	})
-	handleError(t, err)
-	testProxy.AddAddon(&interceptAddon{})
-	testOrderAddonInstance := &testOrderAddon{
-		orders: make([]string, 0),
-	}
-	testProxy.AddAddon(testOrderAddonInstance)
-	go testProxy.Start()
-	time.Sleep(time.Millisecond * 10) // wait for test proxy startup
-
-	getProxyClient := func() *http.Client {
-		return &http.Client{
-			Transport: &http.Transport{
-				TLSClientConfig: &tls.Config{
-					InsecureSkipVerify: true,
-				},
-				Proxy: func(r *http.Request) (*url.URL, error) {
-					return url.Parse("http://127.0.0.1:29080")
-				},
-			},
-		}
-	}
 
 	t.Run("test proxy", func(t *testing.T) {
 		proxyClient := getProxyClient()
@@ -385,64 +424,24 @@ func TestProxy(t *testing.T) {
 }
 
 func TestProxyWhenServerNotKeepAlive(t *testing.T) {
-	mux := http.NewServeMux()
-	mux.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
-		w.Write([]byte("ok"))
-	})
-	server := &http.Server{
-		Handler: mux,
-	}
+	server := &http.Server{}
 	server.SetKeepAlivesEnabled(false)
-
-	// start http server
-	ln, err := net.Listen("tcp", "127.0.0.1:0")
-	handleError(t, err)
-	defer ln.Close()
-	go server.Serve(ln)
-
-	// start https server
-	tlsLn, err := net.Listen("tcp", "127.0.0.1:0")
-	handleError(t, err)
-	defer tlsLn.Close()
-	ca, err := cert.NewCAMemory()
-	handleError(t, err)
-	cert, err := ca.GetCert("localhost")
-	handleError(t, err)
-	tlsConfig := &tls.Config{
-		Certificates: []tls.Certificate{*cert},
+	helper := &testProxyHelper{
+		server:    server,
+		proxyAddr: ":29081",
 	}
-	go server.Serve(tls.NewListener(tlsLn, tlsConfig))
-
-	httpEndpoint := "http://" + ln.Addr().String() + "/"
-	httpsPort := tlsLn.Addr().(*net.TCPAddr).Port
-	httpsEndpoint := "https://localhost:" + strconv.Itoa(httpsPort) + "/"
-
-	// start proxy
-	testProxy, err := NewProxy(&Options{
-		Addr:        ":29081", // some random port
-		SslInsecure: true,
-	})
-	handleError(t, err)
-	testProxy.AddAddon(&interceptAddon{})
-	testOrderAddonInstance := &testOrderAddon{
-		orders: make([]string, 0),
-	}
-	testProxy.AddAddon(testOrderAddonInstance)
+	helper.init(t)
+	httpEndpoint := helper.httpEndpoint
+	httpsEndpoint := helper.httpsEndpoint
+	testOrderAddonInstance := helper.testOrderAddonInstance
+	testProxy := helper.testProxy
+	getProxyClient := helper.getProxyClient
+	defer helper.ln.Close()
+	go helper.server.Serve(helper.ln)
+	defer helper.tlsPlainLn.Close()
+	go helper.server.Serve(helper.tlsLn)
 	go testProxy.Start()
 	time.Sleep(time.Millisecond * 10) // wait for test proxy startup
-
-	getProxyClient := func() *http.Client {
-		return &http.Client{
-			Transport: &http.Transport{
-				TLSClientConfig: &tls.Config{
-					InsecureSkipVerify: true,
-				},
-				Proxy: func(r *http.Request) (*url.URL, error) {
-					return url.Parse("http://127.0.0.1:29081")
-				},
-			},
-		}
-	}
 
 	t.Run("should not have eof error when server side DisableKeepAlives", func(t *testing.T) {
 		proxyClient := getProxyClient()
@@ -484,64 +483,24 @@ func TestProxyWhenServerNotKeepAlive(t *testing.T) {
 }
 
 func TestProxyWhenServerKeepAliveButCloseImmediately(t *testing.T) {
-	mux := http.NewServeMux()
-	mux.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
-		w.Write([]byte("ok"))
-	})
-	server := &http.Server{
-		Handler:     mux,
-		IdleTimeout: time.Millisecond * 10,
+	helper := &testProxyHelper{
+		server: &http.Server{
+			IdleTimeout: time.Millisecond * 10,
+		},
+		proxyAddr: ":29082",
 	}
-
-	// start http server
-	ln, err := net.Listen("tcp", "127.0.0.1:0")
-	handleError(t, err)
-	defer ln.Close()
-	go server.Serve(ln)
-
-	// start https server
-	tlsLn, err := net.Listen("tcp", "127.0.0.1:0")
-	handleError(t, err)
-	defer tlsLn.Close()
-	ca, err := cert.NewCAMemory()
-	handleError(t, err)
-	cert, err := ca.GetCert("localhost")
-	handleError(t, err)
-	tlsConfig := &tls.Config{
-		Certificates: []tls.Certificate{*cert},
-	}
-	go server.Serve(tls.NewListener(tlsLn, tlsConfig))
-
-	httpEndpoint := "http://" + ln.Addr().String() + "/"
-	httpsPort := tlsLn.Addr().(*net.TCPAddr).Port
-	httpsEndpoint := "https://localhost:" + strconv.Itoa(httpsPort) + "/"
-
-	// start proxy
-	testProxy, err := NewProxy(&Options{
-		Addr:        ":29082", // some random port
-		SslInsecure: true,
-	})
-	handleError(t, err)
-	testProxy.AddAddon(&interceptAddon{})
-	testOrderAddonInstance := &testOrderAddon{
-		orders: make([]string, 0),
-	}
-	testProxy.AddAddon(testOrderAddonInstance)
+	helper.init(t)
+	httpEndpoint := helper.httpEndpoint
+	httpsEndpoint := helper.httpsEndpoint
+	testOrderAddonInstance := helper.testOrderAddonInstance
+	testProxy := helper.testProxy
+	getProxyClient := helper.getProxyClient
+	defer helper.ln.Close()
+	go helper.server.Serve(helper.ln)
+	defer helper.tlsPlainLn.Close()
+	go helper.server.Serve(helper.tlsLn)
 	go testProxy.Start()
 	time.Sleep(time.Millisecond * 10) // wait for test proxy startup
-
-	getProxyClient := func() *http.Client {
-		return &http.Client{
-			Transport: &http.Transport{
-				TLSClientConfig: &tls.Config{
-					InsecureSkipVerify: true,
-				},
-				Proxy: func(r *http.Request) (*url.URL, error) {
-					return url.Parse("http://127.0.0.1:29082")
-				},
-			},
-		}
-	}
 
 	t.Run("should not have eof error when server close connection immediately", func(t *testing.T) {
 		proxyClient := getProxyClient()
