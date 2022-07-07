@@ -24,7 +24,7 @@ type Proxy struct {
 	Addons  []Addon
 
 	server      *http.Server
-	interceptor interceptor
+	interceptor *middle
 }
 
 func NewProxy(opts *Options) (*Proxy, error) {
@@ -65,33 +65,34 @@ func (proxy *Proxy) AddAddon(addon Addon) {
 }
 
 func (proxy *Proxy) Start() error {
-	errChan := make(chan error)
+	addr := proxy.server.Addr
+	if addr == "" {
+		addr = ":http"
+	}
+	ln, err := net.Listen("tcp", addr)
+	if err != nil {
+		return err
+	}
 
-	go func() {
-		log.Infof("Proxy start listen at %v\n", proxy.server.Addr)
-		addr := proxy.server.Addr
-		if addr == "" {
-			addr = ":http"
-		}
-		ln, err := net.Listen("tcp", addr)
-		if err != nil {
-			errChan <- err
-			return
-		}
-		pln := &wrapListener{
-			Listener: ln,
-			proxy:    proxy,
-		}
-		err = proxy.server.Serve(pln)
-		errChan <- err
-	}()
+	go proxy.interceptor.start()
 
-	go func() {
-		err := proxy.interceptor.Start()
-		errChan <- err
-	}()
+	log.Infof("Proxy start listen at %v\n", proxy.server.Addr)
+	pln := &wrapListener{
+		Listener: ln,
+		proxy:    proxy,
+	}
+	return proxy.server.Serve(pln)
+}
 
-	err := <-errChan
+func (proxy *Proxy) Close() error {
+	err := proxy.server.Close()
+	proxy.interceptor.close()
+	return err
+}
+
+func (proxy *Proxy) Shutdown(ctx context.Context) error {
+	err := proxy.server.Shutdown(ctx)
+	proxy.interceptor.close()
 	return err
 }
 
@@ -279,7 +280,7 @@ func (proxy *Proxy) handleConnect(res http.ResponseWriter, req *http.Request) {
 		"host": req.Host,
 	})
 
-	conn, err := proxy.interceptor.Dial(req)
+	conn, err := proxy.interceptor.dial(req)
 	if err != nil {
 		log.Error(err)
 		res.WriteHeader(502)

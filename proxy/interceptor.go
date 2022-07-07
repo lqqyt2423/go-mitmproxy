@@ -12,25 +12,6 @@ import (
 	log "github.com/sirupsen/logrus"
 )
 
-// 拦截 https 流量通用接口
-type interceptor interface {
-	// 初始化
-	Start() error
-	// 传入当前客户端 req
-	Dial(req *http.Request) (net.Conn, error)
-}
-
-// 直接转发 https 流量
-type forward struct{}
-
-func (i *forward) Start() error {
-	return nil
-}
-
-func (i *forward) Dial(req *http.Request) (net.Conn, error) {
-	return net.Dial("tcp", req.Host)
-}
-
 // 模拟了标准库中 server 运行，目的是仅通过当前进程内存转发 socket 数据，不需要经过 tcp 或 unix socket
 
 type pipeAddr struct {
@@ -84,11 +65,19 @@ func newPipes(req *http.Request) (net.Conn, *pipeConn) {
 // mock net.Listener
 type middleListener struct {
 	connChan chan net.Conn
+	doneChan chan struct{}
 }
 
-func (l *middleListener) Accept() (net.Conn, error) { return <-l.connChan, nil }
-func (l *middleListener) Close() error              { return nil }
-func (l *middleListener) Addr() net.Addr            { return nil }
+func (l *middleListener) Accept() (net.Conn, error) {
+	select {
+	case c := <-l.connChan:
+		return c, nil
+	case <-l.doneChan:
+		return nil, http.ErrServerClosed
+	}
+}
+func (l *middleListener) Close() error   { return nil }
+func (l *middleListener) Addr() net.Addr { return nil }
 
 // middle: man-in-the-middle server
 type middle struct {
@@ -98,7 +87,7 @@ type middle struct {
 	server   *http.Server
 }
 
-func newMiddle(proxy *Proxy) (interceptor, error) {
+func newMiddle(proxy *Proxy) (*middle, error) {
 	ca, err := cert.NewCA(proxy.Opts.CaRootPath)
 	if err != nil {
 		return nil, err
@@ -109,6 +98,7 @@ func newMiddle(proxy *Proxy) (interceptor, error) {
 		ca:    ca,
 		listener: &middleListener{
 			connChan: make(chan net.Conn),
+			doneChan: make(chan struct{}),
 		},
 	}
 
@@ -138,11 +128,17 @@ func newMiddle(proxy *Proxy) (interceptor, error) {
 	return m, nil
 }
 
-func (m *middle) Start() error {
+func (m *middle) start() error {
 	return m.server.ServeTLS(m.listener, "", "")
 }
 
-func (m *middle) Dial(req *http.Request) (net.Conn, error) {
+func (m *middle) close() error {
+	err := m.server.Close()
+	close(m.listener.doneChan)
+	return err
+}
+
+func (m *middle) dial(req *http.Request) (net.Conn, error) {
 	pipeClientConn, pipeServerConn := newPipes(req)
 	err := pipeServerConn.connContext.initServerTcpConn()
 	if err != nil {

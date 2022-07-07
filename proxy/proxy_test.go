@@ -552,3 +552,85 @@ func TestProxyWhenServerKeepAliveButCloseImmediately(t *testing.T) {
 		})
 	})
 }
+
+func TestProxyClose(t *testing.T) {
+	helper := &testProxyHelper{
+		server:    &http.Server{},
+		proxyAddr: ":29083",
+	}
+	helper.init(t)
+	httpEndpoint := helper.httpEndpoint
+	httpsEndpoint := helper.httpsEndpoint
+	testProxy := helper.testProxy
+	getProxyClient := helper.getProxyClient
+	defer helper.ln.Close()
+	go helper.server.Serve(helper.ln)
+	defer helper.tlsPlainLn.Close()
+	go helper.server.Serve(helper.tlsLn)
+
+	errCh := make(chan error)
+	go func() {
+		err := testProxy.Start()
+		errCh <- err
+	}()
+
+	time.Sleep(time.Millisecond * 10) // wait for test proxy startup
+
+	proxyClient := getProxyClient()
+	testSendRequest(t, httpEndpoint, proxyClient, "ok")
+	testSendRequest(t, httpsEndpoint, proxyClient, "ok")
+
+	if err := testProxy.Close(); err != nil {
+		t.Fatalf("close got error %v", err)
+	}
+
+	select {
+	case err := <-errCh:
+		if err != http.ErrServerClosed {
+			t.Fatalf("expected ErrServerClosed error, but got %v", err)
+		}
+	case <-time.After(time.Millisecond * 10):
+		t.Fatal("close timeout")
+	}
+}
+
+func TestProxyShutdown(t *testing.T) {
+	helper := &testProxyHelper{
+		server:    &http.Server{},
+		proxyAddr: ":29084",
+	}
+	helper.init(t)
+	httpEndpoint := helper.httpEndpoint
+	httpsEndpoint := helper.httpsEndpoint
+	testProxy := helper.testProxy
+	getProxyClient := helper.getProxyClient
+	defer helper.ln.Close()
+	go helper.server.Serve(helper.ln)
+	defer helper.tlsPlainLn.Close()
+	go helper.server.Serve(helper.tlsLn)
+
+	errCh := make(chan error)
+	go func() {
+		err := testProxy.Start()
+		errCh <- err
+	}()
+
+	time.Sleep(time.Millisecond * 10) // wait for test proxy startup
+
+	proxyClient := getProxyClient()
+	testSendRequest(t, httpEndpoint, proxyClient, "ok")
+	testSendRequest(t, httpsEndpoint, proxyClient, "ok")
+
+	if err := testProxy.Shutdown(context.TODO()); err != nil {
+		t.Fatalf("shutdown got error %v", err)
+	}
+
+	select {
+	case err := <-errCh:
+		if err != http.ErrServerClosed {
+			t.Fatalf("expected ErrServerClosed error, but got %v", err)
+		}
+	case <-time.After(time.Millisecond * 10):
+		t.Fatal("shutdown timeout")
+	}
+}
