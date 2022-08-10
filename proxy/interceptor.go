@@ -140,7 +140,7 @@ func (m *middle) close() error {
 
 func (m *middle) dial(req *http.Request) (net.Conn, error) {
 	pipeClientConn, pipeServerConn := newPipes(req)
-	err := pipeServerConn.connContext.initServerTcpConn()
+	err := pipeServerConn.connContext.initServerTcpConn(req)
 	if err != nil {
 		pipeClientConn.Close()
 		pipeServerConn.Close()
