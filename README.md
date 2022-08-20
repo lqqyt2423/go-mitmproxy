@@ -1,6 +1,6 @@
 # go-mitmproxy
 
-[English](./README.md)
+[English](./README_EN.md)
 
 Golang 版本的 [mitmproxy](https://mitmproxy.org/)。
 

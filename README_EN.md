@@ -1,6 +1,6 @@
 # go-mitmproxy
 
-[简体中文](./README_CN.md)
+[简体中文](./README.md)
 
 [Mitmproxy](https://mitmproxy.org/) implemented with golang. Intercept HTTP & HTTPS requests and responses and modify them.
 
