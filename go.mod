@@ -14,5 +14,3 @@ require (
 	golang.org/x/sys v0.0.0-20220624220833-87e55d714810 // indirect
 	gopkg.in/check.v1 v1.0.0-20201130134442-10cb98267c6c // indirect
 )
-
-replace github.com/lqqyt2423/go-mitmproxy => ./go-mitmproxy
