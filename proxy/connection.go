@@ -105,10 +105,17 @@ func (connCtx *ConnContext) initHttpServerConn() {
 		return
 	}
 
+	var useProxy func(*http.Request) (*url.URL, error)
+	if len(connCtx.proxy.Opts.Upstream) > 0 {
+		upstreamUrl, _ := url.Parse(connCtx.proxy.Opts.Upstream)
+		useProxy = http.ProxyURL(upstreamUrl)
+	} else {
+		useProxy = http.ProxyFromEnvironment
+	}
 	serverConn := newServerConn()
 	serverConn.client = &http.Client{
 		Transport: &http.Transport{
-			Proxy: http.ProxyFromEnvironment,
+			Proxy: useProxy,
 			DialContext: func(ctx context.Context, network, addr string) (net.Conn, error) {
 				c, err := (&net.Dialer{}).DialContext(ctx, network, addr)
 				if err != nil {
