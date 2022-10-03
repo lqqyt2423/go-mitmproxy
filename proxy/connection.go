@@ -4,6 +4,7 @@ import (
 	"bufio"
 	"context"
 	"crypto/tls"
+	"encoding/base64"
 	"encoding/json"
 	"errors"
 	"net"
@@ -158,10 +159,23 @@ func (connCtx *ConnContext) initServerTcpConn(req *http.Request) error {
 
 	// test is use proxy
 	clientReq := &http.Request{URL: &url.URL{Scheme: "https", Host: ServerConn.Address}}
-	proxyUrl, err := http.ProxyFromEnvironment(clientReq)
-	if err != nil {
-		return err
+
+	var proxyUrl *url.URL
+	var err error
+
+	if len(connCtx.proxy.Opts.Upstream) > 0 {
+		upstreamUrl, _ := url.Parse(connCtx.proxy.Opts.Upstream)
+		proxyUrl, err = http.ProxyURL(upstreamUrl)(clientReq)
+		if err != nil {
+			return err
+		}
+	} else {
+		proxyUrl, err = http.ProxyFromEnvironment(clientReq)
+		if err != nil {
+			return err
+		}
 	}
+
 	var plainConn net.Conn
 	if proxyUrl != nil {
 		plainConn, err = getProxyConn(proxyUrl, ServerConn.Address)
@@ -195,6 +209,9 @@ func getProxyConn(proxyUrl *url.URL, address string) (net.Conn, error) {
 		Method: "CONNECT",
 		URL:    &url.URL{Opaque: address},
 		Host:   address,
+	}
+	if proxyUrl.User != nil {
+		connectReq.Header.Set("Proxy-Authorization", "Basic"+base64.StdEncoding.EncodeToString([]byte(proxyUrl.User.String())))
 	}
 	connectCtx, cancel := context.WithTimeout(context.Background(), 1*time.Minute)
 	defer cancel()
