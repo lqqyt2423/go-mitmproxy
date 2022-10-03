@@ -15,4 +15,4 @@ require (
 	gopkg.in/check.v1 v1.0.0-20201130134442-10cb98267c6c // indirect
 )
 
-replace github.com/lqqyt2423/go-mitmproxy/v1.3.1 => github.com/t1nky/go-mitmproxy main
+replace github.com/lqqyt2423/go-mitmproxy => ./go-mitmproxy
