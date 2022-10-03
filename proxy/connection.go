@@ -209,6 +209,7 @@ func getProxyConn(proxyUrl *url.URL, address string) (net.Conn, error) {
 		Method: "CONNECT",
 		URL:    &url.URL{Opaque: address},
 		Host:   address,
+		Header: http.Header{},
 	}
 	if proxyUrl.User != nil {
 		connectReq.Header.Set("Proxy-Authorization", "Basic"+base64.StdEncoding.EncodeToString([]byte(proxyUrl.User.String())))
