@@ -4,6 +4,7 @@ import (
 	"bufio"
 	"context"
 	"crypto/tls"
+	"encoding/base64"
 	"encoding/json"
 	"errors"
 	"net"
@@ -105,10 +106,17 @@ func (connCtx *ConnContext) initHttpServerConn() {
 		return
 	}
 
+	var useProxy func(*http.Request) (*url.URL, error)
+	if len(connCtx.proxy.Opts.Upstream) > 0 {
+		upstreamUrl, _ := url.Parse(connCtx.proxy.Opts.Upstream)
+		useProxy = http.ProxyURL(upstreamUrl)
+	} else {
+		useProxy = http.ProxyFromEnvironment
+	}
 	serverConn := newServerConn()
 	serverConn.client = &http.Client{
 		Transport: &http.Transport{
-			Proxy: http.ProxyFromEnvironment,
+			Proxy: useProxy,
 			DialContext: func(ctx context.Context, network, addr string) (net.Conn, error) {
 				c, err := (&net.Dialer{}).DialContext(ctx, network, addr)
 				if err != nil {
@@ -151,10 +159,23 @@ func (connCtx *ConnContext) initServerTcpConn(req *http.Request) error {
 
 	// test is use proxy
 	clientReq := &http.Request{URL: &url.URL{Scheme: "https", Host: ServerConn.Address}}
-	proxyUrl, err := http.ProxyFromEnvironment(clientReq)
-	if err != nil {
-		return err
+
+	var proxyUrl *url.URL
+	var err error
+
+	if len(connCtx.proxy.Opts.Upstream) > 0 {
+		upstreamUrl, _ := url.Parse(connCtx.proxy.Opts.Upstream)
+		proxyUrl, err = http.ProxyURL(upstreamUrl)(clientReq)
+		if err != nil {
+			return err
+		}
+	} else {
+		proxyUrl, err = http.ProxyFromEnvironment(clientReq)
+		if err != nil {
+			return err
+		}
 	}
+
 	var plainConn net.Conn
 	if proxyUrl != nil {
 		plainConn, err = getProxyConn(proxyUrl, ServerConn.Address)
@@ -188,6 +209,10 @@ func getProxyConn(proxyUrl *url.URL, address string) (net.Conn, error) {
 		Method: "CONNECT",
 		URL:    &url.URL{Opaque: address},
 		Host:   address,
+		Header: http.Header{},
+	}
+	if proxyUrl.User != nil {
+		connectReq.Header.Set("Proxy-Authorization", "Basic"+base64.StdEncoding.EncodeToString([]byte(proxyUrl.User.String())))
 	}
 	connectCtx, cancel := context.WithTimeout(context.Background(), 1*time.Minute)
 	defer cancel()

@@ -16,6 +16,7 @@ type Options struct {
 	StreamLargeBodies int64 // 当请求或响应体大于此字节时，转为 stream 模式
 	SslInsecure       bool
 	CaRootPath        string
+	Upstream          string
 }
 
 type Proxy struct {
