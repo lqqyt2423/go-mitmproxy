@@ -133,9 +133,8 @@ func (m *middle) start() error {
 }
 
 func (m *middle) close() error {
-	err := m.server.Close()
 	close(m.listener.doneChan)
-	return err
+	return nil
 }
 
 func (m *middle) dial(req *http.Request) (net.Conn, error) {
