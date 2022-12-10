@@ -253,9 +253,9 @@ class ViewFlow extends React.Component<Iprops, IState> {
                       <p>Query String Parameters</p>
                       <div className="header-block-content">
                         {
-                          searchItems.map(({ key, value }) => {
+                          searchItems.map(({ key, value }, index) => {
                             return (
-                              <p key={key}>{key}: {value}</p>
+                              <p key={`${key}-${index}`}>{key}: {value}</p>
                             )
                           })
                         }
