@@ -74,8 +74,8 @@ export class Flow {
   private _previewRequestBody: IPreviewBody | null = null
   private _hexviewResponseBody: string | null = null
 
-  private connMgr: ConnectionManager;
-  private conn: IConnection | undefined;
+  private connMgr: ConnectionManager
+  private conn: IConnection | undefined
 
   constructor(msg: IMessage, connMgr: ConnectionManager) {
     this.no = ++Flow.curNo
