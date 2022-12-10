@@ -113,6 +113,33 @@ class ViewFlow extends React.Component<Iprops, IState> {
     )
   }
 
+  copyAsCurl() {
+    const { flow } = this.props
+    if (!flow) return null
+
+    return (
+      <Button size="sm" variant={this.state.copied ? 'success' : 'primary'} disabled={this.state.copied} onClick={() => {
+        const curl = fetchToCurl({
+          url: flow.request.url,
+          method: flow.request.method,
+          headers: Object.keys(flow.request.header).reduce((obj: any, key: string) => {
+            obj[key] = flow.request.header[key][0]
+            return obj
+          }, {}),
+          body: flow.requestBody(),
+        })
+        copy(curl)
+
+        this.setState({ copied: true }, () => {
+          setTimeout(() => {
+            this.setState({ copied: false })
+          }, 1000)
+        })
+
+      }}>{this.state.copied ? 'Copied' : 'Copy as cURL'}</Button>
+    )
+  }
+
   render() {
     if (!this.props.flow) return null
 
@@ -133,12 +160,14 @@ class ViewFlow extends React.Component<Iprops, IState> {
     return (
       <div className="flow-detail">
         <div className="header-tabs">
-          <span onClick={() => { this.props.onClose() }}>x</span>
-          <span className={flowTab === 'Detail' ? 'selected' : undefined} onClick={() => { this.setState({ flowTab: 'Detail' }) }}>Detail</span>
-          <span className={flowTab === 'Headers' ? 'selected' : undefined} onClick={() => { this.setState({ flowTab: 'Headers' }) }}>Headers</span>
-          <span className={flowTab === 'Preview' ? 'selected' : undefined} onClick={() => { this.setState({ flowTab: 'Preview' }) }}>Preview</span>
-          <span className={flowTab === 'Response' ? 'selected' : undefined} onClick={() => { this.setState({ flowTab: 'Response' }) }}>Response</span>
-          <span className={flowTab === 'Hexview' ? 'selected' : undefined} onClick={() => { this.setState({ flowTab: 'Hexview' }) }}>Hexview</span>
+          <span
+            style={{
+              position: 'absolute',
+              top: '2px',
+              left: '0px',
+              cursor: 'pointer',
+            }}
+            onClick={() => { this.props.onClose() }}>x</span>
 
           <EditFlow
             flow={flow}
@@ -164,32 +193,21 @@ class ViewFlow extends React.Component<Iprops, IState> {
             }}
           />
 
+          <div>{this.copyAsCurl()}</div>
+
+          <div>
+            <span className={flowTab === 'Detail' ? 'selected' : undefined} onClick={() => { this.setState({ flowTab: 'Detail' }) }}>Detail</span>
+            <span className={flowTab === 'Headers' ? 'selected' : undefined} onClick={() => { this.setState({ flowTab: 'Headers' }) }}>Headers</span>
+            <span className={flowTab === 'Preview' ? 'selected' : undefined} onClick={() => { this.setState({ flowTab: 'Preview' }) }}>Preview</span>
+            <span className={flowTab === 'Response' ? 'selected' : undefined} onClick={() => { this.setState({ flowTab: 'Response' }) }}>Response</span>
+            <span className={flowTab === 'Hexview' ? 'selected' : undefined} onClick={() => { this.setState({ flowTab: 'Hexview' }) }}>Hexview</span>
+          </div>
         </div>
 
-        <div style={{ padding: '20px' }}>
+        <div style={{ padding: '20px 25px' }}>
           {
             !(flowTab === 'Headers') ? null :
               <div>
-                <p><Button size="sm" variant={this.state.copied ? 'success' : 'primary'} disabled={this.state.copied} onClick={() => {
-                  const curl = fetchToCurl({
-                    url: flow.request.url,
-                    method: flow.request.method,
-                    headers: Object.keys(flow.request.header).reduce((obj: any, key: string) => {
-                      obj[key] = flow.request.header[key][0]
-                      return obj
-                    }, {}),
-                    body: flow.requestBody(),
-                  })
-                  copy(curl)
-
-                  this.setState({ copied: true }, () => {
-                    setTimeout(() => {
-                      this.setState({ copied: false })
-                    }, 1000)
-                  })
-
-                }}>{this.state.copied ? 'Copied' : 'Copy as cURL'}</Button></p>
-
                 <div className="header-block">
                   <p>General</p>
                   <div className="header-block-content">

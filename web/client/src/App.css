@@ -73,10 +73,15 @@
 
 .flow-detail .header-tabs {
   display: flex;
+  flex-direction: column;
   position: sticky;
   top: 0;
   background-color: white;
-  padding: 5px 0;
+  padding: 25px 0 5px 25px;
+}
+
+.flow-detail .header-tabs > div {
+  margin-top: 10px;
 }
 
 .flow-detail .header-tabs span {
@@ -91,7 +96,7 @@
 }
 
 .flow-detail .header-tabs .flow-wait-area button {
-  margin-left: 10px;
+  margin-right: 10px;
 }
 
 .flow-detail .header-block {
