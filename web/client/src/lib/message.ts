@@ -1,6 +1,8 @@
 import type { IConnection } from './connection'
 import type { Flow, IFlowRequest, IRequest, IResponse } from './flow'
 
+const MESSAGE_VERSION = 2
+
 export enum MessageType {
   CONN = 0,
   CONN_CLOSE = 5,
@@ -33,7 +35,7 @@ export const parseMessage = (data: ArrayBuffer): IMessage | null => {
   if (data.byteLength < 39) return null
   const meta = new Int8Array(data.slice(0, 39))
   const version = meta[0]
-  if (version !== 2) return null
+  if (version !== MESSAGE_VERSION) return null
   const type = meta[1] as MessageType
   if (!allMessageBytes.includes(type)) return null
   const id = new TextDecoder().decode(data.slice(2, 38))
@@ -76,7 +78,7 @@ export enum SendMessageType {
 export const buildMessageEdit = (messageType: SendMessageType, flow: Flow) => {
   if (messageType === SendMessageType.DROP_REQUEST || messageType === SendMessageType.DROP_RESPONSE) {
     const view = new Uint8Array(38)
-    view[0] = 1
+    view[0] = MESSAGE_VERSION
     view[1] = messageType
     view.set(new TextEncoder().encode(flow.id), 2)
     return view
@@ -104,7 +106,7 @@ export const buildMessageEdit = (messageType: SendMessageType, flow: Flow) => {
   const len = 2 + 36 + 4 + headerBytes.byteLength + 4 + bodyLen
   const data = new ArrayBuffer(len)
   const view = new Uint8Array(data)
-  view[0] = 1
+  view[0] = MESSAGE_VERSION
   view[1] = messageType
   view.set(new TextEncoder().encode(flow.id), 2)
   view.set(headerBytes, 2 + 36 + 4)
@@ -127,7 +129,7 @@ export const buildMessageMeta = (messageType: SendMessageType, rules: any) => {
 
   const rulesBytes = new TextEncoder().encode(JSON.stringify(rules))
   const view = new Uint8Array(2 + rulesBytes.byteLength)
-  view[0] = 1
+  view[0] = MESSAGE_VERSION
   view[1] = messageType
   view.set(rulesBytes, 2)
 
