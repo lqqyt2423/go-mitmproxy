@@ -3,6 +3,7 @@ package proxy
 import (
 	"bytes"
 	"context"
+	"crypto/x509"
 	"io"
 	"net"
 	"net/http"
@@ -307,4 +308,8 @@ func (proxy *Proxy) handleConnect(res http.ResponseWriter, req *http.Request) {
 	}
 
 	transfer(log, conn, cconn)
+}
+
+func (proxy *Proxy) GetCertificate() x509.Certificate {
+	return proxy.interceptor.ca.RootCert
 }
