@@ -25,8 +25,9 @@ type Proxy struct {
 	Version string
 	Addons  []Addon
 
-	server      *http.Server
-	interceptor *middle
+	server          *http.Server
+	interceptor     *middle
+	shouldIntercept func(address string) bool
 }
 
 func NewProxy(opts *Options) (*Proxy, error) {
@@ -282,7 +283,15 @@ func (proxy *Proxy) handleConnect(res http.ResponseWriter, req *http.Request) {
 		"host": req.Host,
 	})
 
-	conn, err := proxy.interceptor.dial(req)
+	var conn net.Conn
+	var err error
+	if proxy.shouldIntercept == nil || proxy.shouldIntercept(req.Host) {
+		log.Debugf("begin intercept %v", req.Host)
+		conn, err = proxy.interceptor.dial(req)
+	} else {
+		log.Debugf("begin transpond %v", req.Host)
+		conn, err = getConnFrom(req.Host, proxy.Opts.Upstream)
+	}
 	if err != nil {
 		log.Error(err)
 		res.WriteHeader(502)
@@ -312,4 +321,8 @@ func (proxy *Proxy) handleConnect(res http.ResponseWriter, req *http.Request) {
 
 func (proxy *Proxy) GetCertificate() x509.Certificate {
 	return proxy.interceptor.ca.RootCert
+}
+
+func (proxy *Proxy) SetShouldInterceptRule(rule func(address string) bool) {
+	proxy.shouldIntercept = rule
 }

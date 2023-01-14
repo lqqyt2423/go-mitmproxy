@@ -157,31 +157,7 @@ func (connCtx *ConnContext) initServerTcpConn(req *http.Request) error {
 	connCtx.ServerConn = ServerConn
 	ServerConn.Address = connCtx.pipeConn.host
 
-	// test is use proxy
-	clientReq := &http.Request{URL: &url.URL{Scheme: "https", Host: ServerConn.Address}}
-
-	var proxyUrl *url.URL
-	var err error
-
-	if len(connCtx.proxy.Opts.Upstream) > 0 {
-		upstreamUrl, _ := url.Parse(connCtx.proxy.Opts.Upstream)
-		proxyUrl, err = http.ProxyURL(upstreamUrl)(clientReq)
-		if err != nil {
-			return err
-		}
-	} else {
-		proxyUrl, err = http.ProxyFromEnvironment(clientReq)
-		if err != nil {
-			return err
-		}
-	}
-
-	var plainConn net.Conn
-	if proxyUrl != nil {
-		plainConn, err = getProxyConn(proxyUrl, ServerConn.Address)
-	} else {
-		plainConn, err = (&net.Dialer{}).DialContext(context.Background(), "tcp", ServerConn.Address)
-	}
+	plainConn, err := getConnFrom(req.Host, connCtx.proxy.Opts.Upstream)
 	if err != nil {
 		return err
 	}
@@ -392,4 +368,32 @@ func getProxyConn(proxyUrl *url.URL, address string) (net.Conn, error) {
 		return nil, errors.New(text)
 	}
 	return conn, nil
+}
+
+func getConnFrom(address string, upstream string) (net.Conn, error) {
+	clientReq := &http.Request{URL: &url.URL{Scheme: "https", Host: address}}
+
+	var proxyUrl *url.URL
+	var err error
+
+	if len(upstream) > 0 {
+		upstreamUrl, _ := url.Parse(upstream)
+		proxyUrl, err = http.ProxyURL(upstreamUrl)(clientReq)
+		if err != nil {
+			return nil, err
+		}
+	} else {
+		proxyUrl, err = http.ProxyFromEnvironment(clientReq)
+		if err != nil {
+			return nil, err
+		}
+	}
+
+	var conn net.Conn
+	if proxyUrl != nil {
+		conn, err = getProxyConn(proxyUrl, address)
+	} else {
+		conn, err = (&net.Dialer{}).DialContext(context.Background(), "tcp", address)
+	}
+	return conn, err
 }
