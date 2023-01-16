@@ -17,12 +17,13 @@ interface IState {
   flows: Flow[]
   flow: Flow | null
   wsStatus: 'open' | 'close' | 'connecting'
+  filterInvalid: boolean
 }
 
 const wsReconnIntervals = [1, 1, 2, 2, 4, 4, 8, 8, 16, 16, 32, 32]
 
 // eslint-disable-next-line @typescript-eslint/no-empty-interface
-interface IProps {}
+interface IProps { }
 
 class App extends React.Component<IProps, IState> {
   private connMgr: ConnectionManager
@@ -43,6 +44,7 @@ class App extends React.Component<IProps, IState> {
       flows: this.flowMgr.showList(),
       flow: null,
       wsStatus: 'close',
+      filterInvalid: false,
     }
 
     this.ws = null
@@ -163,10 +165,15 @@ class App extends React.Component<IProps, IState> {
           <div>
             <Form.Control
               size="sm" placeholder="Filter"
+              style={{ width: '350px' }}
+              isInvalid={this.state.filterInvalid}
               onChange={(e) => {
                 const value = e.target.value
-                this.flowMgr.changeFilterLazy(value, () => {
-                  this.setState({ flows: this.flowMgr.showList() })
+                this.flowMgr.changeFilterLazy(value, (err) => {
+                  this.setState({
+                    filterInvalid: err ? true : false,
+                    flows: this.flowMgr.showList()
+                  })
                 })
               }}
             >
