@@ -1,9 +1,75 @@
 import type { Flow, Header } from './flow'
+import filterRuleParser from './filterRuleParser'
 
 const FLOW_FILTER_SCOPES = ['url', 'method', 'code', 'header', 'reqheader', 'resheader', 'body', 'reqbody', 'resbody', 'all'] as const
 type FlowFilterScope = typeof FLOW_FILTER_SCOPES[number]
 
+type Rule = IRuleKeyword | IRuleNot | IRuleAnd | IRuleOr
+
+interface IRuleKeyword {
+  type: 'keyword'
+  value: string
+  filter?: FlowFilterKeyword
+}
+
+interface IRuleNot {
+  type: 'not'
+  expr: Rule
+}
+
+interface IRuleAnd {
+  type: 'and'
+  left: Rule
+  right: Rule
+}
+
+interface IRuleOr {
+  type: 'or'
+  left: Rule
+  right: Rule
+}
+
 export class FlowFilter {
+  private rule: Rule | undefined
+  constructor(text: string) {
+    text = text.trim()
+    if (!text) return
+    this.rule = filterRuleParser.parse(text)
+  }
+
+  public match(flow: Flow): boolean {
+    if (!this.rule) return true
+    return this._match(flow, this.rule)
+  }
+
+  private _match(flow: Flow, rule: Rule): boolean {
+    if (rule.type === 'keyword') {
+      return this.getFlowFilterKeyword(rule).match(flow)
+    }
+    else if (rule.type === 'not') {
+      return !this._match(flow, rule.expr)
+    }
+    else if (rule.type === 'and') {
+      return this._match(flow, rule.left) && this._match(flow, rule.right)
+    }
+    else if (rule.type === 'or') {
+      return this._match(flow, rule.left) || this._match(flow, rule.right)
+    }
+    else {
+      // eslint-disable-next-line
+      // @ts-ignore
+      throw new Error(`invalid rule type ${rule.type}`)
+    }
+  }
+
+  private getFlowFilterKeyword(rule: IRuleKeyword): FlowFilterKeyword {
+    if (rule.filter) return rule.filter
+    rule.filter = new FlowFilterKeyword(rule.value)
+    return rule.filter
+  }
+}
+
+export class FlowFilterKeyword {
   private keyword: string | RegExp | undefined
   private scope: FlowFilterScope = 'url'
 

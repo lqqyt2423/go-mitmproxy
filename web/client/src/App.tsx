@@ -170,6 +170,9 @@ class App extends React.Component<IProps, IState> {
               onChange={(e) => {
                 const value = e.target.value
                 this.flowMgr.changeFilterLazy(value, (err) => {
+                  if (err) {
+                    console.log('changeFilterLazy error', err)
+                  }
                   this.setState({
                     filterInvalid: err ? true : false,
                     flows: this.flowMgr.showList()
