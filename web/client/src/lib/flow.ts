@@ -270,10 +270,15 @@ class FlowFilter {
     if (!text) return
 
     // regexp
-    if (text.startsWith('/') && text.endsWith('/')) {
-      text = text.slice(1, text.length - 1).trim()
+    if (text.startsWith('/') && (text.endsWith('/') || text.endsWith('/i'))) {
+      let flags: string | undefined
+      if (text.endsWith('i')) {
+        flags = 'i'
+        text = text.slice(0, -1)
+      }
+      text = text.slice(1, -1).trim()
       if (!text) return
-      this.keyword = new RegExp(text)
+      this.keyword = new RegExp(text, flags)
     }
     // string
     else {
