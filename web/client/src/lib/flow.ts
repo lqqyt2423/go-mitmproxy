@@ -40,6 +40,7 @@ export interface IFlowPreview {
   size: string
   costTime: string
   contentType: string
+  warn: boolean
 }
 
 export class Flow {
@@ -87,7 +88,9 @@ export class Flow {
     this.connId = flowRequestMsg.connId
     this.request = flowRequestMsg.request
 
-    this.url = new URL(this.request.url)
+    let rawUrl = this.request.url
+    if (rawUrl.startsWith('//')) rawUrl = 'http:' + rawUrl
+    this.url = new URL(rawUrl)
     this.path = this.url.pathname + this.url.search
 
     this._isTextRequest = null
@@ -151,6 +154,7 @@ export class Flow {
       size: this.size,
       costTime: this.costTime,
       contentType: this.contentType,
+      warn: this.getConn()?.flowCount === 0,
     }
   }
 

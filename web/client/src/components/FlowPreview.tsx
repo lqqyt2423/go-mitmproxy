@@ -20,8 +20,13 @@ class FlowPreview extends React.Component<IProps> {
     const fp = this.props.flow
 
     const classNames = []
-    if (this.props.isSelected) classNames.push('tr-selected')
-    if (fp.waitIntercept) classNames.push('tr-wait-intercept')
+    if (this.props.isSelected) {
+      classNames.push('tr-selected')
+    } else if (fp.waitIntercept) {
+      classNames.push('tr-wait-intercept')
+    } else if (fp.warn) {
+      classNames.push('tr-wait-warn')
+    }
 
     return (
       <tr className={classNames.length ? classNames.join(' ') : undefined}

@@ -80,6 +80,7 @@ var connContextKey = new(struct{})
 type ConnContext struct {
 	ClientConn *ClientConn `json:"clientConn"`
 	ServerConn *ServerConn `json:"serverConn"`
+	FlowCount  uint32      `json:"-"`
 
 	proxy              *Proxy
 	pipeConn           *pipeConn

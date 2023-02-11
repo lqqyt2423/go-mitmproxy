@@ -92,23 +92,44 @@ class ViewFlow extends React.Component<Iprops, IState> {
     if (!flow) return null
 
     const conn = flow.getConn()
-    if (!conn) return null
 
     return (
       <div>
         <div className="header-block">
-          <p>Server Connection</p>
+          <p>Flow Info</p>
           <div className="header-block-content">
-            <p>Address: {conn.serverConn.address}</p>
-            <p>Resolved Address: {conn.serverConn.peername}</p>
+            <p>Id: {flow.id}</p>
           </div>
         </div>
-        <div className="header-block">
-          <p>Client Connection</p>
-          <div className="header-block-content">
-            <p>Address: {conn.clientConn.address}</p>
-          </div>
-        </div>
+        {
+          !conn ? null :
+            <>
+              <div className="header-block">
+                <p>Server Connection</p>
+                <div className="header-block-content">
+                  <p>Address: {conn.serverConn.address}</p>
+                  <p>Resolved Address: {conn.serverConn.peername}</p>
+                </div>
+              </div>
+              <div className="header-block">
+                <p>Client Connection</p>
+                <div className="header-block-content">
+                  <p>Address: {conn.clientConn.address}</p>
+                </div>
+              </div>
+              <div className="header-block">
+                <p>Connection Info</p>
+                <div className="header-block-content">
+                  <p>Id: {conn.clientConn.id}</p>
+                  <p>Opening: {conn.opening ? 'true' : 'false'}</p>
+                  {
+                    conn.flowCount == null ? null :
+                      <p>Flow Count: {conn.flowCount}</p>
+                  }
+                </div>
+              </div>
+            </>
+        }
       </div>
     )
   }

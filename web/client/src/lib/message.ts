@@ -25,7 +25,7 @@ export interface IMessage {
   type: MessageType
   id: string
   waitIntercept: boolean
-  content?: ArrayBuffer | IFlowRequest | IResponse | IConnection
+  content?: ArrayBuffer | IFlowRequest | IResponse | IConnection | number
 }
 
 // type: 0/1/2/3/4
@@ -49,6 +49,11 @@ export const parseMessage = (data: ArrayBuffer): IMessage | null => {
   if (data.byteLength === 39) return resp
   if (type === MessageType.REQUEST_BODY || type === MessageType.RESPONSE_BODY) {
     resp.content = data.slice(39)
+    return resp
+  }
+  if (type === MessageType.CONN_CLOSE) {
+    const view = new DataView(data.slice(39))
+    resp.content = view.getUint32(0, false)
     return resp
   }
 

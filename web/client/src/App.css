@@ -56,6 +56,10 @@
   color: white;
 }
 
+.main-table-wrap tbody tr.tr-wait-warn {
+  background-color: rgb(255, 243, 205);
+}
+
 .flow-detail {
   position: fixed;
   top: 0;

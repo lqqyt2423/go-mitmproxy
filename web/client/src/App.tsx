@@ -110,10 +110,17 @@ class App extends React.Component<IProps, IState> {
       // console.log('msg:', msg)
 
       if (msg.type === MessageType.CONN) {
-        this.connMgr.add(msg.id, msg.content as IConnection)
+        const conn = msg.content as IConnection
+        conn.opening = true
+        this.connMgr.add(msg.id, conn)
         this.setState({ flows: this.state.flows })
       }
       else if (msg.type === MessageType.CONN_CLOSE) {
+        const conn = this.connMgr.get(msg.id)
+        if (!conn) return
+        conn.opening = false
+        conn.flowCount = msg.content as number
+        this.setState({ flows: this.state.flows })
         this.connMgr.delete(msg.id)
       }
       else if (msg.type === MessageType.REQUEST) {
@@ -197,7 +204,7 @@ class App extends React.Component<IProps, IState> {
               <tr>
                 <th style={{ width: '50px' }}>No</th>
                 <th style={{ width: '80px' }}>Method</th>
-                <th style={{ width: '200px' }}>Host</th>
+                <th style={{ width: '250px' }}>Host</th>
                 <th style={{ width: 'auto' }}>Path</th>
                 <th style={{ width: '150px' }}>Type</th>
                 <th style={{ width: '80px' }}>Status</th>

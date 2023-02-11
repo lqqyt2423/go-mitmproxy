@@ -9,6 +9,8 @@ export interface IConnection {
     address: string
     peername: string
   }
+  opening: boolean
+  flowCount?: number
 }
 
 export class ConnectionManager {

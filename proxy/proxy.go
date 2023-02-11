@@ -165,6 +165,8 @@ func (proxy *Proxy) ServeHTTP(res http.ResponseWriter, req *http.Request) {
 	f.ConnContext = req.Context().Value(connContextKey).(*ConnContext)
 	defer f.finish()
 
+	f.ConnContext.FlowCount = f.ConnContext.FlowCount + 1
+
 	// trigger addon event Requestheaders
 	for _, addon := range proxy.Addons {
 		addon.Requestheaders(f)
@@ -283,6 +285,16 @@ func (proxy *Proxy) handleConnect(res http.ResponseWriter, req *http.Request) {
 		"host": req.Host,
 	})
 
+	f := newFlow()
+	f.Request = newRequest(req)
+	f.ConnContext = req.Context().Value(connContextKey).(*ConnContext)
+	defer f.finish()
+
+	// trigger addon event Requestheaders
+	for _, addon := range proxy.Addons {
+		addon.Requestheaders(f)
+	}
+
 	var conn net.Conn
 	var err error
 	if proxy.shouldIntercept == nil || proxy.shouldIntercept(req.Host) {
@@ -315,6 +327,22 @@ func (proxy *Proxy) handleConnect(res http.ResponseWriter, req *http.Request) {
 		log.Error(err)
 		return
 	}
+
+	f.Response = &Response{
+		StatusCode: 200,
+		Header:     make(http.Header),
+	}
+
+	// trigger addon event Responseheaders
+	for _, addon := range proxy.Addons {
+		addon.Responseheaders(f)
+	}
+	defer func(f *Flow) {
+		// trigger addon event Response
+		for _, addon := range proxy.Addons {
+			addon.Response(f)
+		}
+	}(f)
 
 	transfer(log, conn, cconn)
 }
