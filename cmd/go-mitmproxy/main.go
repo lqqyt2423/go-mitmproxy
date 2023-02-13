@@ -1,10 +1,10 @@
 package main
 
 import (
-	"flag"
 	"fmt"
 	rawLog "log"
 	"os"
+	"strings"
 
 	"github.com/lqqyt2423/go-mitmproxy/addon"
 	"github.com/lqqyt2423/go-mitmproxy/proxy"
@@ -25,23 +25,9 @@ type Config struct {
 	dumpLevel int    // dump level
 
 	mapperDir string
-}
 
-func loadConfig() *Config {
-	config := new(Config)
-
-	flag.IntVar(&config.debug, "debug", 0, "debug mode: 1 - print debug log, 2 - show debug from")
-	flag.BoolVar(&config.version, "version", false, "show version")
-	flag.StringVar(&config.addr, "addr", ":9080", "proxy listen addr")
-	flag.StringVar(&config.webAddr, "web_addr", ":9081", "web interface listen addr")
-	flag.BoolVar(&config.ssl_insecure, "ssl_insecure", false, "not verify upstream server SSL/TLS certificates.")
-	flag.StringVar(&config.dump, "dump", "", "dump filename")
-	flag.IntVar(&config.dumpLevel, "dump_level", 0, "dump level: 0 - header, 1 - header + body")
-	flag.StringVar(&config.mapperDir, "mapper_dir", "", "mapper files dirpath")
-	flag.StringVar(&config.certPath, "cert_path", "", "path of generate cert files")
-	flag.Parse()
-
-	return config
+	ignoreHosts []string
+	allowHosts  []string
 }
 
 func main() {
@@ -81,6 +67,17 @@ func main() {
 
 	log.Infof("go-mitmproxy version %v\n", p.Version)
 
+	if len(config.ignoreHosts) > 0 {
+		p.SetShouldInterceptRule(func(address string) bool {
+			return !matchHost(address, config.ignoreHosts)
+		})
+	}
+	if len(config.allowHosts) > 0 {
+		p.SetShouldInterceptRule(func(address string) bool {
+			return matchHost(address, config.allowHosts)
+		})
+	}
+
 	p.AddAddon(&proxy.LogAddon{})
 	p.AddAddon(web.NewWebAddon(config.webAddr))
 
@@ -95,4 +92,23 @@ func main() {
 	}
 
 	log.Fatal(p.Start())
+}
+
+func matchHost(address string, hosts []string) bool {
+	hostname, port := splitHostPort(address)
+	for _, host := range hosts {
+		h, p := splitHostPort(host)
+		if h == hostname && (p == "" || p == port) {
+			return true
+		}
+	}
+	return false
+}
+
+func splitHostPort(address string) (string, string) {
+	index := strings.LastIndex(address, ":")
+	if index == -1 {
+		return address, ""
+	}
+	return address[:index], address[index+1:]
 }

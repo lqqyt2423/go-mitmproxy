@@ -2,7 +2,7 @@ all: mitmproxy
 
 .PHONY: mitmproxy
 mitmproxy:
-	go build -o go-mitmproxy cmd/go-mitmproxy/main.go
+	go build -o go-mitmproxy cmd/go-mitmproxy/*.go
 
 .PHONY: dummycert
 dummycert:
@@ -15,3 +15,7 @@ clean:
 .PHONY: test
 test:
 	go test ./... -v
+
+.PHONY: dev
+dev:
+	go run $(shell ls cmd/go-mitmproxy/*.go | grep -v _test.go)
