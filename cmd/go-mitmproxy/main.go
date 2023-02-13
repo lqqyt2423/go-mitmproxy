@@ -13,7 +13,8 @@ import (
 )
 
 type Config struct {
-	Version     bool     // show version
+	version bool // show go-mitmproxy version
+
 	Addr        string   // proxy listen addr
 	WebAddr     string   // web interface listen addr
 	SslInsecure bool     // not verify upstream server SSL/TLS certificates.
@@ -24,6 +25,8 @@ type Config struct {
 	Dump        string   // dump filename
 	DumpLevel   int      // dump level: 0 - header, 1 - header + body
 	MapperDir   string   // mapper files dirpath
+
+	filename string // read config from the filename
 }
 
 func main() {
@@ -56,7 +59,7 @@ func main() {
 		log.Fatal(err)
 	}
 
-	if config.Version {
+	if config.version {
 		fmt.Println("go-mitmproxy: " + p.Version)
 		os.Exit(0)
 	}

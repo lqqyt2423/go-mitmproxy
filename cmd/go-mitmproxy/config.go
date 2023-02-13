@@ -1,14 +1,30 @@
 package main
 
 import (
+	"encoding/json"
 	"flag"
 	"fmt"
+	"os"
+
+	log "github.com/sirupsen/logrus"
 )
 
-func loadConfig() *Config {
+func loadConfigFromFile(filename string) (*Config, error) {
+	data, err := os.ReadFile(filename)
+	if err != nil {
+		return nil, err
+	}
+	var config Config
+	if err := json.Unmarshal(data, &config); err != nil {
+		return nil, err
+	}
+	return &config, nil
+}
+
+func loadConfigFromCli() *Config {
 	config := new(Config)
 
-	flag.BoolVar(&config.Version, "version", false, "show version")
+	flag.BoolVar(&config.version, "version", false, "show go-mitmproxy version")
 	flag.StringVar(&config.Addr, "addr", ":9080", "proxy listen addr")
 	flag.StringVar(&config.WebAddr, "web_addr", ":9081", "web interface listen addr")
 	flag.BoolVar(&config.SslInsecure, "ssl_insecure", false, "not verify upstream server SSL/TLS certificates.")
@@ -19,9 +35,63 @@ func loadConfig() *Config {
 	flag.StringVar(&config.Dump, "dump", "", "dump filename")
 	flag.IntVar(&config.DumpLevel, "dump_level", 0, "dump level: 0 - header, 1 - header + body")
 	flag.StringVar(&config.MapperDir, "mapper_dir", "", "mapper files dirpath")
+	flag.StringVar(&config.filename, "f", "", "read config from the filename")
 	flag.Parse()
 
 	return config
+}
+
+func mergeConfigs(fileConfig, cliConfig *Config) *Config {
+	config := new(Config)
+	*config = *fileConfig
+	if cliConfig.Addr != "" {
+		config.Addr = cliConfig.Addr
+	}
+	if cliConfig.WebAddr != "" {
+		config.WebAddr = cliConfig.WebAddr
+	}
+	if cliConfig.SslInsecure {
+		config.SslInsecure = cliConfig.SslInsecure
+	}
+	if len(cliConfig.IgnoreHosts) > 0 {
+		config.IgnoreHosts = cliConfig.IgnoreHosts
+	}
+	if len(cliConfig.AllowHosts) > 0 {
+		config.AllowHosts = cliConfig.AllowHosts
+	}
+	if cliConfig.CertPath != "" {
+		config.CertPath = cliConfig.CertPath
+	}
+	if cliConfig.Debug != 0 {
+		config.Debug = cliConfig.Debug
+	}
+	if cliConfig.Dump != "" {
+		config.Dump = cliConfig.Dump
+	}
+	if cliConfig.DumpLevel != 0 {
+		config.DumpLevel = cliConfig.DumpLevel
+	}
+	if cliConfig.MapperDir != "" {
+		config.MapperDir = cliConfig.MapperDir
+	}
+	return config
+}
+
+func loadConfig() *Config {
+	cliConfig := loadConfigFromCli()
+	if cliConfig.version {
+		return cliConfig
+	}
+	if cliConfig.filename == "" {
+		return cliConfig
+	}
+
+	fileConfig, err := loadConfigFromFile(cliConfig.filename)
+	if err != nil {
+		log.Warnf("read config from %v error %v", cliConfig.filename, err)
+		return cliConfig
+	}
+	return mergeConfigs(fileConfig, cliConfig)
 }
 
 // arrayValue 实现了 flag.Value 接口
