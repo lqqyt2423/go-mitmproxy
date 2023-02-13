@@ -104,13 +104,18 @@ class ViewFlow extends React.Component<Iprops, IState> {
         {
           !conn ? null :
             <>
-              <div className="header-block">
-                <p>Server Connection</p>
-                <div className="header-block-content">
-                  <p>Address: {conn.serverConn.address}</p>
-                  <p>Resolved Address: {conn.serverConn.peername}</p>
-                </div>
-              </div>
+              {
+                !conn.serverConn ? null :
+                  <>
+                    <div className="header-block">
+                      <p>Server Connection</p>
+                      <div className="header-block-content">
+                        <p>Address: {conn.serverConn.address}</p>
+                        <p>Resolved Address: {conn.serverConn.peername}</p>
+                      </div>
+                    </div>
+                  </>
+              }
               <div className="header-block">
                 <p>Client Connection</p>
                 <div className="header-block-content">
@@ -121,7 +126,11 @@ class ViewFlow extends React.Component<Iprops, IState> {
                 <p>Connection Info</p>
                 <div className="header-block-content">
                   <p>Id: {conn.clientConn.id}</p>
-                  <p>Opening: {conn.opening ? 'true' : 'false'}</p>
+                  <p>Intercept: {conn.intercept ? 'true' : 'false'}</p>
+                  {
+                    conn.opening == null ? null :
+                      <p>Opening: {conn.opening ? 'true' : 'false'}</p>
+                  }
                   {
                     conn.flowCount == null ? null :
                       <p>Flow Count: {conn.flowCount}</p>

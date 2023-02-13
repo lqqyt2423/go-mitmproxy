@@ -285,9 +285,11 @@ func (proxy *Proxy) handleConnect(res http.ResponseWriter, req *http.Request) {
 		"host": req.Host,
 	})
 
+	shouldIntercept := proxy.shouldIntercept == nil || proxy.shouldIntercept(req.Host)
 	f := newFlow()
 	f.Request = newRequest(req)
 	f.ConnContext = req.Context().Value(connContextKey).(*ConnContext)
+	f.ConnContext.Intercept = shouldIntercept
 	defer f.finish()
 
 	// trigger addon event Requestheaders
@@ -297,7 +299,7 @@ func (proxy *Proxy) handleConnect(res http.ResponseWriter, req *http.Request) {
 
 	var conn net.Conn
 	var err error
-	if proxy.shouldIntercept == nil || proxy.shouldIntercept(req.Host) {
+	if shouldIntercept {
 		log.Debugf("begin intercept %v", req.Host)
 		conn, err = proxy.interceptor.dial(req)
 	} else {

@@ -111,7 +111,7 @@ class App extends React.Component<IProps, IState> {
 
       if (msg.type === MessageType.CONN) {
         const conn = msg.content as IConnection
-        conn.opening = true
+        if (conn.intercept) conn.opening = true
         this.connMgr.add(msg.id, conn)
         this.setState({ flows: this.state.flows })
       }

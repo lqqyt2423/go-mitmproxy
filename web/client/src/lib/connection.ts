@@ -4,12 +4,13 @@ export interface IConnection {
     tls: boolean
     address: string
   }
-  serverConn: {
+  serverConn?: {
     id: string
     address: string
     peername: string
   }
-  opening: boolean
+  intercept: boolean
+  opening?: boolean
   flowCount?: number
 }
 

@@ -80,7 +80,8 @@ var connContextKey = new(struct{})
 type ConnContext struct {
 	ClientConn *ClientConn `json:"clientConn"`
 	ServerConn *ServerConn `json:"serverConn"`
-	FlowCount  uint32      `json:"-"`
+	Intercept  bool        `json:"intercept"` // Indicates whether to parse HTTPS
+	FlowCount  uint32      `json:"-"`         // Number of HTTP requests made on the same connection
 
 	proxy              *Proxy
 	pipeConn           *pipeConn
