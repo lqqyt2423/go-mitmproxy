@@ -17,9 +17,9 @@ type Config struct {
 	version  bool
 	certPath string
 
-	addr         string
-	webAddr      string
-	ssl_insecure bool
+	addr        string
+	webAddr     string
+	sslInsecure bool
 
 	dump      string // dump filename
 	dumpLevel int    // dump level
@@ -51,7 +51,7 @@ func main() {
 		Debug:             config.debug,
 		Addr:              config.addr,
 		StreamLargeBodies: 1024 * 1024 * 5,
-		SslInsecure:       config.ssl_insecure,
+		SslInsecure:       config.sslInsecure,
 		CaRootPath:        config.certPath,
 	}
 
