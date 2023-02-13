@@ -13,33 +13,29 @@ import (
 )
 
 type Config struct {
-	debug    int
-	version  bool
-	certPath string
-
-	addr        string
-	webAddr     string
-	sslInsecure bool
-
-	dump      string // dump filename
-	dumpLevel int    // dump level
-
-	mapperDir string
-
-	ignoreHosts []string
-	allowHosts  []string
+	Version     bool     // show version
+	Addr        string   // proxy listen addr
+	WebAddr     string   // web interface listen addr
+	SslInsecure bool     // not verify upstream server SSL/TLS certificates.
+	IgnoreHosts []string // a list of ignore hosts
+	AllowHosts  []string // a list of allow hosts
+	CertPath    string   // path of generate cert files
+	Debug       int      // debug mode: 1 - print debug log, 2 - show debug from
+	Dump        string   // dump filename
+	DumpLevel   int      // dump level: 0 - header, 1 - header + body
+	MapperDir   string   // mapper files dirpath
 }
 
 func main() {
 	config := loadConfig()
 
-	if config.debug > 0 {
+	if config.Debug > 0 {
 		rawLog.SetFlags(rawLog.LstdFlags | rawLog.Lshortfile)
 		log.SetLevel(log.DebugLevel)
 	} else {
 		log.SetLevel(log.InfoLevel)
 	}
-	if config.debug == 2 {
+	if config.Debug == 2 {
 		log.SetReportCaller(true)
 	}
 	log.SetOutput(os.Stdout)
@@ -48,11 +44,11 @@ func main() {
 	})
 
 	opts := &proxy.Options{
-		Debug:             config.debug,
-		Addr:              config.addr,
+		Debug:             config.Debug,
+		Addr:              config.Addr,
 		StreamLargeBodies: 1024 * 1024 * 5,
-		SslInsecure:       config.sslInsecure,
-		CaRootPath:        config.certPath,
+		SslInsecure:       config.SslInsecure,
+		CaRootPath:        config.CertPath,
 	}
 
 	p, err := proxy.NewProxy(opts)
@@ -60,34 +56,34 @@ func main() {
 		log.Fatal(err)
 	}
 
-	if config.version {
+	if config.Version {
 		fmt.Println("go-mitmproxy: " + p.Version)
 		os.Exit(0)
 	}
 
 	log.Infof("go-mitmproxy version %v\n", p.Version)
 
-	if len(config.ignoreHosts) > 0 {
+	if len(config.IgnoreHosts) > 0 {
 		p.SetShouldInterceptRule(func(address string) bool {
-			return !matchHost(address, config.ignoreHosts)
+			return !matchHost(address, config.IgnoreHosts)
 		})
 	}
-	if len(config.allowHosts) > 0 {
+	if len(config.AllowHosts) > 0 {
 		p.SetShouldInterceptRule(func(address string) bool {
-			return matchHost(address, config.allowHosts)
+			return matchHost(address, config.AllowHosts)
 		})
 	}
 
 	p.AddAddon(&proxy.LogAddon{})
-	p.AddAddon(web.NewWebAddon(config.webAddr))
+	p.AddAddon(web.NewWebAddon(config.WebAddr))
 
-	if config.dump != "" {
-		dumper := addon.NewDumperWithFilename(config.dump, config.dumpLevel)
+	if config.Dump != "" {
+		dumper := addon.NewDumperWithFilename(config.Dump, config.DumpLevel)
 		p.AddAddon(dumper)
 	}
 
-	if config.mapperDir != "" {
-		mapper := addon.NewMapper(config.mapperDir)
+	if config.MapperDir != "" {
+		mapper := addon.NewMapper(config.MapperDir)
 		p.AddAddon(mapper)
 	}
 
