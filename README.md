@@ -1,83 +1,163 @@
 # go-mitmproxy
 
-[English](./README_EN.md)
+[简体中文](./README_CN.md)
 
-Golang 版本的 [mitmproxy](https://mitmproxy.org/)。
+`go-mitmproxy` is a Golang implementation of [mitmproxy](https://mitmproxy.org/) that supports man-in-the-middle attacks and parsing, monitoring, and tampering with HTTP/HTTPS traffic.
 
-用 Golang 实现的中间人攻击（[Man-in-the-middle](https://en.wikipedia.org/wiki/Man-in-the-middle_attack)），解析、监测、篡改 HTTP/HTTPS 流量。
+## Key features
 
-## 特点
+- Parses HTTP/HTTPS traffic and displays traffic details via a [web interface](#web-interface).
+- Supports a [plugin mechanism](#adding-functionality-by-developing-plugins) for easily extending functionality. Various event hooks can be found in the [examples](./examples) directory.
+- HTTPS certificate handling is compatible with [mitmproxy](https://mitmproxy.org/) and stored in the `~/.mitmproxy` folder. If the root certificate is already trusted from a previous use of `mitmproxy`, `go-mitmproxy` can use it directly.
+- Refer to the [configuration documentation](#additional-parameters) for more features.
 
-- HTTPS 证书相关逻辑参考 [mitmproxy](https://mitmproxy.org/) 且与之兼容，根证书也保存在 `~/.mitmproxy` 文件夹中，如果之前用过 `mitmproxy` 且根证书已经安装信任，则此 `go-mitmproxy` 可以直接使用
-- 支持插件机制，很方便扩展自己需要的功能，可参考 [examples](./examples)
-- 性能优势
-  - Golang 天生的性能优势
-  - 在进程内存中转发解析 HTTPS 流量，不需通过 tcp 端口 或 unix socket 等进程间通信
-  - 生成不同域名证书时使用 LRU 缓存，避免重复计算
-- 通过环境变量 `SSLKEYLOGFILE` 支持 `Wireshark` 解析分析流量
-- 上传/下载大文件时支持流式传输
-- Web 界面
+## Unsupported features
 
-## 安装
+- Only supports setting the proxy manually in the client, not transparent proxy mode.
+- Currently does not support HTTP/2 protocol parsing or WebSocket protocol parsing.
 
-```
+> For more information on the difference between manually setting a proxy and transparent proxy mode, please refer to the mitmproxy documentation for the Python version: [How mitmproxy works](https://docs.mitmproxy.org/stable/concepts-howmitmproxyworks/). go-mitmproxy currently supports "Explicit HTTP" and "Explicit HTTPS" as mentioned in the article.
+
+## Command Line Tool
+
+### Installation
+
+```bash
 go install github.com/lqqyt2423/go-mitmproxy/cmd/go-mitmproxy@latest
 ```
 
-## 命令行使用
+### Usage
 
-### 启动
+Use the following command to start the go-mitmproxy proxy server:
 
-```
+```bash
 go-mitmproxy
 ```
 
-启动后，HTTP 代理地址默认为 9080 端口，Web 界面默认在 9081 端口。
+After starting, the HTTP proxy address is set to port 9080 by default, and the web interface is set to port 9081 by default.
 
-首次启动后需按照证书以解析 HTTPS 流量，证书会在首次启动命令后自动生成，路径为 `~/.mitmproxy/mitmproxy-ca-cert.pem`。可参考此链接安装：[About Certificates](https://docs.mitmproxy.org/stable/concepts-certificates/)。
+The certificate needs to be installed after the first startup to parse HTTPS traffic. The certificate will be automatically generated after the first startup command and stored in `~/.mitmproxy/mitmproxy-ca-cert.pem`. Installation steps can be found in the Python mitmproxy documentation: [About Certificates](https://docs.mitmproxy.org/stable/concepts-certificates/).
 
-### 启动参数
+### Additional Parameters
 
+ou can use the following command to view more parameters of go-mitmproxy:
+
+```bash
+go-mitmproxy -h
 ```
+
+```txt
 Usage of go-mitmproxy:
   -addr string
     	proxy listen addr (default ":9080")
+  -allow_hosts value
+    	a list of allow hosts
   -cert_path string
     	path of generate cert files
   -debug int
     	debug mode: 1 - print debug log, 2 - show debug from
-  -dump string
-    	dump filename
-  -dump_level int
-    	dump level: 0 - header, 1 - header + body
-  -mapper_dir string
-    	mapper files dirpath
+  -f string
+    	Read configuration from file by passing in the file path of a JSON configuration file.
+  -ignore_hosts value
+    	a list of ignore hosts
   -ssl_insecure
     	not verify upstream server SSL/TLS certificates.
   -version
-    	show version
+    	show go-mitmproxy version
   -web_addr string
     	web interface listen addr (default ":9081")
 ```
 
-## 作为包引入
+## Importing as a package for developing functionalities
 
-参考 [cmd/go-mitmproxy/main.go](./cmd/go-mitmproxy/main.go)，可通过自己实现 `AddAddon` 方法添加自己实现的插件。
+### Simple Example
 
-更多示例可参考 [examples](./examples)
+```golang
+package main
 
-## Web 界面
+import (
+	"log"
+
+	"github.com/lqqyt2423/go-mitmproxy/proxy"
+)
+
+func main() {
+	opts := &proxy.Options{
+		Addr:              ":9080",
+		StreamLargeBodies: 1024 * 1024 * 5,
+	}
+
+	p, err := proxy.NewProxy(opts)
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	log.Fatal(p.Start())
+}
+```
+
+### Adding Functionality by Developing Plugins
+
+Refer to the [examples](./examples) for adding your own plugins by implementing the `AddAddon` method.
+
+The following are the currently supported event nodes:
+
+```golang
+type Addon interface {
+	// A client has connected to mitmproxy. Note that a connection can correspond to multiple HTTP requests.
+	ClientConnected(*ClientConn)
+
+	// A client connection has been closed (either by us or the client).
+	ClientDisconnected(*ClientConn)
+
+	// Mitmproxy has connected to a server.
+	ServerConnected(*ConnContext)
+
+	// A server connection has been closed (either by us or the server).
+	ServerDisconnected(*ConnContext)
+
+	// The TLS handshake with the server has been completed successfully.
+	TlsEstablishedServer(*ConnContext)
+
+	// HTTP request headers were successfully read. At this point, the body is empty.
+	Requestheaders(*Flow)
+
+	// The full HTTP request has been read.
+	Request(*Flow)
+
+	// HTTP response headers were successfully read. At this point, the body is empty.
+	Responseheaders(*Flow)
+
+	// The full HTTP response has been read.
+	Response(*Flow)
+
+	// Stream request body modifier
+	StreamRequestModifier(*Flow, io.Reader) io.Reader
+
+	// Stream response body modifier
+	StreamResponseModifier(*Flow, io.Reader) io.Reader
+}
+```
+
+## WEB Interface
+
+You can access the web interface at http://localhost:9081/ using a web browser.
+
+### Features
+
+- View detailed information of HTTP/HTTPS requests
+- Supports formatted preview of JSON requests/responses
+- Supports binary mode to view response body
+- Supports advanced filtering rules
+- Supports request breakpoint function
+
+### Screenshot Examples
 
 ![](./assets/web-1.png)
 
 ![](./assets/web-2.png)
 
 ![](./assets/web-3.png)
-
-## TODO
-
-- [ ] 支持 http2 协议
-- [ ] 支持解析 websocket
 
 ## License
 
