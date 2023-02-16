@@ -97,11 +97,21 @@ func matchHost(address string, hosts []string) bool {
 	hostname, port := splitHostPort(address)
 	for _, host := range hosts {
 		h, p := splitHostPort(host)
-		if h == hostname && (p == "" || p == port) {
+		if matchHostname(hostname, h) && (p == "" || p == port) {
 			return true
 		}
 	}
 	return false
+}
+
+func matchHostname(hostname string, h string) bool {
+	if h == "*" {
+		return true
+	}
+	if strings.HasPrefix(h, "*.") {
+		return hostname == h[2:] || strings.HasSuffix(hostname, h[1:])
+	}
+	return h == hostname
 }
 
 func splitHostPort(address string) (string, string) {
