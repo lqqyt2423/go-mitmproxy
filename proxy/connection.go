@@ -108,17 +108,10 @@ func (connCtx *ConnContext) initHttpServerConn() {
 		return
 	}
 
-	var useProxy func(*http.Request) (*url.URL, error)
-	if len(connCtx.proxy.Opts.Upstream) > 0 {
-		upstreamUrl, _ := url.Parse(connCtx.proxy.Opts.Upstream)
-		useProxy = http.ProxyURL(upstreamUrl)
-	} else {
-		useProxy = http.ProxyFromEnvironment
-	}
 	serverConn := newServerConn()
 	serverConn.client = &http.Client{
 		Transport: &http.Transport{
-			Proxy: useProxy,
+			Proxy: clientProxy(connCtx.proxy.Opts.Upstream),
 			DialContext: func(ctx context.Context, network, addr string) (net.Conn, error) {
 				c, err := (&net.Dialer{}).DialContext(ctx, network, addr)
 				if err != nil {
@@ -374,21 +367,9 @@ func getProxyConn(proxyUrl *url.URL, address string) (net.Conn, error) {
 
 func getConnFrom(address string, upstream string) (net.Conn, error) {
 	clientReq := &http.Request{URL: &url.URL{Scheme: "https", Host: address}}
-
-	var proxyUrl *url.URL
-	var err error
-
-	if len(upstream) > 0 {
-		upstreamUrl, _ := url.Parse(upstream)
-		proxyUrl, err = http.ProxyURL(upstreamUrl)(clientReq)
-		if err != nil {
-			return nil, err
-		}
-	} else {
-		proxyUrl, err = http.ProxyFromEnvironment(clientReq)
-		if err != nil {
-			return nil, err
-		}
+	proxyUrl, err := clientProxy(upstream)(clientReq)
+	if err != nil {
+		return nil, err
 	}
 
 	var conn net.Conn
