@@ -35,6 +35,7 @@ func loadConfigFromCli() *Config {
 	flag.StringVar(&config.Dump, "dump", "", "dump filename")
 	flag.IntVar(&config.DumpLevel, "dump_level", 0, "dump level: 0 - header, 1 - header + body")
 	flag.StringVar(&config.MapperDir, "mapper_dir", "", "mapper files dirpath")
+	flag.StringVar(&config.MapRemote, "map_remote", "", "map remote config filename")
 	flag.StringVar(&config.filename, "f", "", "read config from the filename")
 	flag.Parse()
 

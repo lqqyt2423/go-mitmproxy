@@ -25,6 +25,7 @@ type Config struct {
 	Dump        string   // dump filename
 	DumpLevel   int      // dump level: 0 - header, 1 - header + body
 	MapperDir   string   // mapper files dirpath
+	MapRemote   string   // map remote config filename
 
 	filename string // read config from the filename
 }
@@ -79,6 +80,15 @@ func main() {
 
 	p.AddAddon(&proxy.LogAddon{})
 	p.AddAddon(web.NewWebAddon(config.WebAddr))
+
+	if config.MapRemote != "" {
+		mapRemote, err := addon.NewMapRemoteFromFile(config.MapRemote)
+		if err != nil {
+			log.Warnf("load map remote error: %v", err)
+		} else {
+			p.AddAddon(mapRemote)
+		}
+	}
 
 	if config.Dump != "" {
 		dumper := addon.NewDumperWithFilename(config.Dump, config.DumpLevel)

@@ -64,7 +64,11 @@ func (c *ServerConn) MarshalJSON() ([]byte, error) {
 	m := make(map[string]interface{})
 	m["id"] = c.Id
 	m["address"] = c.Address
-	m["peername"] = c.Conn.RemoteAddr().String()
+	peername := ""
+	if c.Conn != nil {
+		peername = c.Conn.RemoteAddr().String()
+	}
+	m["peername"] = peername
 	return json.Marshal(m)
 }
 
