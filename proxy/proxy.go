@@ -3,6 +3,7 @@ package proxy
 import (
 	"bytes"
 	"context"
+	"crypto/tls"
 	"crypto/x509"
 	"io"
 	"net"
@@ -25,6 +26,7 @@ type Proxy struct {
 	Version string
 	Addons  []Addon
 
+	client          *http.Client
 	server          *http.Server
 	interceptor     *middle
 	shouldIntercept func(address string) bool
@@ -39,6 +41,22 @@ func NewProxy(opts *Options) (*Proxy, error) {
 		Opts:    opts,
 		Version: "1.5.0",
 		Addons:  make([]Addon, 0),
+	}
+
+	proxy.client = &http.Client{
+		Transport: &http.Transport{
+			Proxy:              clientProxy(opts.Upstream),
+			ForceAttemptHTTP2:  false, // disable http2
+			DisableCompression: true,  // To get the original response from the server, set Transport.DisableCompression to true.
+			TLSClientConfig: &tls.Config{
+				InsecureSkipVerify: opts.SslInsecure,
+				KeyLogWriter:       getTlsKeyLogWriter(),
+			},
+		},
+		CheckRedirect: func(req *http.Request, via []*http.Request) error {
+			// 禁止自动重定向
+			return http.ErrUseLastResponse
+		},
 	}
 
 	proxy.server = &http.Server{
@@ -222,7 +240,12 @@ func (proxy *Proxy) ServeHTTP(res http.ResponseWriter, req *http.Request) {
 	}
 
 	f.ConnContext.initHttpServerConn()
-	proxyRes, err := f.ConnContext.ServerConn.client.Do(proxyReq)
+	var proxyRes *http.Response
+	if f.UseSeparateClient {
+		proxyRes, err = proxy.client.Do(proxyReq)
+	} else {
+		proxyRes, err = f.ConnContext.ServerConn.client.Do(proxyReq)
+	}
 	if err != nil {
 		logErr(log, err)
 		res.WriteHeader(502)

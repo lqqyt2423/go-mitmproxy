@@ -4,6 +4,8 @@ import (
 	"bytes"
 	"io"
 	"net"
+	"net/http"
+	"net/url"
 	"os"
 	"strings"
 	"sync"
@@ -123,4 +125,15 @@ func getTlsKeyLogWriter() io.Writer {
 		tlsKeyLogWriter = writer
 	})
 	return tlsKeyLogWriter
+}
+
+func clientProxy(upstream string) func(*http.Request) (*url.URL, error) {
+	var useProxy func(*http.Request) (*url.URL, error)
+	if len(upstream) > 0 {
+		upstreamUrl, _ := url.Parse(upstream)
+		useProxy = http.ProxyURL(upstreamUrl)
+	} else {
+		useProxy = http.ProxyFromEnvironment
+	}
+	return useProxy
 }
