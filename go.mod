@@ -11,7 +11,9 @@ require (
 )
 
 require (
+	github.com/samber/lo v1.37.0 // indirect
 	github.com/tidwall/match v1.1.1 // indirect
+	golang.org/x/exp v0.0.0-20220303212507-bbda1eaf7a17 // indirect
 	golang.org/x/sys v0.0.0-20220624220833-87e55d714810 // indirect
 	gopkg.in/check.v1 v1.0.0-20201130134442-10cb98267c6c // indirect
 )

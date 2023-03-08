@@ -2,11 +2,13 @@ package addon
 
 import (
 	"encoding/json"
+	"fmt"
 	"os"
 	"path"
 	"strings"
 
 	"github.com/lqqyt2423/go-mitmproxy/proxy"
+	"github.com/samber/lo"
 	log "github.com/sirupsen/logrus"
 	"github.com/tidwall/match"
 )
@@ -21,6 +23,7 @@ import (
 type mapFrom struct {
 	Protocol string
 	Host     string
+	Method   []string
 	Path     string
 }
 
@@ -44,6 +47,9 @@ func (item *mapItem) match(req *proxy.Request) bool {
 		return false
 	}
 	if item.From.Host != "" && item.From.Host != req.URL.Host {
+		return false
+	}
+	if len(item.From.Method) > 0 && !lo.Contains(item.From.Method, req.Method) {
 		return false
 	}
 	if item.From.Path != "" && !match.Match(req.URL.Path, item.From.Path) {
@@ -92,6 +98,27 @@ func (mr *MapRemote) Requestheaders(f *proxy.Flow) {
 	}
 }
 
+func (mr *MapRemote) validate() error {
+	for i, item := range mr.Items {
+		if item.From == nil {
+			return fmt.Errorf("%v no item.From", i)
+		}
+		if item.From.Protocol != "" && item.From.Protocol != "http" && item.From.Protocol != "https" {
+			return fmt.Errorf("%v invalid item.From.Protocol %v", i, item.From.Protocol)
+		}
+		if item.To == nil {
+			return fmt.Errorf("%v no item.To", i)
+		}
+		if item.To.Protocol == "" && item.To.Host == "" && item.To.Path == "" {
+			return fmt.Errorf("%v empty item.To", i)
+		}
+		if item.To.Protocol != "" && item.To.Protocol != "http" && item.To.Protocol != "https" {
+			return fmt.Errorf("%v invalid item.To.Protocol %v", i, item.To.Protocol)
+		}
+	}
+	return nil
+}
+
 func NewMapRemoteFromFile(filename string) (*MapRemote, error) {
 	data, err := os.ReadFile(filename)
 	if err != nil {
@@ -99,6 +126,9 @@ func NewMapRemoteFromFile(filename string) (*MapRemote, error) {
 	}
 	var mapRemote MapRemote
 	if err := json.Unmarshal(data, &mapRemote); err != nil {
+		return nil, err
+	}
+	if err := mapRemote.validate(); err != nil {
 		return nil, err
 	}
 	return &mapRemote, nil
