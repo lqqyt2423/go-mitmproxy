@@ -24,7 +24,6 @@ type Config struct {
 	Debug       int      // debug mode: 1 - print debug log, 2 - show debug from
 	Dump        string   // dump filename
 	DumpLevel   int      // dump level: 0 - header, 1 - header + body
-	MapperDir   string   // mapper files dirpath
 	MapRemote   string   // map remote config filename
 	MapLocal    string   // map local config filename
 
@@ -103,11 +102,6 @@ func main() {
 	if config.Dump != "" {
 		dumper := addon.NewDumperWithFilename(config.Dump, config.DumpLevel)
 		p.AddAddon(dumper)
-	}
-
-	if config.MapperDir != "" {
-		mapper := addon.NewMapper(config.MapperDir)
-		p.AddAddon(mapper)
 	}
 
 	log.Fatal(p.Start())

@@ -9,6 +9,7 @@
 - 解析 HTTP/HTTPS 流量，可通过 [WEB 界面](#web-界面)查看流量详情。
 - 支持[插件机制](#通过开发插件添加功能)，方便扩展自己需要的功能。多种事件 HOOK 可参考 [examples](./examples)。
 - HTTPS 证书相关逻辑与 [mitmproxy](https://mitmproxy.org/) 兼容，并保存在 `~/.mitmproxy` 文件夹中。如果之前已经用过 `mitmproxy` 并安装信任了根证书，则 `go-mitmproxy` 可以直接使用。
+- 支持 Map Remote 和 Map Local。
 - 更多功能请参考[配置文档](#更多参数)。
 
 ## 暂未实现的功能
@@ -60,6 +61,10 @@ Usage of go-mitmproxy:
     	从文件名读取配置，传入json配置文件地址
   -ignore_hosts value
     	HTTPS解析域名黑名单
+  -map_local string
+    	map local json配置文件地址
+  -map_remote string
+    	map remote json配置文件地址
   -ssl_insecure
     	不验证上游服务器的 SSL/TLS 证书
   -version

@@ -9,6 +9,7 @@
 - Parses HTTP/HTTPS traffic and displays traffic details via a [web interface](#web-interface).
 - Supports a [plugin mechanism](#adding-functionality-by-developing-plugins) for easily extending functionality. Various event hooks can be found in the [examples](./examples) directory.
 - HTTPS certificate handling is compatible with [mitmproxy](https://mitmproxy.org/) and stored in the `~/.mitmproxy` folder. If the root certificate is already trusted from a previous use of `mitmproxy`, `go-mitmproxy` can use it directly.
+- Map Remote and Map Local support.
 - Refer to the [configuration documentation](#additional-parameters) for more features.
 
 ## Unsupported features
@@ -60,6 +61,10 @@ Usage of go-mitmproxy:
     	Read configuration from file by passing in the file path of a JSON configuration file.
   -ignore_hosts value
     	a list of ignore hosts
+  -map_local string
+    	map local config filename
+  -map_remote string
+    	map remote config filename
   -ssl_insecure
     	not verify upstream server SSL/TLS certificates.
   -version
