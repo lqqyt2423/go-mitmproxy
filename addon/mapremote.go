@@ -27,38 +27,42 @@ type mapFrom struct {
 	Path     string
 }
 
-type mapTo struct {
-	Protocol string
-	Host     string
-	Path     string
-}
-
-type mapItem struct {
-	From   *mapFrom
-	To     *mapTo
-	Enable bool
-}
-
-func (item *mapItem) match(req *proxy.Request) bool {
-	if !item.Enable {
+func (mf *mapFrom) match(req *proxy.Request) bool {
+	if mf.Protocol != "" && mf.Protocol != req.URL.Scheme {
 		return false
 	}
-	if item.From.Protocol != "" && item.From.Protocol != req.URL.Scheme {
+	if mf.Host != "" && mf.Host != req.URL.Host {
 		return false
 	}
-	if item.From.Host != "" && item.From.Host != req.URL.Host {
+	if len(mf.Method) > 0 && !lo.Contains(mf.Method, req.Method) {
 		return false
 	}
-	if len(item.From.Method) > 0 && !lo.Contains(item.From.Method, req.Method) {
-		return false
-	}
-	if item.From.Path != "" && !match.Match(req.URL.Path, item.From.Path) {
+	if mf.Path != "" && !match.Match(req.URL.Path, mf.Path) {
 		return false
 	}
 	return true
 }
 
-func (item *mapItem) replace(req *proxy.Request) *proxy.Request {
+type mapRemoteTo struct {
+	Protocol string
+	Host     string
+	Path     string
+}
+
+type mapRemoteItem struct {
+	From   *mapFrom
+	To     *mapRemoteTo
+	Enable bool
+}
+
+func (item *mapRemoteItem) match(req *proxy.Request) bool {
+	if !item.Enable {
+		return false
+	}
+	return item.From.match(req)
+}
+
+func (item *mapRemoteItem) replace(req *proxy.Request) *proxy.Request {
 	if item.To.Protocol != "" {
 		req.URL.Scheme = item.To.Protocol
 	}
@@ -78,7 +82,7 @@ func (item *mapItem) replace(req *proxy.Request) *proxy.Request {
 
 type MapRemote struct {
 	proxy.BaseAddon
-	Items  []*mapItem
+	Items  []*mapRemoteItem
 	Enable bool
 }
 

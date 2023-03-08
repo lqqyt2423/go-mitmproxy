@@ -19,7 +19,7 @@ func TestMapItemMatch(t *testing.T) {
 
 	// test match
 
-	item := &mapItem{
+	item := &mapRemoteItem{
 		From: &mapFrom{
 			Protocol: "https",
 			Host:     "example.com",
@@ -133,14 +133,14 @@ func TestMapItemReplace(t *testing.T) {
 		}
 	}
 
-	item := &mapItem{
+	item := &mapRemoteItem{
 		From: &mapFrom{
 			Protocol: "https",
 			Host:     "example.com",
 			Method:   []string{"GET", "POST"},
 			Path:     "/path/to/resource",
 		},
-		To: &mapTo{
+		To: &mapRemoteTo{
 			Protocol: "http",
 			Host:     "hello.com",
 			Path:     "",
@@ -153,14 +153,14 @@ func TestMapItemReplace(t *testing.T) {
 		t.Errorf("Expected %v, but got %v", should, req.URL.String())
 	}
 
-	item = &mapItem{
+	item = &mapRemoteItem{
 		From: &mapFrom{
 			Protocol: "https",
 			Host:     "example.com",
 			Method:   []string{"GET", "POST"},
 			Path:     "/path/to/resource",
 		},
-		To: &mapTo{
+		To: &mapRemoteTo{
 			Protocol: "http",
 			Host:     "hello.com",
 			Path:     "/path/to/resource",
@@ -173,14 +173,14 @@ func TestMapItemReplace(t *testing.T) {
 		t.Errorf("Expected %v, but got %v", should, req.URL.String())
 	}
 
-	item = &mapItem{
+	item = &mapRemoteItem{
 		From: &mapFrom{
 			Protocol: "https",
 			Host:     "example.com",
 			Method:   []string{"GET", "POST"},
 			Path:     "/path/to/resource",
 		},
-		To: &mapTo{
+		To: &mapRemoteTo{
 			Protocol: "http",
 			Host:     "hello.com",
 			Path:     "/path/to/world",
@@ -193,14 +193,14 @@ func TestMapItemReplace(t *testing.T) {
 		t.Errorf("Expected %v, but got %v", should, req.URL.String())
 	}
 
-	item = &mapItem{
+	item = &mapRemoteItem{
 		From: &mapFrom{
 			Protocol: "https",
 			Host:     "example.com",
 			Method:   []string{"GET", "POST"},
 			Path:     "/path/to/*",
 		},
-		To: &mapTo{
+		To: &mapRemoteTo{
 			Protocol: "http",
 			Host:     "hello.com",
 			Path:     "",
@@ -213,14 +213,14 @@ func TestMapItemReplace(t *testing.T) {
 		t.Errorf("Expected %v, but got %v", should, req.URL.String())
 	}
 
-	item = &mapItem{
+	item = &mapRemoteItem{
 		From: &mapFrom{
 			Protocol: "https",
 			Host:     "example.com",
 			Method:   []string{"GET", "POST"},
 			Path:     "/path/to/*",
 		},
-		To: &mapTo{
+		To: &mapRemoteTo{
 			Protocol: "http",
 			Host:     "hello.com",
 			Path:     "/world",
