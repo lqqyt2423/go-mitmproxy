@@ -2,6 +2,7 @@ package proxy
 
 import (
 	"bytes"
+	"encoding/json"
 	"io"
 	"net"
 	"net/http"
@@ -136,4 +137,16 @@ func clientProxy(upstream string) func(*http.Request) (*url.URL, error) {
 		useProxy = http.ProxyFromEnvironment
 	}
 	return useProxy
+}
+
+func NewStructFromFile[T any](filename string) (*T, error) {
+	data, err := os.ReadFile(filename)
+	if err != nil {
+		return nil, err
+	}
+	var item T
+	if err := json.Unmarshal(data, &item); err != nil {
+		return nil, err
+	}
+	return &item, nil
 }

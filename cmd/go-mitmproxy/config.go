@@ -1,24 +1,15 @@
 package main
 
 import (
-	"encoding/json"
 	"flag"
 	"fmt"
-	"os"
 
+	"github.com/lqqyt2423/go-mitmproxy/proxy"
 	log "github.com/sirupsen/logrus"
 )
 
 func loadConfigFromFile(filename string) (*Config, error) {
-	data, err := os.ReadFile(filename)
-	if err != nil {
-		return nil, err
-	}
-	var config Config
-	if err := json.Unmarshal(data, &config); err != nil {
-		return nil, err
-	}
-	return &config, nil
+	return proxy.NewStructFromFile[Config](filename)
 }
 
 func loadConfigFromCli() *Config {
@@ -36,6 +27,7 @@ func loadConfigFromCli() *Config {
 	flag.IntVar(&config.DumpLevel, "dump_level", 0, "dump level: 0 - header, 1 - header + body")
 	flag.StringVar(&config.MapperDir, "mapper_dir", "", "mapper files dirpath")
 	flag.StringVar(&config.MapRemote, "map_remote", "", "map remote config filename")
+	flag.StringVar(&config.MapLocal, "map_local", "", "map local config filename")
 	flag.StringVar(&config.filename, "f", "", "read config from the filename")
 	flag.Parse()
 

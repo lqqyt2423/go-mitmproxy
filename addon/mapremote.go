@@ -1,9 +1,7 @@
 package addon
 
 import (
-	"encoding/json"
 	"fmt"
-	"os"
 	"path"
 	"strings"
 
@@ -124,16 +122,12 @@ func (mr *MapRemote) validate() error {
 }
 
 func NewMapRemoteFromFile(filename string) (*MapRemote, error) {
-	data, err := os.ReadFile(filename)
+	mapRemote, err := proxy.NewStructFromFile[MapRemote](filename)
 	if err != nil {
-		return nil, err
-	}
-	var mapRemote MapRemote
-	if err := json.Unmarshal(data, &mapRemote); err != nil {
 		return nil, err
 	}
 	if err := mapRemote.validate(); err != nil {
 		return nil, err
 	}
-	return &mapRemote, nil
+	return mapRemote, nil
 }

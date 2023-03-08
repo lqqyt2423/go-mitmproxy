@@ -26,6 +26,7 @@ type Config struct {
 	DumpLevel   int      // dump level: 0 - header, 1 - header + body
 	MapperDir   string   // mapper files dirpath
 	MapRemote   string   // map remote config filename
+	MapLocal    string   // map local config filename
 
 	filename string // read config from the filename
 }
@@ -87,6 +88,15 @@ func main() {
 			log.Warnf("load map remote error: %v", err)
 		} else {
 			p.AddAddon(mapRemote)
+		}
+	}
+
+	if config.MapLocal != "" {
+		mapLocal, err := addon.NewMapLocalFromFile(config.MapLocal)
+		if err != nil {
+			log.Warnf("load map local error: %v", err)
+		} else {
+			p.AddAddon(mapLocal)
 		}
 	}
 
