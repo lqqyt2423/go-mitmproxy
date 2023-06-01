@@ -203,14 +203,14 @@ class App extends React.Component<IProps, IState> {
           <Table striped bordered size="sm" style={{ tableLayout: 'fixed' }}>
             <thead>
               <tr>
-                <Resizer width='50px'>No</Resizer>
-                <th style={{ width: '80px' }}>Method</th>
-                <th style={{ width: '250px' }}>Host</th>
-                <th style={{ width: 'auto' }}>Path</th>
-                <th style={{ width: '150px' }}>Type</th>
-                <th style={{ width: '80px' }}>Status</th>
-                <th style={{ width: '90px' }}>Size</th>
-                <th style={{ width: '90px' }}>Time</th>
+                <Resizer width={50}>No</Resizer>
+                <Resizer width={80}>Method</Resizer>
+                <Resizer width={250}>Host</Resizer>
+                <Resizer width={500}>Path</Resizer>
+                <Resizer width={150}>Type</Resizer>
+                <Resizer width={80}>Status</Resizer>
+                <Resizer width={90}>Size</Resizer>
+                <Resizer width={90}>Time</Resizer>
               </tr>
             </thead>
             <tbody>
