@@ -7,6 +7,7 @@ import './App.css'
 import BreakPoint from './components/BreakPoint'
 import FlowPreview from './components/FlowPreview'
 import ViewFlow from './components/ViewFlow'
+import Resizer from './components/Resizer'
 
 import { Flow, FlowManager } from './lib/flow'
 import { parseMessage, SendMessageType, buildMessageMeta, MessageType } from './lib/message'
@@ -202,7 +203,7 @@ class App extends React.Component<IProps, IState> {
           <Table striped bordered size="sm" style={{ tableLayout: 'fixed' }}>
             <thead>
               <tr>
-                <th style={{ width: '50px' }}>No</th>
+                <Resizer width='50px'>No</Resizer>
                 <th style={{ width: '80px' }}>Method</th>
                 <th style={{ width: '250px' }}>Host</th>
                 <th style={{ width: 'auto' }}>Path</th>
