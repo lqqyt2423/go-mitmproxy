@@ -1,3 +1,7 @@
+body {
+  overflow: hidden;
+}
+
 .main-table-wrap {
   font-family: Menlo,Monaco;
   font-size: 0.8rem;
@@ -36,15 +40,11 @@
 
 .top-control {
   display: flex;
+  justify-content: space-between;
   align-items: center;
   background-color: #fff;
   padding: 10px;
 }
-
-.top-control > div {
-  margin-right: 20px;
-}
-
 
 .main-table-wrap tbody tr.tr-selected {
   background-color: rgb(35, 118, 229);
@@ -62,10 +62,11 @@
 
 .flow-detail {
   position: fixed;
-  top: 0;
+  top: 51px;
   right: 0;
 
-  height: 100vh;
+  border-top: 2px solid rgb(222, 226, 230);
+  height: calc(100vh - 51px);
   background-color: #fff;
   min-width: 500px;
   width: 50%;

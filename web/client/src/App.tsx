@@ -3,6 +3,8 @@ import Table from 'react-bootstrap/Table'
 import Form from 'react-bootstrap/Form'
 import Button from 'react-bootstrap/Button'
 import './App.css'
+import GitHubLogo from './github-mark.svg'
+import Badge from 'react-bootstrap/Badge'
 
 import BreakPoint from './components/BreakPoint'
 import FlowPreview from './components/FlowPreview'
@@ -166,37 +168,46 @@ class App extends React.Component<IProps, IState> {
     return (
       <div className="main-table-wrap">
         <div className="top-control">
-          <div><Button size="sm" onClick={() => {
-            this.flowMgr.clear()
-            this.setState({ flows: this.flowMgr.showList(), flow: null })
-          }}>Clear</Button></div>
-          <div>
-            <Form.Control
-              size="sm" placeholder="Filter"
-              style={{ width: '350px' }}
-              isInvalid={this.state.filterInvalid}
-              onChange={(e) => {
-                const value = e.target.value
-                this.flowMgr.changeFilterLazy(value, (err) => {
-                  if (err) {
-                    console.log('changeFilterLazy error', err)
-                  }
-                  this.setState({
-                    filterInvalid: err ? true : false,
-                    flows: this.flowMgr.showList()
+          <div style={{ display: 'flex', alignItems: 'center' }}>
+            <div style={{ marginRight: '10px' }}><Button size="sm" onClick={() => {
+              this.flowMgr.clear()
+              this.setState({ flows: this.flowMgr.showList(), flow: null })
+            }}>Clear</Button></div>
+            <div style={{ marginRight: '10px' }}>
+              <Form.Control
+                size="sm" placeholder="Filter"
+                style={{ width: '350px' }}
+                isInvalid={this.state.filterInvalid}
+                onChange={(e) => {
+                  const value = e.target.value
+                  this.flowMgr.changeFilterLazy(value, (err) => {
+                    if (err) {
+                      console.log('changeFilterLazy error', err)
+                    }
+                    this.setState({
+                      filterInvalid: err ? true : false,
+                      flows: this.flowMgr.showList()
+                    })
                   })
-                })
-              }}
-            >
-            </Form.Control>
+                }}
+              >
+              </Form.Control>
+            </div>
+            
+            <div style={{ marginRight: '10px' }}>
+              <BreakPoint onSave={rules => {
+                const msg = buildMessageMeta(SendMessageType.CHANGE_BREAK_POINT_RULES, rules)
+                if (this.ws) this.ws.send(msg)
+              }} />
+            </div>
           </div>
-
-          <BreakPoint onSave={rules => {
-            const msg = buildMessageMeta(SendMessageType.CHANGE_BREAK_POINT_RULES, rules)
-            if (this.ws) this.ws.send(msg)
-          }} />
-
-          <span>status: {this.state.wsStatus}</span>
+          
+          <div style={{ display: 'flex', alignItems: 'center' }}>
+            <div style={{ marginRight: '10px' }}>
+              { this.state.wsStatus === 'open' ? <Badge pill bg="success">on</Badge> : <Badge pill bg="danger">off</Badge> }
+            </div>
+            <a href='https://github.com/lqqyt2423/go-mitmproxy' target='_blank' rel="noreferrer"><img style={{ height: '30px' }} src={GitHubLogo} alt="GitHub Logo" /></a>
+          </div>
         </div>
 
         <div className="table-wrap-div">
