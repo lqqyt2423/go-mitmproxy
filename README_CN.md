@@ -164,6 +164,20 @@ type Addon interface {
 
 ![](./assets/web-3.png)
 
+### 赞助我
+
+如果你觉得这个项目对你有帮助，不妨考虑给我买杯咖啡。
+
+赞助时可备注来源 go-mitmproxy，我会将你添加至下面的赞助列表中。
+
+<div align="center">
+	<img alt="sponsorme" src="./assets/sponsor-me.jpeg" style="width: 300px" />
+</div>
+
+感谢以下赞助者：
+
+暂无
+
 ## License
 
 [MIT License](./LICENSE)

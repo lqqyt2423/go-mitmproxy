@@ -164,6 +164,20 @@ You can access the web interface at http://localhost:9081/ using a web browser.
 
 ![](./assets/web-3.png)
 
+### Sponsor Me
+
+If you find this project helpful, consider buying me a cup of coffee.
+
+When sponsoring, you can add a note stating the source as "go-mitmproxy," and I will add you to the sponsorship list below.
+
+<div align="center">
+	<img alt="sponsorme" src="./assets/sponsor-me.jpeg" style="width: 300px" />
+</div>
+
+Thank you to the following sponsors:
+
+None at the moment.
+
 ## License
 
 [MIT License](./LICENSE)
