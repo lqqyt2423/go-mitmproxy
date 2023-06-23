@@ -1,7 +1,6 @@
 package proxy
 
 import (
-	"bytes"
 	"context"
 	"crypto/tls"
 	"crypto/x509"
@@ -13,12 +12,11 @@ import (
 )
 
 type Options struct {
-	Debug             int
-	Addr              string
-	StreamLargeBodies int64 // 当请求或响应体大于此字节时，转为 stream 模式
-	SslInsecure       bool
-	CaRootPath        string
-	Upstream          string
+	Debug       int
+	Addr        string
+	SslInsecure bool
+	CaRootPath  string
+	Upstream    string
 }
 
 type Proxy struct {
@@ -33,10 +31,6 @@ type Proxy struct {
 }
 
 func NewProxy(opts *Options) (*Proxy, error) {
-	if opts.StreamLargeBodies <= 0 {
-		opts.StreamLargeBodies = 1024 * 1024 * 5 // default: 5mb
-	}
-
 	proxy := &Proxy{
 		Opts:    opts,
 		Version: "1.6.1",
@@ -196,32 +190,7 @@ func (proxy *Proxy) ServeHTTP(res http.ResponseWriter, req *http.Request) {
 
 	// Read request body
 	var reqBody io.Reader = req.Body
-	if !f.Stream {
-		reqBuf, r, err := readerToBuffer(req.Body, proxy.Opts.StreamLargeBodies)
-		reqBody = r
-		if err != nil {
-			log.Error(err)
-			res.WriteHeader(502)
-			return
-		}
-
-		if reqBuf == nil {
-			log.Warnf("request body size >= %v\n", proxy.Opts.StreamLargeBodies)
-			f.Stream = true
-		} else {
-			f.Request.Body = reqBuf
-
-			// trigger addon event Request
-			for _, addon := range proxy.Addons {
-				addon.Request(f)
-				if f.Response != nil {
-					reply(f.Response, nil)
-					return
-				}
-			}
-			reqBody = bytes.NewReader(f.Request.Body)
-		}
-	}
+	defer req.Body.Close()
 
 	for _, addon := range proxy.Addons {
 		reqBody = addon.StreamRequestModifier(f, reqBody)
@@ -275,30 +244,9 @@ func (proxy *Proxy) ServeHTTP(res http.ResponseWriter, req *http.Request) {
 
 	// Read response body
 	var resBody io.Reader = proxyRes.Body
-	if !f.Stream {
-		resBuf, r, err := readerToBuffer(proxyRes.Body, proxy.Opts.StreamLargeBodies)
-		resBody = r
-		if err != nil {
-			log.Error(err)
-			res.WriteHeader(502)
-			return
-		}
-		if resBuf == nil {
-			log.Warnf("response body size >= %v\n", proxy.Opts.StreamLargeBodies)
-			f.Stream = true
-		} else {
-			f.Response.Body = resBuf
-
-			// trigger addon event Response
-			for _, addon := range proxy.Addons {
-				addon.Response(f)
-			}
-		}
-	}
 	for _, addon := range proxy.Addons {
 		resBody = addon.StreamResponseModifier(f, resBody)
 	}
-
 	reply(f.Response, resBody)
 }
 

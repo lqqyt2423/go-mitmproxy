@@ -26,9 +26,6 @@ type Addon interface {
 	// HTTP request headers were successfully read. At this point, the body is empty.
 	Requestheaders(*Flow)
 
-	// The full HTTP request has been read.
-	Request(*Flow)
-
 	// HTTP response headers were successfully read. At this point, the body is empty.
 	Responseheaders(*Flow)
 

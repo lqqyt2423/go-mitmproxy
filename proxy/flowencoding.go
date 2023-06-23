@@ -58,7 +58,7 @@ func (r *Response) DecodedBody() ([]byte, error) {
 		return r.decodedBody, nil
 	}
 
-	decodedBody, decodedErr := decode(enc, r.Body)
+	decodedBody, decodedErr := Decode(enc, r.Body)
 	if decodedErr != nil {
 		r.decodedErr = decodedErr
 		log.Error(r.decodedErr)
@@ -82,7 +82,7 @@ func (r *Response) ReplaceToDecodedBody() {
 	r.Header.Del("Transfer-Encoding")
 }
 
-func decode(enc string, body []byte) ([]byte, error) {
+func Decode(enc string, body []byte) ([]byte, error) {
 	if enc == "gzip" {
 		dreader, err := gzip.NewReader(bytes.NewReader(body))
 		if err != nil {
