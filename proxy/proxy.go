@@ -130,10 +130,13 @@ func (proxy *Proxy) ServeHTTP(res http.ResponseWriter, req *http.Request) {
 	})
 
 	if !req.URL.IsAbs() || req.URL.Host == "" {
-		res.WriteHeader(400)
-		_, err := io.WriteString(res, "此为代理服务器，不能直接发起请求")
-		if err != nil {
-			log.Error(err)
+		if len(proxy.Addons) == 0 {
+			res.WriteHeader(400)
+			io.WriteString(res, "此为代理服务器，不能直接发起请求")
+			return
+		}
+		for _, addon := range proxy.Addons {
+			addon.AccessProxyServer(req, res)
 		}
 		return
 	}
