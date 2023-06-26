@@ -2,6 +2,7 @@ package proxy
 
 import (
 	"io"
+	"net/http"
 	"time"
 
 	log "github.com/sirupsen/logrus"
@@ -40,6 +41,9 @@ type Addon interface {
 
 	// Stream response body modifier
 	StreamResponseModifier(*Flow, io.Reader) io.Reader
+
+	// onAccessProxyServer
+	AccessProxyServer(req *http.Request, res http.ResponseWriter)
 }
 
 // BaseAddon do nothing
@@ -61,6 +65,12 @@ func (addon *BaseAddon) StreamRequestModifier(f *Flow, in io.Reader) io.Reader {
 }
 func (addon *BaseAddon) StreamResponseModifier(f *Flow, in io.Reader) io.Reader {
 	return in
+}
+
+func (addon *BaseAddon) AccessProxyServer(req *http.Request, res http.ResponseWriter) {
+	res.WriteHeader(400)
+	io.WriteString(res, "此为代理服务器，不能直接发起请求")
+	return
 }
 
 // LogAddon log connection and flow
