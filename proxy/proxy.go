@@ -19,6 +19,7 @@ type Options struct {
 	SslInsecure       bool
 	CaRootPath        string
 	Upstream          string
+	UpstreamFilter    func(address string) bool // 过滤不需要代理的请求
 }
 
 type Proxy struct {
@@ -45,7 +46,7 @@ func NewProxy(opts *Options) (*Proxy, error) {
 
 	proxy.client = &http.Client{
 		Transport: &http.Transport{
-			Proxy:              clientProxy(opts.Upstream),
+			Proxy:              clientProxy(opts.Upstream, opts.UpstreamFilter),
 			ForceAttemptHTTP2:  false, // disable http2
 			DisableCompression: true,  // To get the original response from the server, set Transport.DisableCompression to true.
 			TLSClientConfig: &tls.Config{
@@ -330,7 +331,7 @@ func (proxy *Proxy) handleConnect(res http.ResponseWriter, req *http.Request) {
 		conn, err = proxy.interceptor.dial(req)
 	} else {
 		log.Debugf("begin transpond %v", req.Host)
-		conn, err = getConnFrom(req.Host, proxy.Opts.Upstream)
+		conn, err = getConnFrom(req.Host, proxy.Opts.Upstream, proxy.Opts.UpstreamFilter)
 	}
 	if err != nil {
 		log.Error(err)
