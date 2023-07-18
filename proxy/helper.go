@@ -2,6 +2,7 @@ package proxy
 
 import (
 	"bytes"
+	"context"
 	"encoding/json"
 	"io"
 	"net"
@@ -157,4 +158,18 @@ func NewStructFromFile[T any](filename string) (*T, error) {
 		return nil, err
 	}
 	return &item, nil
+}
+
+// client ip context ctx key
+var clientIPcontextKey = struct{}{}
+
+func GetRealClientIP(req *http.Request) string {
+	if ip, ok := req.Context().Value(clientIPcontextKey).(string); ok {
+		return ip
+	}
+	return ""
+}
+
+func SetRealClientIP(req *http.Request, realip string) *http.Request {
+	return req.WithContext(context.WithValue(req.Context(), clientIPcontextKey, realip))
 }

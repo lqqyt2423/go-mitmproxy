@@ -149,6 +149,8 @@ func (proxy *Proxy) Shutdown(ctx context.Context) error {
 }
 
 func (proxy *Proxy) ServeHTTP(res http.ResponseWriter, req *http.Request) {
+	// 记录下来真实的客户端IP，后续步骤可能需要用到，这儿需要的原因是因为初始化connection的时候，需要用到
+	req = SetRealClientIP(req, req.RemoteAddr)
 	if req.Method == "CONNECT" {
 		proxy.handleConnect(res, req)
 		return
@@ -363,7 +365,7 @@ func (proxy *Proxy) handleConnect(res http.ResponseWriter, req *http.Request) {
 		conn, err = proxy.interceptor.dial(req)
 	} else {
 		log.Debugf("begin transpond %v", req.Host)
-		conn, err = getConnFrom(req.Host, proxy.Opts.Upstream, proxy.dynamicUpstreamFunc)
+		conn, err = getConnFrom(req, proxy.Opts.Upstream, proxy.dynamicUpstreamFunc)
 	}
 	if err != nil {
 		log.Error(err)
