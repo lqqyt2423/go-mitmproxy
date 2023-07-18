@@ -20,9 +20,11 @@ import (
 // client connection
 type ClientConn struct {
 	Id   uuid.UUID
-	Conn net.Conn
+	Conn net.Conn // rawClientConnContextKey is this
 	Tls  bool
 }
+
+var rawClientConnContextKey = new(struct{})
 
 func newClientConn(c net.Conn) *ClientConn {
 	return &ClientConn{
@@ -115,7 +117,7 @@ func (connCtx *ConnContext) initHttpServerConn() {
 	serverConn := newServerConn()
 	serverConn.client = &http.Client{
 		Transport: &http.Transport{
-			Proxy: clientProxy(connCtx.proxy.Opts.Upstream),
+			Proxy: connCtx.proxy.realUpstreamProxy(),
 			DialContext: func(ctx context.Context, network, addr string) (net.Conn, error) {
 				c, err := (&net.Dialer{}).DialContext(ctx, network, addr)
 				if err != nil {
@@ -150,13 +152,13 @@ func (connCtx *ConnContext) initHttpServerConn() {
 	connCtx.ServerConn = serverConn
 }
 
-func (connCtx *ConnContext) initServerTcpConn(req *http.Request) error {
+func (connCtx *ConnContext) initServerTcpConn(req *http.Request, rawClientConn net.Conn) error {
 	log.Debugln("in initServerTcpConn")
 	ServerConn := newServerConn()
 	connCtx.ServerConn = ServerConn
 	ServerConn.Address = connCtx.pipeConn.host
 
-	plainConn, err := getConnFrom(req.Host, connCtx.proxy.Opts.Upstream)
+	plainConn, err := getConnFrom(req.Host, connCtx.proxy, rawClientConn)
 	if err != nil {
 		return err
 	}
@@ -369,9 +371,16 @@ func getProxyConn(proxyUrl *url.URL, address string) (net.Conn, error) {
 	return conn, nil
 }
 
-func getConnFrom(address string, upstream string) (net.Conn, error) {
-	clientReq := &http.Request{URL: &url.URL{Scheme: "https", Host: address}}
-	proxyUrl, err := clientProxy(upstream)(clientReq)
+func getConnFrom(address string, proxy *Proxy, rawClientConn net.Conn) (net.Conn, error) {
+	clientReqCtx := context.WithValue(context.Background(), rawClientConnContextKey, rawClientConn)
+	clientReq, err := http.NewRequestWithContext(clientReqCtx, "CONNECT", "https://"+address, nil)
+	if err != nil {
+		return nil, err
+	}
+	clientReq.URL.Scheme = "https"
+	clientReq.URL.Host = address
+
+	proxyUrl, err := proxy.realUpstreamProxy()(clientReq)
 	if err != nil {
 		return nil, err
 	}

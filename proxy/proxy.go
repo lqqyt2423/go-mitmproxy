@@ -8,6 +8,7 @@ import (
 	"io"
 	"net"
 	"net/http"
+	"net/url"
 
 	log "github.com/sirupsen/logrus"
 )
@@ -30,6 +31,7 @@ type Proxy struct {
 	server          *http.Server
 	interceptor     *middle
 	shouldIntercept func(address string) bool
+	upstreamProxy   func(*http.Request, net.Conn) (*url.URL, error)
 }
 
 func NewProxy(opts *Options) (*Proxy, error) {
@@ -45,7 +47,7 @@ func NewProxy(opts *Options) (*Proxy, error) {
 
 	proxy.client = &http.Client{
 		Transport: &http.Transport{
-			Proxy:              clientProxy(opts.Upstream),
+			Proxy:              proxy.realUpstreamProxy(),
 			ForceAttemptHTTP2:  false, // disable http2
 			DisableCompression: true,  // To get the original response from the server, set Transport.DisableCompression to true.
 			TLSClientConfig: &tls.Config{
@@ -229,7 +231,9 @@ func (proxy *Proxy) ServeHTTP(res http.ResponseWriter, req *http.Request) {
 	for _, addon := range proxy.Addons {
 		reqBody = addon.StreamRequestModifier(f, reqBody)
 	}
-	proxyReq, err := http.NewRequest(f.Request.Method, f.Request.URL.String(), reqBody)
+
+	proxyReqCtx := context.WithValue(context.Background(), rawClientConnContextKey, f.ConnContext.ClientConn.Conn)
+	proxyReq, err := http.NewRequestWithContext(proxyReqCtx, f.Request.Method, f.Request.URL.String(), reqBody)
 	if err != nil {
 		log.Error(err)
 		res.WriteHeader(502)
@@ -327,10 +331,10 @@ func (proxy *Proxy) handleConnect(res http.ResponseWriter, req *http.Request) {
 	var err error
 	if shouldIntercept {
 		log.Debugf("begin intercept %v", req.Host)
-		conn, err = proxy.interceptor.dial(req)
+		conn, err = proxy.interceptor.dial(req, f.ConnContext.ClientConn.Conn)
 	} else {
 		log.Debugf("begin transpond %v", req.Host)
-		conn, err = getConnFrom(req.Host, proxy.Opts.Upstream)
+		conn, err = getConnFrom(req.Host, proxy, f.ConnContext.ClientConn.Conn)
 	}
 	if err != nil {
 		log.Error(err)
@@ -381,4 +385,18 @@ func (proxy *Proxy) GetCertificate() x509.Certificate {
 
 func (proxy *Proxy) SetShouldInterceptRule(rule func(address string) bool) {
 	proxy.shouldIntercept = rule
+}
+
+func (proxy *Proxy) SetUpstreamProxy(fn func(*http.Request, net.Conn) (*url.URL, error)) {
+	proxy.upstreamProxy = fn
+}
+
+func (proxy *Proxy) realUpstreamProxy() func(*http.Request) (*url.URL, error) {
+	return func(req *http.Request) (*url.URL, error) {
+		if proxy.upstreamProxy != nil {
+			rawClientConn := req.Context().Value(rawClientConnContextKey).(net.Conn)
+			return proxy.upstreamProxy(req, rawClientConn)
+		}
+		return clientProxy(proxy.Opts.Upstream)(req)
+	}
 }

@@ -137,9 +137,9 @@ func (m *middle) close() error {
 	return nil
 }
 
-func (m *middle) dial(req *http.Request) (net.Conn, error) {
+func (m *middle) dial(req *http.Request, rawClientConn net.Conn) (net.Conn, error) {
 	pipeClientConn, pipeServerConn := newPipes(req)
-	err := pipeServerConn.connContext.initServerTcpConn(req)
+	err := pipeServerConn.connContext.initServerTcpConn(req, rawClientConn)
 	if err != nil {
 		pipeClientConn.Close()
 		pipeServerConn.Close()
