@@ -80,6 +80,20 @@ func (c *ServerConn) TlsState() *tls.ConnectionState {
 // connection context ctx key
 var connContextKey = new(struct{})
 
+// client ip context ctx key
+var clientIPcontextKey = new(struct{})
+
+func GetRealClientIP(req *http.Request) string {
+	if ip, ok := req.Context().Value(clientIPcontextKey).(string); ok {
+		return ip
+	}
+	return ""
+}
+
+func SetRealClientIP(req *http.Request, realip string) *http.Request {
+	return req.WithContext(context.WithValue(req.Context(), clientIPcontextKey, realip))
+}
+
 // connection context
 type ConnContext struct {
 	ClientConn *ClientConn `json:"clientConn"`
@@ -115,7 +129,7 @@ func (connCtx *ConnContext) initHttpServerConn() {
 	serverConn := newServerConn()
 	serverConn.client = &http.Client{
 		Transport: &http.Transport{
-			Proxy: clientProxy(connCtx.proxy.Opts.Upstream, connCtx.proxy.Opts.UpstreamFilter),
+			Proxy: clientProxy(connCtx.proxy.Opts.Upstream, connCtx.proxy.dynamicUpstreamFunc),
 			DialContext: func(ctx context.Context, network, addr string) (net.Conn, error) {
 				c, err := (&net.Dialer{}).DialContext(ctx, network, addr)
 				if err != nil {
@@ -156,7 +170,7 @@ func (connCtx *ConnContext) initServerTcpConn(req *http.Request) error {
 	connCtx.ServerConn = ServerConn
 	ServerConn.Address = connCtx.pipeConn.host
 
-	plainConn, err := getConnFrom(req.Host, connCtx.proxy.Opts.Upstream, connCtx.proxy.Opts.UpstreamFilter)
+	plainConn, err := getConnFrom(req.Host, connCtx.proxy.Opts.Upstream, connCtx.proxy.dynamicUpstreamFunc)
 	if err != nil {
 		return err
 	}
@@ -179,6 +193,7 @@ func (connCtx *ConnContext) initHttpsServerConn() {
 	}
 	connCtx.ServerConn.client = &http.Client{
 		Transport: &http.Transport{
+			Proxy: clientProxy(connCtx.proxy.Opts.Upstream, connCtx.proxy.dynamicUpstreamFunc),
 			DialTLSContext: func(ctx context.Context, network, addr string) (net.Conn, error) {
 				<-connCtx.ServerConn.tlsHandshaked
 				return connCtx.ServerConn.tlsConn, connCtx.ServerConn.tlsHandshakeErr
@@ -369,9 +384,9 @@ func getProxyConn(proxyUrl *url.URL, address string) (net.Conn, error) {
 	return conn, nil
 }
 
-func getConnFrom(address string, upstream string, upstreamFilter func(address string) bool) (net.Conn, error) {
+func getConnFrom(address string, upstream string, dynamicUpstreamFunc func(*http.Request) (*url.URL, error)) (net.Conn, error) {
 	clientReq := &http.Request{URL: &url.URL{Scheme: "https", Host: address}}
-	proxyUrl, err := clientProxy(upstream, upstreamFilter)(clientReq)
+	proxyUrl, err := clientProxy(upstream, dynamicUpstreamFunc)(clientReq)
 	if err != nil {
 		return nil, err
 	}

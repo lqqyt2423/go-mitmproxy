@@ -8,6 +8,7 @@ import (
 	"io"
 	"net"
 	"net/http"
+	"net/url"
 
 	log "github.com/sirupsen/logrus"
 )
@@ -19,7 +20,6 @@ type Options struct {
 	SslInsecure       bool
 	CaRootPath        string
 	Upstream          string
-	UpstreamFilter    func(address string) bool // 过滤不需要代理的请求
 }
 
 type Proxy struct {
@@ -27,10 +27,40 @@ type Proxy struct {
 	Version string
 	Addons  []Addon
 
-	client          *http.Client
-	server          *http.Server
-	interceptor     *middle
-	shouldIntercept func(address string) bool
+	client              *http.Client
+	server              *http.Server
+	interceptor         *middle
+	shouldIntercept     func(address string) bool
+	dynamicUpstreamFunc func(*http.Request) (*url.URL, error)
+}
+
+// dynamicUpstreamFunc use case:
+/*
+var dynamicUpstreamFunc = func(req *http.Request) (*url.URL, error) {
+	realip := GetRealClientIP(req)
+	rip := net.ParseIP(realip)
+	_, net, err := net.ParseCIDR("192.168.1.0/24")
+	defaultf := http.ProxyFromEnvironment
+	if err != nil {
+		return defaultf(req)
+	}
+
+	proxy1, _ := url.Parse("http://upstream1.com")
+	proxy2, _ := url.Parse("http://upstream2.com")
+
+	if strings.Contains(req.URL.String(), "somechar") {
+		return http.ProxyURL(proxy1)(req)
+	}
+	if net.Contains(rip) {
+		return http.ProxyURL(proxy2)(req)
+	} else {
+		return defaultf(req)
+	}
+}
+*/
+
+func (proxy *Proxy) SetUpstreamProxy(dynamicUpstreamFunc func(*http.Request) (*url.URL, error)) {
+	proxy.dynamicUpstreamFunc = dynamicUpstreamFunc
 }
 
 func NewProxy(opts *Options) (*Proxy, error) {
@@ -46,7 +76,7 @@ func NewProxy(opts *Options) (*Proxy, error) {
 
 	proxy.client = &http.Client{
 		Transport: &http.Transport{
-			Proxy:              clientProxy(opts.Upstream, opts.UpstreamFilter),
+			Proxy:              clientProxy(opts.Upstream, proxy.dynamicUpstreamFunc),
 			ForceAttemptHTTP2:  false, // disable http2
 			DisableCompression: true,  // To get the original response from the server, set Transport.DisableCompression to true.
 			TLSClientConfig: &tls.Config{
@@ -242,6 +272,8 @@ func (proxy *Proxy) ServeHTTP(res http.ResponseWriter, req *http.Request) {
 			proxyReq.Header.Add(key, v)
 		}
 	}
+	// 记录下来真实的客户端IP，后续步骤可能需要用到
+	proxyReq = SetRealClientIP(proxyReq, req.RemoteAddr)
 
 	f.ConnContext.initHttpServerConn()
 	var proxyRes *http.Response
@@ -331,7 +363,7 @@ func (proxy *Proxy) handleConnect(res http.ResponseWriter, req *http.Request) {
 		conn, err = proxy.interceptor.dial(req)
 	} else {
 		log.Debugf("begin transpond %v", req.Host)
-		conn, err = getConnFrom(req.Host, proxy.Opts.Upstream, proxy.Opts.UpstreamFilter)
+		conn, err = getConnFrom(req.Host, proxy.Opts.Upstream, proxy.dynamicUpstreamFunc)
 	}
 	if err != nil {
 		log.Error(err)

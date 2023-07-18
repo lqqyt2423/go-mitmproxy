@@ -128,25 +128,23 @@ func getTlsKeyLogWriter() io.Writer {
 	return tlsKeyLogWriter
 }
 
-func clientProxy(upstream string, filter func(string) bool) func(*http.Request) (*url.URL, error) {
+func clientProxy(upstream string, f func(*http.Request) (*url.URL, error)) func(*http.Request) (*url.URL, error) {
+	if f != nil {
+		return f
+	}
+	defaultf := func(req *http.Request) (*url.URL, error) {
+		return http.ProxyFromEnvironment(req)
+	}
 	if len(upstream) > 0 {
 		return func(req *http.Request) (*url.URL, error) {
-			if filter != nil {
-				if filter(req.URL.Host) {
-					upstreamUrl, _ := url.Parse(upstream)
-					return http.ProxyURL(upstreamUrl)(req)
-				}
-			} else {
-				upstreamUrl, _ := url.Parse(upstream)
-				return http.ProxyURL(upstreamUrl)(req)
+			upstreamUrl, err := url.Parse(upstream)
+			if err != nil {
+				return defaultf(req)
 			}
-			return http.ProxyFromEnvironment(req)
-		}
-	} else {
-		return func(req *http.Request) (*url.URL, error) {
-			return http.ProxyFromEnvironment(req)
+			return http.ProxyURL(upstreamUrl)(req)
 		}
 	}
+	return defaultf
 }
 
 func NewStructFromFile[T any](filename string) (*T, error) {
