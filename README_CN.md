@@ -67,6 +67,8 @@ Usage of go-mitmproxy:
     	map remote json配置文件地址
   -ssl_insecure
     	不验证上游服务器的 SSL/TLS 证书
+  -upstream string
+    	upstream proxy
   -version
     	显示 go-mitmproxy 版本
   -web_addr string

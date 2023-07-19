@@ -25,6 +25,7 @@ func loadConfigFromCli() *Config {
 	flag.IntVar(&config.Debug, "debug", 0, "debug mode: 1 - print debug log, 2 - show debug from")
 	flag.StringVar(&config.Dump, "dump", "", "dump filename")
 	flag.IntVar(&config.DumpLevel, "dump_level", 0, "dump level: 0 - header, 1 - header + body")
+	flag.StringVar(&config.Upstream, "upstream", "", "upstream proxy")
 	flag.StringVar(&config.MapRemote, "map_remote", "", "map remote config filename")
 	flag.StringVar(&config.MapLocal, "map_local", "", "map local config filename")
 	flag.StringVar(&config.filename, "f", "", "read config from the filename")
@@ -62,6 +63,9 @@ func mergeConfigs(fileConfig, cliConfig *Config) *Config {
 	}
 	if cliConfig.DumpLevel != 0 {
 		config.DumpLevel = cliConfig.DumpLevel
+	}
+	if cliConfig.Upstream != "" {
+		config.Upstream = cliConfig.Upstream
 	}
 	if cliConfig.MapRemote != "" {
 		config.MapRemote = cliConfig.MapRemote

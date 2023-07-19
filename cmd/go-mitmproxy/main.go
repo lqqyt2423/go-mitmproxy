@@ -24,6 +24,7 @@ type Config struct {
 	Debug       int      // debug mode: 1 - print debug log, 2 - show debug from
 	Dump        string   // dump filename
 	DumpLevel   int      // dump level: 0 - header, 1 - header + body
+	Upstream    string   // upstream proxy
 	MapRemote   string   // map remote config filename
 	MapLocal    string   // map local config filename
 
@@ -53,6 +54,7 @@ func main() {
 		StreamLargeBodies: 1024 * 1024 * 5,
 		SslInsecure:       config.SslInsecure,
 		CaRootPath:        config.CertPath,
+		Upstream:          config.Upstream,
 	}
 
 	p, err := proxy.NewProxy(opts)

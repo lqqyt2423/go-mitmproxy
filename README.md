@@ -67,6 +67,8 @@ Usage of go-mitmproxy:
     	map remote config filename
   -ssl_insecure
     	not verify upstream server SSL/TLS certificates.
+  -upstream string
+    	upstream proxy
   -version
     	show go-mitmproxy version
   -web_addr string
