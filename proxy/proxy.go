@@ -30,7 +30,7 @@ type Proxy struct {
 	client          *http.Client
 	server          *http.Server
 	interceptor     *middle
-	shouldIntercept func(address string) bool
+	shouldIntercept func(req *http.Request) bool              // req is received by proxy.server
 	upstreamProxy   func(req *http.Request) (*url.URL, error) // req is received by proxy.server, not client request
 }
 
@@ -318,7 +318,7 @@ func (proxy *Proxy) handleConnect(res http.ResponseWriter, req *http.Request) {
 		"host": req.Host,
 	})
 
-	shouldIntercept := proxy.shouldIntercept == nil || proxy.shouldIntercept(req.Host)
+	shouldIntercept := proxy.shouldIntercept == nil || proxy.shouldIntercept(req)
 	f := newFlow()
 	f.Request = newRequest(req)
 	f.ConnContext = req.Context().Value(connContextKey).(*ConnContext)
@@ -386,7 +386,7 @@ func (proxy *Proxy) GetCertificate() x509.Certificate {
 	return proxy.interceptor.ca.RootCert
 }
 
-func (proxy *Proxy) SetShouldInterceptRule(rule func(address string) bool) {
+func (proxy *Proxy) SetShouldInterceptRule(rule func(req *http.Request) bool) {
 	proxy.shouldIntercept = rule
 }
 

@@ -3,6 +3,7 @@ package main
 import (
 	"fmt"
 	rawLog "log"
+	"net/http"
 	"os"
 	"strings"
 
@@ -70,13 +71,13 @@ func main() {
 	log.Infof("go-mitmproxy version %v\n", p.Version)
 
 	if len(config.IgnoreHosts) > 0 {
-		p.SetShouldInterceptRule(func(address string) bool {
-			return !matchHost(address, config.IgnoreHosts)
+		p.SetShouldInterceptRule(func(req *http.Request) bool {
+			return !matchHost(req.Host, config.IgnoreHosts)
 		})
 	}
 	if len(config.AllowHosts) > 0 {
-		p.SetShouldInterceptRule(func(address string) bool {
-			return matchHost(address, config.AllowHosts)
+		p.SetShouldInterceptRule(func(req *http.Request) bool {
+			return matchHost(req.Host, config.AllowHosts)
 		})
 	}
 
