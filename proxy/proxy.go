@@ -31,8 +31,11 @@ type Proxy struct {
 	server          *http.Server
 	interceptor     *middle
 	shouldIntercept func(address string) bool
-	upstreamProxy   func(*http.Request, net.Conn) (*url.URL, error)
+	upstreamProxy   func(req *http.Request) (*url.URL, error) // req is received by proxy.server, not client request
 }
+
+// proxy.server req context key
+var proxyReqCtxKey = new(struct{})
 
 func NewProxy(opts *Options) (*Proxy, error) {
 	if opts.StreamLargeBodies <= 0 {
@@ -232,7 +235,7 @@ func (proxy *Proxy) ServeHTTP(res http.ResponseWriter, req *http.Request) {
 		reqBody = addon.StreamRequestModifier(f, reqBody)
 	}
 
-	proxyReqCtx := context.WithValue(context.Background(), rawClientConnContextKey, f.ConnContext.ClientConn.Conn)
+	proxyReqCtx := context.WithValue(context.Background(), proxyReqCtxKey, req)
 	proxyReq, err := http.NewRequestWithContext(proxyReqCtx, f.Request.Method, f.Request.URL.String(), reqBody)
 	if err != nil {
 		log.Error(err)
@@ -331,10 +334,10 @@ func (proxy *Proxy) handleConnect(res http.ResponseWriter, req *http.Request) {
 	var err error
 	if shouldIntercept {
 		log.Debugf("begin intercept %v", req.Host)
-		conn, err = proxy.interceptor.dial(req, f.ConnContext.ClientConn.Conn)
+		conn, err = proxy.interceptor.dial(req)
 	} else {
 		log.Debugf("begin transpond %v", req.Host)
-		conn, err = getConnFrom(req.Host, proxy, f.ConnContext.ClientConn.Conn)
+		conn, err = proxy.getUpstreamConn(req)
 	}
 	if err != nil {
 		log.Error(err)
@@ -387,16 +390,38 @@ func (proxy *Proxy) SetShouldInterceptRule(rule func(address string) bool) {
 	proxy.shouldIntercept = rule
 }
 
-func (proxy *Proxy) SetUpstreamProxy(fn func(*http.Request, net.Conn) (*url.URL, error)) {
+func (proxy *Proxy) SetUpstreamProxy(fn func(req *http.Request) (*url.URL, error)) {
 	proxy.upstreamProxy = fn
 }
 
 func (proxy *Proxy) realUpstreamProxy() func(*http.Request) (*url.URL, error) {
-	return func(req *http.Request) (*url.URL, error) {
-		if proxy.upstreamProxy != nil {
-			rawClientConn := req.Context().Value(rawClientConnContextKey).(net.Conn)
-			return proxy.upstreamProxy(req, rawClientConn)
-		}
-		return clientProxy(proxy.Opts.Upstream)(req)
+	return func(cReq *http.Request) (*url.URL, error) {
+		req := cReq.Context().Value(proxyReqCtxKey).(*http.Request)
+		return proxy.getUpstreamProxyUrl(req)
 	}
+}
+
+func (proxy *Proxy) getUpstreamProxyUrl(req *http.Request) (*url.URL, error) {
+	if proxy.upstreamProxy != nil {
+		return proxy.upstreamProxy(req)
+	}
+	if len(proxy.Opts.Upstream) > 0 {
+		return url.Parse(proxy.Opts.Upstream)
+	}
+	cReq := &http.Request{URL: &url.URL{Scheme: "https", Host: req.Host}}
+	return http.ProxyFromEnvironment(cReq)
+}
+
+func (proxy *Proxy) getUpstreamConn(req *http.Request) (net.Conn, error) {
+	proxyUrl, err := proxy.getUpstreamProxyUrl(req)
+	if err != nil {
+		return nil, err
+	}
+	var conn net.Conn
+	if proxyUrl != nil {
+		conn, err = getProxyConn(proxyUrl, req.Host)
+	} else {
+		conn, err = (&net.Dialer{}).DialContext(context.Background(), "tcp", req.Host)
+	}
+	return conn, err
 }

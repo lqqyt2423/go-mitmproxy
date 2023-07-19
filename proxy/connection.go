@@ -24,8 +24,6 @@ type ClientConn struct {
 	Tls  bool
 }
 
-var rawClientConnContextKey = new(struct{})
-
 func newClientConn(c net.Conn) *ClientConn {
 	return &ClientConn{
 		Id:   uuid.NewV4(),
@@ -152,13 +150,13 @@ func (connCtx *ConnContext) initHttpServerConn() {
 	connCtx.ServerConn = serverConn
 }
 
-func (connCtx *ConnContext) initServerTcpConn(req *http.Request, rawClientConn net.Conn) error {
+func (connCtx *ConnContext) initServerTcpConn(req *http.Request) error {
 	log.Debugln("in initServerTcpConn")
 	ServerConn := newServerConn()
 	connCtx.ServerConn = ServerConn
 	ServerConn.Address = connCtx.pipeConn.host
 
-	plainConn, err := getConnFrom(req.Host, connCtx.proxy, rawClientConn)
+	plainConn, err := connCtx.proxy.getUpstreamConn(req)
 	if err != nil {
 		return err
 	}
@@ -369,27 +367,4 @@ func getProxyConn(proxyUrl *url.URL, address string) (net.Conn, error) {
 		return nil, errors.New(text)
 	}
 	return conn, nil
-}
-
-func getConnFrom(address string, proxy *Proxy, rawClientConn net.Conn) (net.Conn, error) {
-	clientReqCtx := context.WithValue(context.Background(), rawClientConnContextKey, rawClientConn)
-	clientReq, err := http.NewRequestWithContext(clientReqCtx, "CONNECT", "https://"+address, nil)
-	if err != nil {
-		return nil, err
-	}
-	clientReq.URL.Scheme = "https"
-	clientReq.URL.Host = address
-
-	proxyUrl, err := proxy.realUpstreamProxy()(clientReq)
-	if err != nil {
-		return nil, err
-	}
-
-	var conn net.Conn
-	if proxyUrl != nil {
-		conn, err = getProxyConn(proxyUrl, address)
-	} else {
-		conn, err = (&net.Dialer{}).DialContext(context.Background(), "tcp", address)
-	}
-	return conn, err
 }
