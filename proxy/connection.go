@@ -328,7 +328,7 @@ func getProxyConn(proxyUrl *url.URL, address string) (net.Conn, error) {
 		Header: http.Header{},
 	}
 	if proxyUrl.User != nil {
-		connectReq.Header.Set("Proxy-Authorization", "Basic"+base64.StdEncoding.EncodeToString([]byte(proxyUrl.User.String())))
+		connectReq.Header.Set("Proxy-Authorization", "Basic "+base64.StdEncoding.EncodeToString([]byte(proxyUrl.User.String())))
 	}
 	connectCtx, cancel := context.WithTimeout(context.Background(), 1*time.Minute)
 	defer cancel()
