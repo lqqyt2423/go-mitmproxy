@@ -634,3 +634,90 @@ func TestProxyShutdown(t *testing.T) {
 		t.Fatal("shutdown timeout")
 	}
 }
+
+// addon for test off UpstreamCert
+type upstreamCertAddon struct {
+	BaseAddon
+}
+
+func (addon *upstreamCertAddon) ClientConnected(conn *ClientConn) {
+	conn.UpstreamCert = false
+}
+
+func TestOnUpstreamCert(t *testing.T) {
+	helper := &testProxyHelper{
+		server:    &http.Server{},
+		proxyAddr: ":29085",
+	}
+	helper.init(t)
+	httpEndpoint := helper.httpEndpoint
+	httpsEndpoint := helper.httpsEndpoint
+	testOrderAddonInstance := helper.testOrderAddonInstance
+	testProxy := helper.testProxy
+	getProxyClient := helper.getProxyClient
+	defer helper.ln.Close()
+	go helper.server.Serve(helper.ln)
+	defer helper.tlsPlainLn.Close()
+	go helper.server.Serve(helper.tlsLn)
+	go testProxy.Start()
+	time.Sleep(time.Millisecond * 10) // wait for test proxy startup
+
+	proxyClient := getProxyClient()
+
+	t.Run("http", func(t *testing.T) {
+		time.Sleep(time.Millisecond * 10)
+		testOrderAddonInstance.reset()
+		testSendRequest(t, httpEndpoint, proxyClient, "ok")
+		time.Sleep(time.Millisecond * 10)
+		testOrderAddonInstance.before(t, "Requestheaders", "ServerConnected")
+	})
+
+	t.Run("https", func(t *testing.T) {
+		time.Sleep(time.Millisecond * 10)
+		testOrderAddonInstance.reset()
+		testSendRequest(t, httpsEndpoint, proxyClient, "ok")
+		time.Sleep(time.Millisecond * 10)
+		testOrderAddonInstance.before(t, "ServerConnected", "Requestheaders")
+		testOrderAddonInstance.contains(t, "TlsEstablishedServer")
+	})
+
+}
+
+func TestOffUpstreamCert(t *testing.T) {
+	helper := &testProxyHelper{
+		server:    &http.Server{},
+		proxyAddr: ":29086",
+	}
+	helper.init(t)
+	httpEndpoint := helper.httpEndpoint
+	httpsEndpoint := helper.httpsEndpoint
+	testOrderAddonInstance := helper.testOrderAddonInstance
+	testProxy := helper.testProxy
+	testProxy.AddAddon(&upstreamCertAddon{})
+	getProxyClient := helper.getProxyClient
+	defer helper.ln.Close()
+	go helper.server.Serve(helper.ln)
+	defer helper.tlsPlainLn.Close()
+	go helper.server.Serve(helper.tlsLn)
+	go testProxy.Start()
+	time.Sleep(time.Millisecond * 10) // wait for test proxy startup
+
+	proxyClient := getProxyClient()
+
+	t.Run("http", func(t *testing.T) {
+		time.Sleep(time.Millisecond * 10)
+		testOrderAddonInstance.reset()
+		testSendRequest(t, httpEndpoint, proxyClient, "ok")
+		time.Sleep(time.Millisecond * 10)
+		testOrderAddonInstance.before(t, "Requestheaders", "ServerConnected")
+	})
+
+	t.Run("https", func(t *testing.T) {
+		time.Sleep(time.Millisecond * 10)
+		testOrderAddonInstance.reset()
+		testSendRequest(t, httpsEndpoint, proxyClient, "ok")
+		time.Sleep(time.Millisecond * 10)
+		testOrderAddonInstance.before(t, "Requestheaders", "ServerConnected")
+		testOrderAddonInstance.contains(t, "TlsEstablishedServer")
+	})
+}

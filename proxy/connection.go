@@ -19,16 +19,19 @@ import (
 
 // client connection
 type ClientConn struct {
-	Id   uuid.UUID
-	Conn net.Conn // rawClientConnContextKey is this
-	Tls  bool
+	Id           uuid.UUID
+	Conn         net.Conn
+	Tls          bool
+	UpstreamCert bool // Connect to upstream server to look up certificate details. Default: True
+	clientHello  *tls.ClientHelloInfo
 }
 
 func newClientConn(c net.Conn) *ClientConn {
 	return &ClientConn{
-		Id:   uuid.NewV4(),
-		Conn: c,
-		Tls:  false,
+		Id:           uuid.NewV4(),
+		Conn:         c,
+		Tls:          false,
+		UpstreamCert: true,
 	}
 }
 
@@ -177,19 +180,67 @@ func (connCtx *ConnContext) initHttpsServerConn() {
 	if !connCtx.ClientConn.Tls {
 		return
 	}
-	connCtx.ServerConn.client = &http.Client{
-		Transport: &http.Transport{
-			DialTLSContext: func(ctx context.Context, network, addr string) (net.Conn, error) {
-				<-connCtx.ServerConn.tlsHandshaked
-				return connCtx.ServerConn.tlsConn, connCtx.ServerConn.tlsHandshakeErr
+
+	if connCtx.ClientConn.UpstreamCert {
+		connCtx.ServerConn.client = &http.Client{
+			Transport: &http.Transport{
+				DialTLSContext: func(ctx context.Context, network, addr string) (net.Conn, error) {
+					<-connCtx.ServerConn.tlsHandshaked
+					return connCtx.ServerConn.tlsConn, connCtx.ServerConn.tlsHandshakeErr
+				},
+				ForceAttemptHTTP2:  false, // disable http2
+				DisableCompression: true,  // To get the original response from the server, set Transport.DisableCompression to true.
 			},
-			ForceAttemptHTTP2:  false, // disable http2
-			DisableCompression: true,  // To get the original response from the server, set Transport.DisableCompression to true.
-		},
-		CheckRedirect: func(req *http.Request, via []*http.Request) error {
-			// 禁止自动重定向
-			return http.ErrUseLastResponse
-		},
+			CheckRedirect: func(req *http.Request, via []*http.Request) error {
+				// 禁止自动重定向
+				return http.ErrUseLastResponse
+			},
+		}
+	} else {
+		serverConn := newServerConn()
+		serverConn.client = &http.Client{
+			Transport: &http.Transport{
+				Proxy: connCtx.proxy.realUpstreamProxy(),
+				DialTLSContext: func(ctx context.Context, network, addr string) (net.Conn, error) {
+					c, err := (&net.Dialer{}).DialContext(ctx, network, addr)
+					if err != nil {
+						return nil, err
+					}
+					cw := &wrapServerConn{
+						Conn:    c,
+						proxy:   connCtx.proxy,
+						connCtx: connCtx,
+					}
+					serverConn.Conn = cw
+					serverConn.Address = addr
+
+					for _, addon := range connCtx.proxy.Addons {
+						addon.ServerConnected(connCtx)
+					}
+
+					if err := connCtx.tlsHandshake(connCtx.ClientConn.clientHello); err != nil {
+						return nil, err
+					}
+
+					for _, addon := range connCtx.proxy.Addons {
+						addon.TlsEstablishedServer(connCtx)
+					}
+
+					return serverConn.tlsConn, nil
+				},
+				ForceAttemptHTTP2:  false, // disable http2
+				DisableCompression: true,  // To get the original response from the server, set Transport.DisableCompression to true.
+				TLSClientConfig: &tls.Config{
+					InsecureSkipVerify: connCtx.proxy.Opts.SslInsecure,
+					KeyLogWriter:       getTlsKeyLogWriter(),
+				},
+			},
+			CheckRedirect: func(req *http.Request, via []*http.Request) error {
+				// 禁止自动重定向
+				return http.ErrUseLastResponse
+			},
+		}
+		connCtx.ServerConn = serverConn
 	}
 }
 

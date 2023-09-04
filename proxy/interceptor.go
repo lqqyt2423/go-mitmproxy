@@ -112,12 +112,16 @@ func newMiddle(proxy *Proxy) (*middle, error) {
 			SessionTicketsDisabled: true, // 设置此值为 true ，确保每次都会调用下面的 GetCertificate 方法
 			GetCertificate: func(clientHello *tls.ClientHelloInfo) (*tls.Certificate, error) {
 				connCtx := clientHello.Context().Value(connContextKey).(*ConnContext)
-				if err := connCtx.tlsHandshake(clientHello); err != nil {
-					return nil, err
-				}
+				connCtx.ClientConn.clientHello = clientHello
 
-				for _, addon := range connCtx.proxy.Addons {
-					addon.TlsEstablishedServer(connCtx)
+				if connCtx.ClientConn.UpstreamCert {
+					if err := connCtx.tlsHandshake(clientHello); err != nil {
+						return nil, err
+					}
+
+					for _, addon := range connCtx.proxy.Addons {
+						addon.TlsEstablishedServer(connCtx)
+					}
 				}
 
 				return ca.GetCert(clientHello.ServerName)
@@ -139,12 +143,16 @@ func (m *middle) close() error {
 
 func (m *middle) dial(req *http.Request) (net.Conn, error) {
 	pipeClientConn, pipeServerConn := newPipes(req)
-	err := pipeServerConn.connContext.initServerTcpConn(req)
-	if err != nil {
-		pipeClientConn.Close()
-		pipeServerConn.Close()
-		return nil, err
+
+	if pipeServerConn.connContext.ClientConn.UpstreamCert {
+		err := pipeServerConn.connContext.initServerTcpConn(req)
+		if err != nil {
+			pipeClientConn.Close()
+			pipeServerConn.Close()
+			return nil, err
+		}
 	}
+
 	go m.intercept(pipeServerConn)
 	return pipeClientConn, nil
 }
