@@ -149,9 +149,9 @@ func (proxy *Proxy) ServeHTTP(res http.ResponseWriter, req *http.Request) {
 	reply := func(response *Response, body io.Reader) {
 		if response.Header != nil {
 			for key, value := range response.Header {
-				for _, v := range value {
-					res.Header().Add(key, v)
-				}
+				v := make([]string, len(value))
+				copy(v, value)
+				res.Header()[key] = v
 			}
 		}
 		if response.close {
@@ -246,9 +246,14 @@ func (proxy *Proxy) ServeHTTP(res http.ResponseWriter, req *http.Request) {
 		return
 	}
 
-	for key, value := range f.Request.Header {
-		for _, v := range value {
-			proxyReq.Header.Add(key, v)
+	if f.Request.Header != nil {
+		for key, value := range f.Request.Header {
+			var v []string
+			if value != nil {
+				v = make([]string, len(value))
+				copy(v, value)
+			}
+			proxyReq.Header[key] = v
 		}
 	}
 
