@@ -9,6 +9,96 @@ import (
 	log "github.com/sirupsen/logrus"
 )
 
+// wrap tcpListener for remote client
+type wrapListener struct {
+	net.Listener
+	proxy *Proxy
+}
+
+func (l *wrapListener) Accept() (net.Conn, error) {
+	c, err := l.Listener.Accept()
+	if err != nil {
+		return nil, err
+	}
+
+	proxy := l.proxy
+	wc := &wrapClientConn{
+		Conn:  c,
+		proxy: proxy,
+	}
+	connCtx := newConnContext(wc, proxy)
+	wc.connCtx = connCtx
+
+	for _, addon := range proxy.Addons {
+		addon.ClientConnected(connCtx.ClientConn)
+	}
+
+	return wc, nil
+}
+
+// wrap tcpConn for remote client
+type wrapClientConn struct {
+	net.Conn
+	proxy    *Proxy
+	connCtx  *ConnContext
+	closed   bool
+	closeErr error
+}
+
+func (c *wrapClientConn) Close() error {
+	if c.closed {
+		return c.closeErr
+	}
+	log.Debugln("in wrapClientConn close", c.connCtx.ClientConn.Conn.RemoteAddr())
+
+	c.closed = true
+	c.closeErr = c.Conn.Close()
+
+	for _, addon := range c.proxy.Addons {
+		addon.ClientDisconnected(c.connCtx.ClientConn)
+	}
+
+	if c.connCtx.ServerConn != nil && c.connCtx.ServerConn.Conn != nil {
+		c.connCtx.ServerConn.Conn.Close()
+	}
+
+	return c.closeErr
+}
+
+// wrap tcpConn for remote server
+type wrapServerConn struct {
+	net.Conn
+	proxy    *Proxy
+	connCtx  *ConnContext
+	closed   bool
+	closeErr error
+}
+
+func (c *wrapServerConn) Close() error {
+	if c.closed {
+		return c.closeErr
+	}
+	log.Debugln("in wrapServerConn close", c.connCtx.ClientConn.Conn.RemoteAddr())
+
+	c.closed = true
+	c.closeErr = c.Conn.Close()
+
+	for _, addon := range c.proxy.Addons {
+		addon.ServerDisconnected(c.connCtx)
+	}
+
+	if !c.connCtx.ClientConn.Tls {
+		c.connCtx.ClientConn.Conn.(*wrapClientConn).Conn.(*net.TCPConn).CloseRead()
+	} else {
+		// if keep-alive connection close
+		if !c.connCtx.closeAfterResponse {
+			c.connCtx.pipeConn.Close()
+		}
+	}
+
+	return c.closeErr
+}
+
 type entry struct {
 	proxy  *Proxy
 	server *http.Server
@@ -20,12 +110,7 @@ func newEntry(proxy *Proxy) *entry {
 		Addr:    proxy.Opts.Addr,
 		Handler: e,
 		ConnContext: func(ctx context.Context, c net.Conn) context.Context {
-			connCtx := newConnContext(c, proxy)
-			for _, addon := range proxy.Addons {
-				addon.ClientConnected(connCtx.ClientConn)
-			}
-			c.(*wrapClientConn).connCtx = connCtx
-			return context.WithValue(ctx, connContextKey, connCtx)
+			return context.WithValue(ctx, connContextKey, c.(*wrapClientConn).connCtx)
 		},
 	}
 	return e
@@ -60,6 +145,7 @@ func (e *entry) shutdown(ctx context.Context) error {
 func (e *entry) ServeHTTP(res http.ResponseWriter, req *http.Request) {
 	proxy := e.proxy
 
+	// proxy via connect tunnel
 	if req.Method == "CONNECT" {
 		e.handleConnect(res, req)
 		return
@@ -77,6 +163,7 @@ func (e *entry) ServeHTTP(res http.ResponseWriter, req *http.Request) {
 		return
 	}
 
+	// http proxy
 	proxy.attacker.attack(res, req)
 }
 
