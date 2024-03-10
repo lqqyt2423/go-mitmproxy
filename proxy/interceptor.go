@@ -170,7 +170,7 @@ func (m *middle) ServeHTTP(res http.ResponseWriter, req *http.Request) {
 	if req.URL.Host == "" {
 		req.URL.Host = req.Host
 	}
-	m.proxy.entry.ServeHTTP(res, req)
+	m.proxy.attacker.attack(res, req)
 }
 
 // 解析 connect 流量

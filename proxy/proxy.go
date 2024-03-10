@@ -2,7 +2,6 @@ package proxy
 
 import (
 	"context"
-	"crypto/tls"
 	"crypto/x509"
 	"net"
 	"net/http"
@@ -24,7 +23,7 @@ type Proxy struct {
 	Addons  []Addon
 
 	entry           *entry
-	client          *http.Client
+	attacker        *attacker
 	interceptor     *middle
 	shouldIntercept func(req *http.Request) bool              // req is received by proxy.server
 	upstreamProxy   func(req *http.Request) (*url.URL, error) // req is received by proxy.server, not client request
@@ -44,23 +43,8 @@ func NewProxy(opts *Options) (*Proxy, error) {
 		Addons:  make([]Addon, 0),
 	}
 
-	proxy.entry = newEntry(proxy, opts.Addr)
-
-	proxy.client = &http.Client{
-		Transport: &http.Transport{
-			Proxy:              proxy.realUpstreamProxy(),
-			ForceAttemptHTTP2:  false, // disable http2
-			DisableCompression: true,  // To get the original response from the server, set Transport.DisableCompression to true.
-			TLSClientConfig: &tls.Config{
-				InsecureSkipVerify: opts.SslInsecure,
-				KeyLogWriter:       getTlsKeyLogWriter(),
-			},
-		},
-		CheckRedirect: func(req *http.Request, via []*http.Request) error {
-			// 禁止自动重定向
-			return http.ErrUseLastResponse
-		},
-	}
+	proxy.entry = newEntry(proxy)
+	proxy.attacker = newAttacker(proxy)
 
 	interceptor, err := newMiddle(proxy)
 	if err != nil {
