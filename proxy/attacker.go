@@ -5,8 +5,10 @@ import (
 	"context"
 	"crypto/tls"
 	"io"
+	"net"
 	"net/http"
 
+	"github.com/lqqyt2423/go-mitmproxy/internal/helper"
 	log "github.com/sirupsen/logrus"
 )
 
@@ -33,6 +35,48 @@ func newAttacker(proxy *Proxy) *attacker {
 				return http.ErrUseLastResponse
 			},
 		},
+	}
+}
+
+func (a *attacker) initHttpDialFn(req *http.Request) {
+	connCtx := req.Context().Value(connContextKey).(*ConnContext)
+	connCtx.dialFn = func() error {
+		// todo: proxy
+		addr := helper.CanonicalAddr(req.URL)
+		c, err := (&net.Dialer{}).DialContext(req.Context(), "tcp", addr)
+		if err != nil {
+			return err
+		}
+		proxy := a.proxy
+		cw := &wrapServerConn{
+			Conn:    c,
+			proxy:   proxy,
+			connCtx: connCtx,
+		}
+
+		serverConn := newServerConn()
+		serverConn.Conn = cw
+		serverConn.Address = addr
+		serverConn.client = &http.Client{
+			Transport: &http.Transport{
+				DialContext: func(ctx context.Context, network, addr string) (net.Conn, error) {
+					return cw, nil
+				},
+				ForceAttemptHTTP2:  false, // disable http2
+				DisableCompression: true,  // To get the original response from the server, set Transport.DisableCompression to true.
+			},
+			CheckRedirect: func(req *http.Request, via []*http.Request) error {
+				// 禁止自动重定向
+				return http.ErrUseLastResponse
+			},
+		}
+
+		connCtx.ServerConn = serverConn
+		for _, addon := range proxy.Addons {
+			addon.ServerConnected(connCtx)
+		}
+
+		return nil
 	}
 }
 
@@ -151,8 +195,6 @@ func (a *attacker) attack(res http.ResponseWriter, req *http.Request) {
 		}
 	}
 
-	f.ConnContext.initHttpServerConn()
-
 	useSeparateClient := f.UseSeparateClient
 	if !useSeparateClient {
 		if rawReqUrlHost != f.Request.URL.Host || rawReqUrlScheme != f.Request.URL.Scheme {
@@ -164,6 +206,13 @@ func (a *attacker) attack(res http.ResponseWriter, req *http.Request) {
 	if useSeparateClient {
 		proxyRes, err = a.client.Do(proxyReq)
 	} else {
+		if f.ConnContext.ServerConn == nil && f.ConnContext.dialFn != nil {
+			if err := f.ConnContext.dialFn(); err != nil {
+				log.Error(err)
+				res.WriteHeader(502)
+				return
+			}
+		}
 		proxyRes, err = f.ConnContext.ServerConn.client.Do(proxyReq)
 	}
 	if err != nil {

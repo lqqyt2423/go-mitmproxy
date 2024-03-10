@@ -164,6 +164,7 @@ func (e *entry) ServeHTTP(res http.ResponseWriter, req *http.Request) {
 	}
 
 	// http proxy
+	proxy.attacker.initHttpDialFn(req)
 	proxy.attacker.attack(res, req)
 }
 
