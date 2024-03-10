@@ -7,6 +7,7 @@ import (
 	"path"
 	"strings"
 
+	"github.com/lqqyt2423/go-mitmproxy/internal/helper"
 	"github.com/lqqyt2423/go-mitmproxy/proxy"
 	log "github.com/sirupsen/logrus"
 )
@@ -130,12 +131,12 @@ func (ml *MapLocal) validate() error {
 }
 
 func NewMapLocalFromFile(filename string) (*MapLocal, error) {
-	mapLocal, err := proxy.NewStructFromFile[MapLocal](filename)
-	if err != nil {
+	var mapLocal MapLocal
+	if err := helper.NewStructFromFile(filename, &mapLocal); err != nil {
 		return nil, err
 	}
 	if err := mapLocal.validate(); err != nil {
 		return nil, err
 	}
-	return mapLocal, nil
+	return &mapLocal, nil
 }

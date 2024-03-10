@@ -5,6 +5,7 @@ import (
 	"path"
 	"strings"
 
+	"github.com/lqqyt2423/go-mitmproxy/internal/helper"
 	"github.com/lqqyt2423/go-mitmproxy/proxy"
 	"github.com/samber/lo"
 	log "github.com/sirupsen/logrus"
@@ -122,12 +123,12 @@ func (mr *MapRemote) validate() error {
 }
 
 func NewMapRemoteFromFile(filename string) (*MapRemote, error) {
-	mapRemote, err := proxy.NewStructFromFile[MapRemote](filename)
-	if err != nil {
+	var mapRemote MapRemote
+	if err := helper.NewStructFromFile(filename, &mapRemote); err != nil {
 		return nil, err
 	}
 	if err := mapRemote.validate(); err != nil {
 		return nil, err
 	}
-	return mapRemote, nil
+	return &mapRemote, nil
 }

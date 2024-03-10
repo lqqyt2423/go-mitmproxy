@@ -4,12 +4,16 @@ import (
 	"flag"
 	"fmt"
 
-	"github.com/lqqyt2423/go-mitmproxy/proxy"
+	"github.com/lqqyt2423/go-mitmproxy/internal/helper"
 	log "github.com/sirupsen/logrus"
 )
 
 func loadConfigFromFile(filename string) (*Config, error) {
-	return proxy.NewStructFromFile[Config](filename)
+	var config Config
+	if err := helper.NewStructFromFile(filename, &config); err != nil {
+		return nil, err
+	}
+	return &config, nil
 }
 
 func loadConfigFromCli() *Config {

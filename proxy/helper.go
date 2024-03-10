@@ -2,7 +2,6 @@ package proxy
 
 import (
 	"bytes"
-	"encoding/json"
 	"io"
 	"net"
 	"os"
@@ -124,16 +123,4 @@ func getTlsKeyLogWriter() io.Writer {
 		tlsKeyLogWriter = writer
 	})
 	return tlsKeyLogWriter
-}
-
-func NewStructFromFile[T any](filename string) (*T, error) {
-	data, err := os.ReadFile(filename)
-	if err != nil {
-		return nil, err
-	}
-	var item T
-	if err := json.Unmarshal(data, &item); err != nil {
-		return nil, err
-	}
-	return &item, nil
 }
