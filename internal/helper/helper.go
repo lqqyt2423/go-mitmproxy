@@ -3,6 +3,7 @@ package helper
 import (
 	"encoding/json"
 	"net"
+	"net/http"
 	"net/url"
 	"os"
 )
@@ -40,4 +41,25 @@ func IsTls(buf []byte) bool {
 	} else {
 		return false
 	}
+}
+
+type ResponseCheck struct {
+	http.ResponseWriter
+	Wrote bool
+}
+
+func NewResponseCheck(r http.ResponseWriter) http.ResponseWriter {
+	return &ResponseCheck{
+		ResponseWriter: r,
+	}
+}
+
+func (r *ResponseCheck) WriteHeader(statusCode int) {
+	r.Wrote = true
+	r.ResponseWriter.WriteHeader(statusCode)
+}
+
+func (r *ResponseCheck) Write(bytes []byte) (int, error) {
+	r.Wrote = true
+	return r.ResponseWriter.Write(bytes)
 }
