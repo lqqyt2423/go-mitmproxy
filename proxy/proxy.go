@@ -26,7 +26,6 @@ type Proxy struct {
 
 	entry           *entry
 	attacker        *attacker
-	interceptor     *middle
 	shouldIntercept func(req *http.Request) bool              // req is received by proxy.server
 	upstreamProxy   func(req *http.Request) (*url.URL, error) // req is received by proxy.server, not client request
 }
@@ -53,12 +52,6 @@ func NewProxy(opts *Options) (*Proxy, error) {
 	}
 	proxy.attacker = attacker
 
-	interceptor, err := newMiddle(proxy)
-	if err != nil {
-		return nil, err
-	}
-	proxy.interceptor = interceptor
-
 	return proxy, nil
 }
 
@@ -72,22 +65,19 @@ func (proxy *Proxy) Start() error {
 			log.Error(err)
 		}
 	}()
-	go proxy.interceptor.start()
 	return proxy.entry.start()
 }
 
 func (proxy *Proxy) Close() error {
-	proxy.interceptor.close()
 	return proxy.entry.close()
 }
 
 func (proxy *Proxy) Shutdown(ctx context.Context) error {
-	proxy.interceptor.close()
 	return proxy.entry.shutdown(ctx)
 }
 
 func (proxy *Proxy) GetCertificate() x509.Certificate {
-	return proxy.interceptor.ca.RootCert
+	return proxy.attacker.ca.RootCert
 }
 
 func (proxy *Proxy) SetShouldInterceptRule(rule func(req *http.Request) bool) {

@@ -108,7 +108,7 @@ func (c *wrapServerConn) Close() error {
 	} else {
 		// if keep-alive connection close
 		if !c.connCtx.closeAfterResponse {
-			c.connCtx.pipeConn.Close()
+			c.connCtx.ClientConn.Conn.Close()
 		}
 	}
 

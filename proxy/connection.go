@@ -14,7 +14,6 @@ import (
 	"time"
 
 	uuid "github.com/satori/go.uuid"
-	log "github.com/sirupsen/logrus"
 )
 
 // client connection
@@ -91,7 +90,6 @@ type ConnContext struct {
 	FlowCount  uint32      `json:"-"`         // Number of HTTP requests made on the same connection
 
 	proxy              *Proxy
-	pipeConn           *pipeConn
 	closeAfterResponse bool         // after http response, http server will close the connection
 	dialFn             func() error // when begin request, if there no ServerConn, use this func to dial
 }
@@ -106,137 +104,6 @@ func newConnContext(c net.Conn, proxy *Proxy) *ConnContext {
 
 func (connCtx *ConnContext) Id() uuid.UUID {
 	return connCtx.ClientConn.Id
-}
-
-func (connCtx *ConnContext) initServerTcpConn(req *http.Request) error {
-	log.Debugln("in initServerTcpConn")
-	ServerConn := newServerConn()
-	connCtx.ServerConn = ServerConn
-	ServerConn.Address = connCtx.pipeConn.host
-
-	plainConn, err := connCtx.proxy.getUpstreamConn(req)
-	if err != nil {
-		return err
-	}
-	ServerConn.Conn = &wrapServerConn{
-		Conn:    plainConn,
-		proxy:   connCtx.proxy,
-		connCtx: connCtx,
-	}
-
-	for _, addon := range connCtx.proxy.Addons {
-		addon.ServerConnected(connCtx)
-	}
-
-	return nil
-}
-
-func (connCtx *ConnContext) initHttpsServerConn() {
-	if !connCtx.ClientConn.Tls {
-		return
-	}
-
-	if connCtx.ClientConn.UpstreamCert {
-		connCtx.ServerConn.client = &http.Client{
-			Transport: &http.Transport{
-				DialTLSContext: func(ctx context.Context, network, addr string) (net.Conn, error) {
-					<-connCtx.ServerConn.tlsHandshaked
-					return connCtx.ServerConn.tlsConn, connCtx.ServerConn.tlsHandshakeErr
-				},
-				ForceAttemptHTTP2:  false, // disable http2
-				DisableCompression: true,  // To get the original response from the server, set Transport.DisableCompression to true.
-			},
-			CheckRedirect: func(req *http.Request, via []*http.Request) error {
-				// 禁止自动重定向
-				return http.ErrUseLastResponse
-			},
-		}
-	} else {
-		serverConn := newServerConn()
-		serverConn.client = &http.Client{
-			Transport: &http.Transport{
-				Proxy: connCtx.proxy.realUpstreamProxy(),
-				DialTLSContext: func(ctx context.Context, network, addr string) (net.Conn, error) {
-					c, err := (&net.Dialer{}).DialContext(ctx, network, addr)
-					if err != nil {
-						return nil, err
-					}
-					cw := &wrapServerConn{
-						Conn:    c,
-						proxy:   connCtx.proxy,
-						connCtx: connCtx,
-					}
-					serverConn.Conn = cw
-					serverConn.Address = addr
-
-					for _, addon := range connCtx.proxy.Addons {
-						addon.ServerConnected(connCtx)
-					}
-
-					if err := connCtx.tlsHandshake(connCtx.ClientConn.clientHello); err != nil {
-						return nil, err
-					}
-
-					for _, addon := range connCtx.proxy.Addons {
-						addon.TlsEstablishedServer(connCtx)
-					}
-
-					return serverConn.tlsConn, nil
-				},
-				ForceAttemptHTTP2:  false, // disable http2
-				DisableCompression: true,  // To get the original response from the server, set Transport.DisableCompression to true.
-				TLSClientConfig: &tls.Config{
-					InsecureSkipVerify: connCtx.proxy.Opts.SslInsecure,
-					KeyLogWriter:       getTlsKeyLogWriter(),
-				},
-			},
-			CheckRedirect: func(req *http.Request, via []*http.Request) error {
-				// 禁止自动重定向
-				return http.ErrUseLastResponse
-			},
-		}
-		connCtx.ServerConn = serverConn
-	}
-}
-
-func (connCtx *ConnContext) tlsHandshake(clientHello *tls.ClientHelloInfo) error {
-	cfg := &tls.Config{
-		InsecureSkipVerify: connCtx.proxy.Opts.SslInsecure,
-		KeyLogWriter:       getTlsKeyLogWriter(),
-		ServerName:         clientHello.ServerName,
-		NextProtos:         []string{"http/1.1"}, // todo: h2
-		// CurvePreferences:   clientHello.SupportedCurves, // todo: 如果打开会出错
-		CipherSuites: clientHello.CipherSuites,
-	}
-	if len(clientHello.SupportedVersions) > 0 {
-		minVersion := clientHello.SupportedVersions[0]
-		maxVersion := clientHello.SupportedVersions[0]
-		for _, version := range clientHello.SupportedVersions {
-			if version < minVersion {
-				minVersion = version
-			}
-			if version > maxVersion {
-				maxVersion = version
-			}
-		}
-		cfg.MinVersion = minVersion
-		cfg.MaxVersion = maxVersion
-	}
-
-	tlsConn := tls.Client(connCtx.ServerConn.Conn, cfg)
-	err := tlsConn.HandshakeContext(context.Background())
-	if err != nil {
-		connCtx.ServerConn.tlsHandshakeErr = err
-		close(connCtx.ServerConn.tlsHandshaked)
-		return err
-	}
-
-	connCtx.ServerConn.tlsConn = tlsConn
-	tlsState := tlsConn.ConnectionState()
-	connCtx.ServerConn.tlsState = &tlsState
-	close(connCtx.ServerConn.tlsHandshaked)
-
-	return nil
 }
 
 // connect proxy when set https_proxy env

@@ -70,7 +70,6 @@ func (addon *BaseAddon) StreamResponseModifier(f *Flow, in io.Reader) io.Reader 
 func (addon *BaseAddon) AccessProxyServer(req *http.Request, res http.ResponseWriter) {
 	res.WriteHeader(400)
 	io.WriteString(res, "此为代理服务器，不能直接发起请求")
-	return
 }
 
 // LogAddon log connection and flow
