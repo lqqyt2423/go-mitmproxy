@@ -1,11 +1,13 @@
 package proxy
 
 import (
+	"bufio"
 	"context"
 	"io"
 	"net"
 	"net/http"
 
+	"github.com/lqqyt2423/go-mitmproxy/internal/helper"
 	log "github.com/sirupsen/logrus"
 )
 
@@ -22,10 +24,7 @@ func (l *wrapListener) Accept() (net.Conn, error) {
 	}
 
 	proxy := l.proxy
-	wc := &wrapClientConn{
-		Conn:  c,
-		proxy: proxy,
-	}
+	wc := newWrapClientConn(c, proxy)
 	connCtx := newConnContext(wc, proxy)
 	wc.connCtx = connCtx
 
@@ -39,10 +38,27 @@ func (l *wrapListener) Accept() (net.Conn, error) {
 // wrap tcpConn for remote client
 type wrapClientConn struct {
 	net.Conn
+	r        *bufio.Reader
 	proxy    *Proxy
 	connCtx  *ConnContext
 	closed   bool
 	closeErr error
+}
+
+func newWrapClientConn(c net.Conn, proxy *Proxy) *wrapClientConn {
+	return &wrapClientConn{
+		Conn:  c,
+		r:     bufio.NewReader(c),
+		proxy: proxy,
+	}
+}
+
+func (c *wrapClientConn) Peek(n int) ([]byte, error) {
+	return c.r.Peek(n)
+}
+
+func (c *wrapClientConn) Read(data []byte) (int, error) {
+	return c.r.Read(data)
 }
 
 func (c *wrapClientConn) Close() error {
@@ -188,15 +204,19 @@ func (e *entry) handleConnect(res http.ResponseWriter, req *http.Request) {
 		addon.Requestheaders(f)
 	}
 
-	var conn net.Conn
-	var err error
-	if shouldIntercept {
-		log.Debugf("begin intercept %v", req.Host)
-		conn, err = proxy.interceptor.dial(req)
-	} else {
+	if !shouldIntercept {
 		log.Debugf("begin transpond %v", req.Host)
-		conn, err = proxy.getUpstreamConn(req)
+		e.directTransfer(res, req, f)
+		return
 	}
+
+	if f.ConnContext.ClientConn.UpstreamCert {
+		e.httpsDialFirstAttack(res, req, f)
+		return
+	}
+
+	log.Debugf("begin intercept %v", req.Host)
+	conn, err := proxy.interceptor.dial(req)
 	if err != nil {
 		log.Error(err)
 		res.WriteHeader(502)
@@ -211,8 +231,6 @@ func (e *entry) handleConnect(res http.ResponseWriter, req *http.Request) {
 		return
 	}
 
-	// cconn.(*net.TCPConn).SetLinger(0) // send RST other than FIN when finished, to avoid TIME_WAIT state
-	// cconn.(*net.TCPConn).SetKeepAlive(false)
 	defer cconn.Close()
 
 	_, err = io.WriteString(cconn, "HTTP/1.1 200 Connection Established\r\n\r\n")
@@ -238,4 +256,105 @@ func (e *entry) handleConnect(res http.ResponseWriter, req *http.Request) {
 	}(f)
 
 	transfer(log, conn, cconn)
+}
+
+func (e *entry) directTransfer(res http.ResponseWriter, req *http.Request, f *Flow) {
+	proxy := e.proxy
+	log := log.WithFields(log.Fields{
+		"in":   "Proxy.directTransfer",
+		"host": req.Host,
+	})
+
+	conn, err := proxy.getUpstreamConn(req)
+	if err != nil {
+		log.Error(err)
+		res.WriteHeader(502)
+		return
+	}
+	defer conn.Close()
+
+	cconn, _, err := res.(http.Hijacker).Hijack()
+	if err != nil {
+		log.Error(err)
+		res.WriteHeader(502)
+		return
+	}
+	defer cconn.Close()
+
+	_, err = io.WriteString(cconn, "HTTP/1.1 200 Connection Established\r\n\r\n")
+	if err != nil {
+		log.Error(err)
+		return
+	}
+
+	f.Response = &Response{
+		StatusCode: 200,
+		Header:     make(http.Header),
+	}
+
+	// trigger addon event Responseheaders
+	for _, addon := range proxy.Addons {
+		addon.Responseheaders(f)
+	}
+
+	transfer(log, conn, cconn)
+}
+
+func (e *entry) httpsDialFirstAttack(res http.ResponseWriter, req *http.Request, f *Flow) {
+	proxy := e.proxy
+	log := log.WithFields(log.Fields{
+		"in":   "Proxy.httpsDialFirstTransfer",
+		"host": req.Host,
+	})
+
+	conn, err := proxy.attacker.httpsDial(req)
+	if err != nil {
+		log.Error(err)
+		res.WriteHeader(502)
+		return
+	}
+
+	cconn, _, err := res.(http.Hijacker).Hijack()
+	if err != nil {
+		conn.Close()
+		log.Error(err)
+		res.WriteHeader(502)
+		return
+	}
+
+	_, err = io.WriteString(cconn, "HTTP/1.1 200 Connection Established\r\n\r\n")
+	if err != nil {
+		cconn.Close()
+		conn.Close()
+		log.Error(err)
+		return
+	}
+
+	f.Response = &Response{
+		StatusCode: 200,
+		Header:     make(http.Header),
+	}
+
+	// trigger addon event Responseheaders
+	for _, addon := range proxy.Addons {
+		addon.Responseheaders(f)
+	}
+
+	peek, err := cconn.(*wrapClientConn).Peek(3)
+	if err != nil {
+		cconn.Close()
+		conn.Close()
+		log.Error(err)
+		return
+	}
+	if !helper.IsTls(peek) {
+		// todo: http, ws
+		transfer(log, conn, cconn)
+		cconn.Close()
+		conn.Close()
+		return
+	}
+
+	// is tls
+	proxy.attacker.httpsTlsDial(req.Context(), cconn, conn)
 }

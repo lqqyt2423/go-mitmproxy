@@ -7,19 +7,50 @@ import (
 	"io"
 	"net"
 	"net/http"
+	"strings"
 
+	"github.com/lqqyt2423/go-mitmproxy/cert"
 	"github.com/lqqyt2423/go-mitmproxy/internal/helper"
 	log "github.com/sirupsen/logrus"
 )
 
-type attacker struct {
-	proxy  *Proxy
-	client *http.Client
+type attackerListener struct {
+	connChan chan net.Conn
 }
 
-func newAttacker(proxy *Proxy) *attacker {
-	return &attacker{
+func (l *attackerListener) accept(conn net.Conn) {
+	l.connChan <- conn
+}
+
+func (l *attackerListener) Accept() (net.Conn, error) {
+	c := <-l.connChan
+	return c, nil
+}
+func (l *attackerListener) Close() error   { return nil }
+func (l *attackerListener) Addr() net.Addr { return nil }
+
+type attackerConn struct {
+	net.Conn
+	connCtx *ConnContext
+}
+
+type attacker struct {
+	proxy    *Proxy
+	ca       *cert.CA
+	server   *http.Server
+	client   *http.Client
+	listener *attackerListener
+}
+
+func newAttacker(proxy *Proxy) (*attacker, error) {
+	ca, err := cert.NewCA(proxy.Opts.CaRootPath)
+	if err != nil {
+		return nil, err
+	}
+
+	a := &attacker{
 		proxy: proxy,
+		ca:    ca,
 		client: &http.Client{
 			Transport: &http.Transport{
 				Proxy:              proxy.realUpstreamProxy(),
@@ -35,7 +66,39 @@ func newAttacker(proxy *Proxy) *attacker {
 				return http.ErrUseLastResponse
 			},
 		},
+		listener: &attackerListener{
+			connChan: make(chan net.Conn),
+		},
 	}
+
+	a.server = &http.Server{
+		Handler: a,
+		ConnContext: func(ctx context.Context, c net.Conn) context.Context {
+			return context.WithValue(ctx, connContextKey, c.(*attackerConn).connCtx)
+		},
+	}
+
+	return a, nil
+}
+
+func (a *attacker) start() error {
+	return a.server.Serve(a.listener)
+}
+
+func (a *attacker) ServeHTTP(res http.ResponseWriter, req *http.Request) {
+	if strings.EqualFold(req.Header.Get("Connection"), "Upgrade") && strings.EqualFold(req.Header.Get("Upgrade"), "websocket") {
+		// wss
+		defaultWebSocket.wss(res, req)
+		return
+	}
+
+	if req.URL.Scheme == "" {
+		req.URL.Scheme = "https"
+	}
+	if req.URL.Host == "" {
+		req.URL.Host = req.Host
+	}
+	a.attack(res, req)
 }
 
 func (a *attacker) initHttpDialFn(req *http.Request) {
@@ -78,6 +141,137 @@ func (a *attacker) initHttpDialFn(req *http.Request) {
 
 		return nil
 	}
+}
+
+func (a *attacker) httpsDial(req *http.Request) (net.Conn, error) {
+	proxy := a.proxy
+	connCtx := req.Context().Value(connContextKey).(*ConnContext)
+
+	plainConn, err := proxy.getUpstreamConn(req)
+	if err != nil {
+		return nil, err
+	}
+
+	serverConn := newServerConn()
+	serverConn.Address = req.Host
+	serverConn.Conn = &wrapServerConn{
+		Conn:    plainConn,
+		proxy:   proxy,
+		connCtx: connCtx,
+	}
+	connCtx.ServerConn = serverConn
+	for _, addon := range connCtx.proxy.Addons {
+		addon.ServerConnected(connCtx)
+	}
+
+	return serverConn.Conn, nil
+}
+
+func (a *attacker) httpsTlsDial(ctx context.Context, cconn net.Conn, conn net.Conn) {
+	proxy := a.proxy
+	connCtx := cconn.(*wrapClientConn).connCtx
+	log := log.WithFields(log.Fields{
+		"in":   "Proxy.httpsTlsDial",
+		"host": connCtx.ClientConn.Conn.RemoteAddr().String(),
+	})
+
+	var clientHello *tls.ClientHelloInfo
+	var serverTlsState tls.ConnectionState
+	clientHelloChan := make(chan *tls.ClientHelloInfo)
+	serverTlsStateChan := make(chan *tls.ConnectionState)
+	errChan1 := make(chan error, 1)
+	errChan2 := make(chan error, 1)
+	clientHandshakeDoneChan := make(chan struct{})
+
+	clientTlsConn := tls.Server(cconn, &tls.Config{
+		SessionTicketsDisabled: true, // 设置此值为 true ，确保每次都会调用下面的 GetCertificate 方法
+		GetCertificate: func(clientHello *tls.ClientHelloInfo) (*tls.Certificate, error) {
+			clientHelloChan <- clientHello
+			<-serverTlsStateChan
+			return a.ca.GetCert(clientHello.ServerName)
+		},
+	})
+	go func() {
+		if err := clientTlsConn.HandshakeContext(ctx); err != nil {
+			errChan1 <- err
+			return
+		}
+		close(clientHandshakeDoneChan)
+	}()
+
+	// get clientHello from client
+	select {
+	case err := <-errChan1:
+		log.Error(err)
+		return
+	case clientHello = <-clientHelloChan:
+	}
+	connCtx.ClientConn.clientHello = clientHello
+
+	// send clientHello to server, server handshake
+	serverTlsConfig := &tls.Config{
+		InsecureSkipVerify: proxy.Opts.SslInsecure,
+		KeyLogWriter:       getTlsKeyLogWriter(),
+		ServerName:         clientHello.ServerName,
+		NextProtos:         []string{"http/1.1"}, // todo: h2
+		// CurvePreferences:   clientHello.SupportedCurves, // todo: 如果打开会出错
+		CipherSuites: clientHello.CipherSuites,
+	}
+	if len(clientHello.SupportedVersions) > 0 {
+		minVersion := clientHello.SupportedVersions[0]
+		maxVersion := clientHello.SupportedVersions[0]
+		for _, version := range clientHello.SupportedVersions {
+			if version < minVersion {
+				minVersion = version
+			}
+			if version > maxVersion {
+				maxVersion = version
+			}
+		}
+		serverTlsConfig.MinVersion = minVersion
+		serverTlsConfig.MaxVersion = maxVersion
+	}
+	serverTlsConn := tls.Client(conn, serverTlsConfig)
+	connCtx.ServerConn.tlsConn = serverTlsConn
+	if err := serverTlsConn.HandshakeContext(ctx); err != nil {
+		errChan2 <- err
+		log.Error(err)
+		return
+	}
+	serverTlsState = serverTlsConn.ConnectionState()
+	connCtx.ServerConn.tlsState = &serverTlsState
+	for _, addon := range proxy.Addons {
+		addon.TlsEstablishedServer(connCtx)
+	}
+	serverTlsStateChan <- &serverTlsState
+
+	// wait client handshake finish
+	select {
+	case err := <-errChan1:
+		log.Error(err)
+		return
+	case <-clientHandshakeDoneChan:
+	}
+
+	connCtx.ServerConn.client = &http.Client{
+		Transport: &http.Transport{
+			DialTLSContext: func(ctx context.Context, network, addr string) (net.Conn, error) {
+				return serverTlsConn, nil
+			},
+			ForceAttemptHTTP2:  false, // disable http2
+			DisableCompression: true,  // To get the original response from the server, set Transport.DisableCompression to true.
+		},
+		CheckRedirect: func(req *http.Request, via []*http.Request) error {
+			// 禁止自动重定向
+			return http.ErrUseLastResponse
+		},
+	}
+
+	// will go to attacker.ServeHTTP
+	a.listener.accept(&attackerConn{
+		Conn:    clientTlsConn,
+		connCtx: connCtx,
+	})
 }
 
 func (a *attacker) attack(res http.ResponseWriter, req *http.Request) {

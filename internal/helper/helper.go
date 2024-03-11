@@ -32,3 +32,12 @@ func CanonicalAddr(url *url.URL) string {
 	}
 	return net.JoinHostPort(url.Hostname(), port)
 }
+
+// https://github.com/mitmproxy/mitmproxy/blob/main/mitmproxy/net/tls.py is_tls_record_magic
+func IsTls(buf []byte) bool {
+	if buf[0] == 0x16 && buf[1] == 0x03 && buf[2] <= 0x03 {
+		return true
+	} else {
+		return false
+	}
+}

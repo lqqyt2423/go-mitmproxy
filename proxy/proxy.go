@@ -6,6 +6,8 @@ import (
 	"net"
 	"net/http"
 	"net/url"
+
+	log "github.com/sirupsen/logrus"
 )
 
 type Options struct {
@@ -44,7 +46,12 @@ func NewProxy(opts *Options) (*Proxy, error) {
 	}
 
 	proxy.entry = newEntry(proxy)
-	proxy.attacker = newAttacker(proxy)
+
+	attacker, err := newAttacker(proxy)
+	if err != nil {
+		return nil, err
+	}
+	proxy.attacker = attacker
 
 	interceptor, err := newMiddle(proxy)
 	if err != nil {
@@ -60,6 +67,11 @@ func (proxy *Proxy) AddAddon(addon Addon) {
 }
 
 func (proxy *Proxy) Start() error {
+	go func() {
+		if err := proxy.attacker.start(); err != nil {
+			log.Error(err)
+		}
+	}()
 	go proxy.interceptor.start()
 	return proxy.entry.start()
 }
