@@ -143,6 +143,83 @@ func (a *attacker) initHttpDialFn(req *http.Request) {
 	}
 }
 
+func (a *attacker) initHttpsDialFn(req *http.Request) {
+	proxy := a.proxy
+	connCtx := req.Context().Value(connContextKey).(*ConnContext)
+	connCtx.dialFn = func() error {
+		addr := helper.CanonicalAddr(req.URL)
+		c, err := proxy.getUpstreamConn(req)
+		if err != nil {
+			return err
+		}
+		cw := &wrapServerConn{
+			Conn:    c,
+			proxy:   connCtx.proxy,
+			connCtx: connCtx,
+		}
+
+		serverConn := newServerConn()
+		serverConn.Conn = cw
+		serverConn.Address = addr
+		connCtx.ServerConn = serverConn
+
+		for _, addon := range proxy.Addons {
+			addon.ServerConnected(connCtx)
+		}
+
+		// send clientHello to server, server handshake
+		clientHello := connCtx.ClientConn.clientHello
+		serverTlsConfig := &tls.Config{
+			InsecureSkipVerify: proxy.Opts.SslInsecure,
+			KeyLogWriter:       getTlsKeyLogWriter(),
+			ServerName:         clientHello.ServerName,
+			NextProtos:         []string{"http/1.1"}, // todo: h2
+			// CurvePreferences:   clientHello.SupportedCurves, // todo: 如果打开会出错
+			CipherSuites: clientHello.CipherSuites,
+		}
+		if len(clientHello.SupportedVersions) > 0 {
+			minVersion := clientHello.SupportedVersions[0]
+			maxVersion := clientHello.SupportedVersions[0]
+			for _, version := range clientHello.SupportedVersions {
+				if version < minVersion {
+					minVersion = version
+				}
+				if version > maxVersion {
+					maxVersion = version
+				}
+			}
+			serverTlsConfig.MinVersion = minVersion
+			serverTlsConfig.MaxVersion = maxVersion
+		}
+		serverTlsConn := tls.Client(cw, serverTlsConfig)
+		serverConn.tlsConn = serverTlsConn
+		if err := serverTlsConn.HandshakeContext(context.TODO()); err != nil {
+			return err
+		}
+		serverTlsState := serverTlsConn.ConnectionState()
+		serverConn.tlsState = &serverTlsState
+		for _, addon := range proxy.Addons {
+			addon.TlsEstablishedServer(connCtx)
+		}
+
+		serverConn.client = &http.Client{
+			Transport: &http.Transport{
+				DialTLSContext: func(ctx context.Context, network, addr string) (net.Conn, error) {
+					return serverTlsConn, nil
+				},
+				ForceAttemptHTTP2:  false, // disable http2
+				DisableCompression: true,  // To get the original response from the server, set Transport.DisableCompression to true.
+			},
+			CheckRedirect: func(req *http.Request, via []*http.Request) error {
+				// 禁止自动重定向
+				return http.ErrUseLastResponse
+			},
+		}
+
+		return nil
+	}
+}
+
 func (a *attacker) httpsDial(req *http.Request) (net.Conn, error) {
 	proxy := a.proxy
 	connCtx := req.Context().Value(connContextKey).(*ConnContext)
@@ -202,6 +279,8 @@ func (a *attacker) httpsTlsDial(ctx context.Context, cconn net.Conn, conn net.Co
 	// get clientHello from client
 	select {
 	case err := <-errChan1:
+		cconn.Close()
+		conn.Close()
 		log.Error(err)
 		return
 	case clientHello = <-clientHelloChan:
@@ -234,6 +313,8 @@ func (a *attacker) httpsTlsDial(ctx context.Context, cconn net.Conn, conn net.Co
 	serverTlsConn := tls.Client(conn, serverTlsConfig)
 	connCtx.ServerConn.tlsConn = serverTlsConn
 	if err := serverTlsConn.HandshakeContext(ctx); err != nil {
+		cconn.Close()
+		conn.Close()
 		errChan2 <- err
 		log.Error(err)
 		return
@@ -248,6 +329,8 @@ func (a *attacker) httpsTlsDial(ctx context.Context, cconn net.Conn, conn net.Co
 	// wait client handshake finish
 	select {
 	case err := <-errChan1:
+		cconn.Close()
+		conn.Close()
 		log.Error(err)
 		return
 	case <-clientHandshakeDoneChan:
@@ -268,6 +351,34 @@ func (a *attacker) httpsTlsDial(ctx context.Context, cconn net.Conn, conn net.Co
 	}
 
 	// will go to attacker.ServeHTTP
+	a.listener.accept(&attackerConn{
+		Conn:    clientTlsConn,
+		connCtx: connCtx,
+	})
+}
+
+func (a *attacker) httpsLazyAttack(ctx context.Context, cconn net.Conn, req *http.Request) {
+	connCtx := cconn.(*wrapClientConn).connCtx
+	log := log.WithFields(log.Fields{
+		"in":   "Proxy.httpsLazyAttack",
+		"host": connCtx.ClientConn.Conn.RemoteAddr().String(),
+	})
+
+	clientTlsConn := tls.Server(cconn, &tls.Config{
+		SessionTicketsDisabled: true, // 设置此值为 true ，确保每次都会调用下面的 GetCertificate 方法
+		GetCertificate: func(clientHello *tls.ClientHelloInfo) (*tls.Certificate, error) {
+			connCtx.ClientConn.clientHello = clientHello
+			return a.ca.GetCert(clientHello.ServerName)
+		},
+	})
+	if err := clientTlsConn.HandshakeContext(ctx); err != nil {
+		cconn.Close()
+		log.Error(err)
+		return
+	}
+
+	// will go to attacker.ServeHTTP
+	a.initHttpsDialFn(req)
 	a.listener.accept(&attackerConn{
 		Conn:    clientTlsConn,
 		connCtx: connCtx,
