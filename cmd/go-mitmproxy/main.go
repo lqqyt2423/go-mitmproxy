@@ -16,18 +16,19 @@ import (
 type Config struct {
 	version bool // show go-mitmproxy version
 
-	Addr        string   // proxy listen addr
-	WebAddr     string   // web interface listen addr
-	SslInsecure bool     // not verify upstream server SSL/TLS certificates.
-	IgnoreHosts []string // a list of ignore hosts
-	AllowHosts  []string // a list of allow hosts
-	CertPath    string   // path of generate cert files
-	Debug       int      // debug mode: 1 - print debug log, 2 - show debug from
-	Dump        string   // dump filename
-	DumpLevel   int      // dump level: 0 - header, 1 - header + body
-	Upstream    string   // upstream proxy
-	MapRemote   string   // map remote config filename
-	MapLocal    string   // map local config filename
+	Addr         string   // proxy listen addr
+	WebAddr      string   // web interface listen addr
+	SslInsecure  bool     // not verify upstream server SSL/TLS certificates.
+	IgnoreHosts  []string // a list of ignore hosts
+	AllowHosts   []string // a list of allow hosts
+	CertPath     string   // path of generate cert files
+	Debug        int      // debug mode: 1 - print debug log, 2 - show debug from
+	Dump         string   // dump filename
+	DumpLevel    int      // dump level: 0 - header, 1 - header + body
+	Upstream     string   // upstream proxy
+	UpstreamCert bool     // Connect to upstream server to look up certificate details. Default: True
+	MapRemote    string   // map remote config filename
+	MapLocal     string   // map local config filename
 
 	filename string // read config from the filename
 }
@@ -79,6 +80,11 @@ func main() {
 		p.SetShouldInterceptRule(func(req *http.Request) bool {
 			return matchHost(req.Host, config.AllowHosts)
 		})
+	}
+
+	if !config.UpstreamCert {
+		p.AddAddon(proxy.NewUpstreamCertAddon(false))
+		log.Infoln("UpstreamCert config false")
 	}
 
 	p.AddAddon(&proxy.LogAddon{})
