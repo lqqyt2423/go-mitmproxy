@@ -1,8 +1,6 @@
-package main
+package helper
 
-import (
-	"testing"
-)
+import "testing"
 
 func TestMatchHost(t *testing.T) {
 	// Test case 1: Exact match
@@ -13,7 +11,7 @@ func TestMatchHost(t *testing.T) {
 		"www.google.com",
 	}
 	expected := true
-	result := matchHost(address, hosts)
+	result := MatchHost(address, hosts)
 	if result != expected {
 		t.Errorf("Expected %t but got %t", expected, result)
 	}
@@ -26,7 +24,7 @@ func TestMatchHost(t *testing.T) {
 		"www.google.com",
 	}
 	expected = true
-	result = matchHost(address, hosts)
+	result = MatchHost(address, hosts)
 	if result != expected {
 		t.Errorf("Expected %t but got %t", expected, result)
 	}
@@ -39,7 +37,7 @@ func TestMatchHost(t *testing.T) {
 		"www.google.com",
 	}
 	expected = false
-	result = matchHost(address, hosts)
+	result = MatchHost(address, hosts)
 	if result != expected {
 		t.Errorf("Expected %t but got %t", expected, result)
 	}
@@ -53,7 +51,7 @@ func TestMatchHost(t *testing.T) {
 		"www.google.com",
 	}
 	expected = true
-	result = matchHost(address, hosts)
+	result = MatchHost(address, hosts)
 	if result != expected {
 		t.Errorf("Expected %t but got %t", expected, result)
 	}
@@ -67,7 +65,7 @@ func TestMatchHost(t *testing.T) {
 		"www.google.com",
 	}
 	expected = true
-	result = matchHost(address, hosts)
+	result = MatchHost(address, hosts)
 	if result != expected {
 		t.Errorf("Expected %t but got %t", expected, result)
 	}
@@ -81,7 +79,7 @@ func TestMatchHost(t *testing.T) {
 		"www.google.com",
 	}
 	expected = false
-	result = matchHost(address, hosts)
+	result = MatchHost(address, hosts)
 	if result != expected {
 		t.Errorf("Expected %t but got %t", expected, result)
 	}
@@ -95,7 +93,7 @@ func TestMatchHost(t *testing.T) {
 		"www.google.com",
 	}
 	expected = false
-	result = matchHost(address, hosts)
+	result = MatchHost(address, hosts)
 	if result != expected {
 		t.Errorf("Expected %t but got %t", expected, result)
 	}

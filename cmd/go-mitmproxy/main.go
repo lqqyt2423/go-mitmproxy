@@ -5,9 +5,9 @@ import (
 	rawLog "log"
 	"net/http"
 	"os"
-	"strings"
 
 	"github.com/lqqyt2423/go-mitmproxy/addon"
+	"github.com/lqqyt2423/go-mitmproxy/internal/helper"
 	"github.com/lqqyt2423/go-mitmproxy/proxy"
 	"github.com/lqqyt2423/go-mitmproxy/web"
 	log "github.com/sirupsen/logrus"
@@ -73,12 +73,12 @@ func main() {
 
 	if len(config.IgnoreHosts) > 0 {
 		p.SetShouldInterceptRule(func(req *http.Request) bool {
-			return !matchHost(req.Host, config.IgnoreHosts)
+			return !helper.MatchHost(req.Host, config.IgnoreHosts)
 		})
 	}
 	if len(config.AllowHosts) > 0 {
 		p.SetShouldInterceptRule(func(req *http.Request) bool {
-			return matchHost(req.Host, config.AllowHosts)
+			return helper.MatchHost(req.Host, config.AllowHosts)
 		})
 	}
 
@@ -114,33 +114,4 @@ func main() {
 	}
 
 	log.Fatal(p.Start())
-}
-
-func matchHost(address string, hosts []string) bool {
-	hostname, port := splitHostPort(address)
-	for _, host := range hosts {
-		h, p := splitHostPort(host)
-		if matchHostname(hostname, h) && (p == "" || p == port) {
-			return true
-		}
-	}
-	return false
-}
-
-func matchHostname(hostname string, h string) bool {
-	if h == "*" {
-		return true
-	}
-	if strings.HasPrefix(h, "*.") {
-		return hostname == h[2:] || strings.HasSuffix(hostname, h[1:])
-	}
-	return h == hostname
-}
-
-func splitHostPort(address string) (string, string) {
-	index := strings.LastIndex(address, ":")
-	if index == -1 {
-		return address, ""
-	}
-	return address[:index], address[index+1:]
 }
