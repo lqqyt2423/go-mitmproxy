@@ -48,17 +48,14 @@ type ServerConn struct {
 	Address string
 	Conn    net.Conn
 
-	tlsHandshaked   chan struct{}
-	tlsHandshakeErr error
-	tlsConn         *tls.Conn
-	tlsState        *tls.ConnectionState
-	client          *http.Client
+	client   *http.Client
+	tlsConn  *tls.Conn
+	tlsState *tls.ConnectionState
 }
 
 func newServerConn() *ServerConn {
 	return &ServerConn{
-		Id:            uuid.NewV4(),
-		tlsHandshaked: make(chan struct{}),
+		Id: uuid.NewV4(),
 	}
 }
 
@@ -75,7 +72,6 @@ func (c *ServerConn) MarshalJSON() ([]byte, error) {
 }
 
 func (c *ServerConn) TlsState() *tls.ConnectionState {
-	<-c.tlsHandshaked
 	return c.tlsState
 }
 
