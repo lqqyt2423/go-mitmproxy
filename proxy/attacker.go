@@ -143,66 +143,73 @@ func (a *attacker) initHttpDialFn(req *http.Request) {
 	}
 }
 
-func (a *attacker) initHttpsDialFn(req *http.Request) {
+// send clientHello to server, server handshake
+func (a *attacker) serverTlsHandshake(ctx context.Context, connCtx *ConnContext) error {
 	proxy := a.proxy
+	clientHello := connCtx.ClientConn.clientHello
+	serverConn := connCtx.ServerConn
+
+	serverTlsConfig := &tls.Config{
+		InsecureSkipVerify: proxy.Opts.SslInsecure,
+		KeyLogWriter:       getTlsKeyLogWriter(),
+		ServerName:         clientHello.ServerName,
+		NextProtos:         []string{"http/1.1"}, // todo: h2
+		// CurvePreferences:   clientHello.SupportedCurves, // todo: 如果打开会出错
+		CipherSuites: clientHello.CipherSuites,
+	}
+	if len(clientHello.SupportedVersions) > 0 {
+		minVersion := clientHello.SupportedVersions[0]
+		maxVersion := clientHello.SupportedVersions[0]
+		for _, version := range clientHello.SupportedVersions {
+			if version < minVersion {
+				minVersion = version
+			}
+			if version > maxVersion {
+				maxVersion = version
+			}
+		}
+		serverTlsConfig.MinVersion = minVersion
+		serverTlsConfig.MaxVersion = maxVersion
+	}
+	serverTlsConn := tls.Client(serverConn.Conn, serverTlsConfig)
+	serverConn.tlsConn = serverTlsConn
+	if err := serverTlsConn.HandshakeContext(ctx); err != nil {
+		return err
+	}
+	serverTlsState := serverTlsConn.ConnectionState()
+	serverConn.tlsState = &serverTlsState
+	for _, addon := range proxy.Addons {
+		addon.TlsEstablishedServer(connCtx)
+	}
+
+	serverConn.client = &http.Client{
+		Transport: &http.Transport{
+			DialTLSContext: func(ctx context.Context, network, addr string) (net.Conn, error) {
+				return serverTlsConn, nil
+			},
+			ForceAttemptHTTP2:  false, // disable http2
+			DisableCompression: true,  // To get the original response from the server, set Transport.DisableCompression to true.
+		},
+		CheckRedirect: func(req *http.Request, via []*http.Request) error {
+			// 禁止自动重定向
+			return http.ErrUseLastResponse
+		},
+	}
+
+	return nil
+}
+
+func (a *attacker) initHttpsDialFn(req *http.Request) {
 	connCtx := req.Context().Value(connContextKey).(*ConnContext)
 
 	connCtx.dialFn = func(ctx context.Context) error {
-		cw, err := a.httpsDial(ctx, req)
+		_, err := a.httpsDial(ctx, req)
 		if err != nil {
 			return err
 		}
-		serverConn := connCtx.ServerConn
-
-		// send clientHello to server, server handshake
-		clientHello := connCtx.ClientConn.clientHello
-		serverTlsConfig := &tls.Config{
-			InsecureSkipVerify: proxy.Opts.SslInsecure,
-			KeyLogWriter:       getTlsKeyLogWriter(),
-			ServerName:         clientHello.ServerName,
-			NextProtos:         []string{"http/1.1"}, // todo: h2
-			// CurvePreferences:   clientHello.SupportedCurves, // todo: 如果打开会出错
-			CipherSuites: clientHello.CipherSuites,
-		}
-		if len(clientHello.SupportedVersions) > 0 {
-			minVersion := clientHello.SupportedVersions[0]
-			maxVersion := clientHello.SupportedVersions[0]
-			for _, version := range clientHello.SupportedVersions {
-				if version < minVersion {
-					minVersion = version
-				}
-				if version > maxVersion {
-					maxVersion = version
-				}
-			}
-			serverTlsConfig.MinVersion = minVersion
-			serverTlsConfig.MaxVersion = maxVersion
-		}
-		serverTlsConn := tls.Client(cw, serverTlsConfig)
-		serverConn.tlsConn = serverTlsConn
-		if err := serverTlsConn.HandshakeContext(ctx); err != nil {
+		if err := a.serverTlsHandshake(ctx, connCtx); err != nil {
 			return err
 		}
-		serverTlsState := serverTlsConn.ConnectionState()
-		serverConn.tlsState = &serverTlsState
-		for _, addon := range proxy.Addons {
-			addon.TlsEstablishedServer(connCtx)
-		}
-
-		serverConn.client = &http.Client{
-			Transport: &http.Transport{
-				DialTLSContext: func(ctx context.Context, network, addr string) (net.Conn, error) {
-					return serverTlsConn, nil
-				},
-				ForceAttemptHTTP2:  false, // disable http2
-				DisableCompression: true,  // To get the original response from the server, set Transport.DisableCompression to true.
-			},
-			CheckRedirect: func(req *http.Request, via []*http.Request) error {
-				// 禁止自动重定向
-				return http.ErrUseLastResponse
-			},
-		}
-
 		return nil
 	}
 }
@@ -232,7 +239,6 @@ func (a *attacker) httpsDial(ctx context.Context, req *http.Request) (net.Conn, 
 }
 
 func (a *attacker) httpsTlsDial(ctx context.Context, cconn net.Conn, conn net.Conn) {
-	proxy := a.proxy
 	connCtx := cconn.(*wrapClientConn).connCtx
 	log := log.WithFields(log.Fields{
 		"in":   "Proxy.httpsTlsDial",
@@ -240,7 +246,6 @@ func (a *attacker) httpsTlsDial(ctx context.Context, cconn net.Conn, conn net.Co
 	})
 
 	var clientHello *tls.ClientHelloInfo
-	var serverTlsState tls.ConnectionState
 	clientHelloChan := make(chan *tls.ClientHelloInfo)
 	serverTlsStateChan := make(chan *tls.ConnectionState)
 	errChan1 := make(chan error, 1)
@@ -274,44 +279,14 @@ func (a *attacker) httpsTlsDial(ctx context.Context, cconn net.Conn, conn net.Co
 	}
 	connCtx.ClientConn.clientHello = clientHello
 
-	// send clientHello to server, server handshake
-	serverTlsConfig := &tls.Config{
-		InsecureSkipVerify: proxy.Opts.SslInsecure,
-		KeyLogWriter:       getTlsKeyLogWriter(),
-		ServerName:         clientHello.ServerName,
-		NextProtos:         []string{"http/1.1"}, // todo: h2
-		// CurvePreferences:   clientHello.SupportedCurves, // todo: 如果打开会出错
-		CipherSuites: clientHello.CipherSuites,
-	}
-	if len(clientHello.SupportedVersions) > 0 {
-		minVersion := clientHello.SupportedVersions[0]
-		maxVersion := clientHello.SupportedVersions[0]
-		for _, version := range clientHello.SupportedVersions {
-			if version < minVersion {
-				minVersion = version
-			}
-			if version > maxVersion {
-				maxVersion = version
-			}
-		}
-		serverTlsConfig.MinVersion = minVersion
-		serverTlsConfig.MaxVersion = maxVersion
-	}
-	serverTlsConn := tls.Client(conn, serverTlsConfig)
-	connCtx.ServerConn.tlsConn = serverTlsConn
-	if err := serverTlsConn.HandshakeContext(ctx); err != nil {
+	if err := a.serverTlsHandshake(ctx, connCtx); err != nil {
 		cconn.Close()
 		conn.Close()
 		errChan2 <- err
 		log.Error(err)
 		return
 	}
-	serverTlsState = serverTlsConn.ConnectionState()
-	connCtx.ServerConn.tlsState = &serverTlsState
-	for _, addon := range proxy.Addons {
-		addon.TlsEstablishedServer(connCtx)
-	}
-	serverTlsStateChan <- &serverTlsState
+	serverTlsStateChan <- connCtx.ServerConn.tlsState
 
 	// wait client handshake finish
 	select {
@@ -321,20 +296,6 @@ func (a *attacker) httpsTlsDial(ctx context.Context, cconn net.Conn, conn net.Co
 		log.Error(err)
 		return
 	case <-clientHandshakeDoneChan:
-	}
-
-	connCtx.ServerConn.client = &http.Client{
-		Transport: &http.Transport{
-			DialTLSContext: func(ctx context.Context, network, addr string) (net.Conn, error) {
-				return serverTlsConn, nil
-			},
-			ForceAttemptHTTP2:  false, // disable http2
-			DisableCompression: true,  // To get the original response from the server, set Transport.DisableCompression to true.
-		},
-		CheckRedirect: func(req *http.Request, via []*http.Request) error {
-			// 禁止自动重定向
-			return http.ErrUseLastResponse
-		},
 	}
 
 	// will go to attacker.ServeHTTP
