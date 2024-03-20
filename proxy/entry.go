@@ -221,6 +221,31 @@ func (e *entry) handleConnect(res http.ResponseWriter, req *http.Request) {
 	e.httpsDialLazyAttack(res, req, f)
 }
 
+func (e *entry) establishConnection(res http.ResponseWriter, f *Flow) (net.Conn, error) {
+	cconn, _, err := res.(http.Hijacker).Hijack()
+	if err != nil {
+		res.WriteHeader(502)
+		return nil, err
+	}
+	_, err = io.WriteString(cconn, "HTTP/1.1 200 Connection Established\r\n\r\n")
+	if err != nil {
+		cconn.Close()
+		return nil, err
+	}
+
+	f.Response = &Response{
+		StatusCode: 200,
+		Header:     make(http.Header),
+	}
+
+	// trigger addon event Responseheaders
+	for _, addon := range e.proxy.Addons {
+		addon.Responseheaders(f)
+	}
+
+	return cconn, nil
+}
+
 func (e *entry) directTransfer(res http.ResponseWriter, req *http.Request, f *Flow) {
 	proxy := e.proxy
 	log := log.WithFields(log.Fields{
@@ -236,29 +261,12 @@ func (e *entry) directTransfer(res http.ResponseWriter, req *http.Request, f *Fl
 	}
 	defer conn.Close()
 
-	cconn, _, err := res.(http.Hijacker).Hijack()
+	cconn, err := e.establishConnection(res, f)
 	if err != nil {
 		log.Error(err)
-		res.WriteHeader(502)
 		return
 	}
 	defer cconn.Close()
-
-	_, err = io.WriteString(cconn, "HTTP/1.1 200 Connection Established\r\n\r\n")
-	if err != nil {
-		log.Error(err)
-		return
-	}
-
-	f.Response = &Response{
-		StatusCode: 200,
-		Header:     make(http.Header),
-	}
-
-	// trigger addon event Responseheaders
-	for _, addon := range proxy.Addons {
-		addon.Responseheaders(f)
-	}
 
 	transfer(log, conn, cconn)
 }
@@ -277,30 +285,11 @@ func (e *entry) httpsDialFirstAttack(res http.ResponseWriter, req *http.Request,
 		return
 	}
 
-	cconn, _, err := res.(http.Hijacker).Hijack()
+	cconn, err := e.establishConnection(res, f)
 	if err != nil {
 		conn.Close()
 		log.Error(err)
-		res.WriteHeader(502)
 		return
-	}
-
-	_, err = io.WriteString(cconn, "HTTP/1.1 200 Connection Established\r\n\r\n")
-	if err != nil {
-		cconn.Close()
-		conn.Close()
-		log.Error(err)
-		return
-	}
-
-	f.Response = &Response{
-		StatusCode: 200,
-		Header:     make(http.Header),
-	}
-
-	// trigger addon event Responseheaders
-	for _, addon := range proxy.Addons {
-		addon.Responseheaders(f)
 	}
 
 	peek, err := cconn.(*wrapClientConn).Peek(3)
@@ -329,28 +318,10 @@ func (e *entry) httpsDialLazyAttack(res http.ResponseWriter, req *http.Request, 
 		"host": req.Host,
 	})
 
-	cconn, _, err := res.(http.Hijacker).Hijack()
+	cconn, err := e.establishConnection(res, f)
 	if err != nil {
 		log.Error(err)
-		res.WriteHeader(502)
 		return
-	}
-
-	_, err = io.WriteString(cconn, "HTTP/1.1 200 Connection Established\r\n\r\n")
-	if err != nil {
-		cconn.Close()
-		log.Error(err)
-		return
-	}
-
-	f.Response = &Response{
-		StatusCode: 200,
-		Header:     make(http.Header),
-	}
-
-	// trigger addon event Responseheaders
-	for _, addon := range proxy.Addons {
-		addon.Responseheaders(f)
 	}
 
 	peek, err := cconn.(*wrapClientConn).Peek(3)
