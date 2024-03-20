@@ -146,26 +146,13 @@ func (a *attacker) initHttpDialFn(req *http.Request) {
 func (a *attacker) initHttpsDialFn(req *http.Request) {
 	proxy := a.proxy
 	connCtx := req.Context().Value(connContextKey).(*ConnContext)
+
 	connCtx.dialFn = func(ctx context.Context) error {
-		addr := helper.CanonicalAddr(req.URL)
-		c, err := proxy.getUpstreamConn(ctx, req)
+		cw, err := a.httpsDial(ctx, req)
 		if err != nil {
 			return err
 		}
-		cw := &wrapServerConn{
-			Conn:    c,
-			proxy:   connCtx.proxy,
-			connCtx: connCtx,
-		}
-
-		serverConn := newServerConn()
-		serverConn.Conn = cw
-		serverConn.Address = addr
-		connCtx.ServerConn = serverConn
-
-		for _, addon := range proxy.Addons {
-			addon.ServerConnected(connCtx)
-		}
+		serverConn := connCtx.ServerConn
 
 		// send clientHello to server, server handshake
 		clientHello := connCtx.ClientConn.clientHello
@@ -220,11 +207,11 @@ func (a *attacker) initHttpsDialFn(req *http.Request) {
 	}
 }
 
-func (a *attacker) httpsDial(req *http.Request) (net.Conn, error) {
+func (a *attacker) httpsDial(ctx context.Context, req *http.Request) (net.Conn, error) {
 	proxy := a.proxy
 	connCtx := req.Context().Value(connContextKey).(*ConnContext)
 
-	plainConn, err := proxy.getUpstreamConn(req.Context(), req)
+	plainConn, err := proxy.getUpstreamConn(ctx, req)
 	if err != nil {
 		return nil, err
 	}

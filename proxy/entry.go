@@ -270,7 +270,7 @@ func (e *entry) httpsDialFirstAttack(res http.ResponseWriter, req *http.Request,
 		"host": req.Host,
 	})
 
-	conn, err := proxy.attacker.httpsDial(req)
+	conn, err := proxy.attacker.httpsDial(req.Context(), req)
 	if err != nil {
 		log.Error(err)
 		res.WriteHeader(502)
@@ -362,7 +362,7 @@ func (e *entry) httpsDialLazyAttack(res http.ResponseWriter, req *http.Request, 
 
 	if !helper.IsTls(peek) {
 		// todo: http, ws
-		conn, err := proxy.attacker.httpsDial(req)
+		conn, err := proxy.attacker.httpsDial(req.Context(), req)
 		if err != nil {
 			cconn.Close()
 			log.Error(err)
