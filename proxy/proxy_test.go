@@ -620,7 +620,7 @@ func TestProxyShutdown(t *testing.T) {
 	testSendRequest(t, httpEndpoint, proxyClient, "ok")
 	testSendRequest(t, httpsEndpoint, proxyClient, "ok")
 
-	if err := testProxy.Shutdown(context.TODO()); err != nil {
+	if err := testProxy.Shutdown(context.Background()); err != nil {
 		t.Fatalf("shutdown got error %v", err)
 	}
 

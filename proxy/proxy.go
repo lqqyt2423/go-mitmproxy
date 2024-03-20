@@ -106,16 +106,16 @@ func (proxy *Proxy) getUpstreamProxyUrl(req *http.Request) (*url.URL, error) {
 	return http.ProxyFromEnvironment(cReq)
 }
 
-func (proxy *Proxy) getUpstreamConn(req *http.Request) (net.Conn, error) {
+func (proxy *Proxy) getUpstreamConn(ctx context.Context, req *http.Request) (net.Conn, error) {
 	proxyUrl, err := proxy.getUpstreamProxyUrl(req)
 	if err != nil {
 		return nil, err
 	}
 	var conn net.Conn
 	if proxyUrl != nil {
-		conn, err = getProxyConn(proxyUrl, req.Host)
+		conn, err = getProxyConn(ctx, proxyUrl, req.Host)
 	} else {
-		conn, err = (&net.Dialer{}).DialContext(context.Background(), "tcp", req.Host)
+		conn, err = (&net.Dialer{}).DialContext(ctx, "tcp", req.Host)
 	}
 	return conn, err
 }

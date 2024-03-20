@@ -228,7 +228,7 @@ func (e *entry) directTransfer(res http.ResponseWriter, req *http.Request, f *Fl
 		"host": req.Host,
 	})
 
-	conn, err := proxy.getUpstreamConn(req)
+	conn, err := proxy.getUpstreamConn(req.Context(), req)
 	if err != nil {
 		log.Error(err)
 		res.WriteHeader(502)

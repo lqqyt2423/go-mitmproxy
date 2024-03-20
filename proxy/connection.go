@@ -86,8 +86,8 @@ type ConnContext struct {
 	FlowCount  uint32      `json:"-"`         // Number of HTTP requests made on the same connection
 
 	proxy              *Proxy
-	closeAfterResponse bool         // after http response, http server will close the connection
-	dialFn             func() error // when begin request, if there no ServerConn, use this func to dial
+	closeAfterResponse bool                        // after http response, http server will close the connection
+	dialFn             func(context.Context) error // when begin request, if there no ServerConn, use this func to dial
 }
 
 func newConnContext(c net.Conn, proxy *Proxy) *ConnContext {
@@ -104,8 +104,8 @@ func (connCtx *ConnContext) Id() uuid.UUID {
 
 // connect proxy when set https_proxy env
 // ref: http/transport.go dialConn func
-func getProxyConn(proxyUrl *url.URL, address string) (net.Conn, error) {
-	conn, err := (&net.Dialer{}).DialContext(context.Background(), "tcp", proxyUrl.Host)
+func getProxyConn(ctx context.Context, proxyUrl *url.URL, address string) (net.Conn, error) {
+	conn, err := (&net.Dialer{}).DialContext(ctx, "tcp", proxyUrl.Host)
 	if err != nil {
 		return nil, err
 	}
@@ -118,7 +118,7 @@ func getProxyConn(proxyUrl *url.URL, address string) (net.Conn, error) {
 	if proxyUrl.User != nil {
 		connectReq.Header.Set("Proxy-Authorization", "Basic "+base64.StdEncoding.EncodeToString([]byte(proxyUrl.User.String())))
 	}
-	connectCtx, cancel := context.WithTimeout(context.Background(), 1*time.Minute)
+	connectCtx, cancel := context.WithTimeout(ctx, 1*time.Minute)
 	defer cancel()
 	didReadResponse := make(chan struct{}) // closed after CONNECT write+read is done or fails
 	var resp *http.Response

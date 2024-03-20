@@ -103,10 +103,10 @@ func (a *attacker) ServeHTTP(res http.ResponseWriter, req *http.Request) {
 
 func (a *attacker) initHttpDialFn(req *http.Request) {
 	connCtx := req.Context().Value(connContextKey).(*ConnContext)
-	connCtx.dialFn = func() error {
+	connCtx.dialFn = func(ctx context.Context) error {
 		// todo: proxy
 		addr := helper.CanonicalAddr(req.URL)
-		c, err := (&net.Dialer{}).DialContext(req.Context(), "tcp", addr)
+		c, err := (&net.Dialer{}).DialContext(ctx, "tcp", addr)
 		if err != nil {
 			return err
 		}
@@ -146,9 +146,9 @@ func (a *attacker) initHttpDialFn(req *http.Request) {
 func (a *attacker) initHttpsDialFn(req *http.Request) {
 	proxy := a.proxy
 	connCtx := req.Context().Value(connContextKey).(*ConnContext)
-	connCtx.dialFn = func() error {
+	connCtx.dialFn = func(ctx context.Context) error {
 		addr := helper.CanonicalAddr(req.URL)
-		c, err := proxy.getUpstreamConn(req)
+		c, err := proxy.getUpstreamConn(ctx, req)
 		if err != nil {
 			return err
 		}
@@ -193,7 +193,7 @@ func (a *attacker) initHttpsDialFn(req *http.Request) {
 		}
 		serverTlsConn := tls.Client(cw, serverTlsConfig)
 		serverConn.tlsConn = serverTlsConn
-		if err := serverTlsConn.HandshakeContext(context.TODO()); err != nil {
+		if err := serverTlsConn.HandshakeContext(ctx); err != nil {
 			return err
 		}
 		serverTlsState := serverTlsConn.ConnectionState()
@@ -224,7 +224,7 @@ func (a *attacker) httpsDial(req *http.Request) (net.Conn, error) {
 	proxy := a.proxy
 	connCtx := req.Context().Value(connContextKey).(*ConnContext)
 
-	plainConn, err := proxy.getUpstreamConn(req)
+	plainConn, err := proxy.getUpstreamConn(req.Context(), req)
 	if err != nil {
 		return nil, err
 	}
@@ -486,7 +486,7 @@ func (a *attacker) attack(res http.ResponseWriter, req *http.Request) {
 		reqBody = addon.StreamRequestModifier(f, reqBody)
 	}
 
-	proxyReqCtx := context.WithValue(context.Background(), proxyReqCtxKey, req)
+	proxyReqCtx := context.WithValue(req.Context(), proxyReqCtxKey, req)
 	proxyReq, err := http.NewRequestWithContext(proxyReqCtx, f.Request.Method, f.Request.URL.String(), reqBody)
 	if err != nil {
 		log.Error(err)
@@ -512,7 +512,7 @@ func (a *attacker) attack(res http.ResponseWriter, req *http.Request) {
 		proxyRes, err = a.client.Do(proxyReq)
 	} else {
 		if f.ConnContext.ServerConn == nil && f.ConnContext.dialFn != nil {
-			if err := f.ConnContext.dialFn(); err != nil {
+			if err := f.ConnContext.dialFn(req.Context()); err != nil {
 				log.Error(err)
 				res.WriteHeader(502)
 				return
