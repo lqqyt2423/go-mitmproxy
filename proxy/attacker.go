@@ -254,8 +254,8 @@ func (a *attacker) httpsTlsDial(ctx context.Context, cconn net.Conn, conn net.Co
 
 	clientTlsConn := tls.Server(cconn, &tls.Config{
 		SessionTicketsDisabled: true, // 设置此值为 true ，确保每次都会调用下面的 GetCertificate 方法
-		GetCertificate: func(clientHello *tls.ClientHelloInfo) (*tls.Certificate, error) {
-			clientHelloChan <- clientHello
+		GetConfigForClient: func(chi *tls.ClientHelloInfo) (*tls.Config, error) {
+			clientHelloChan <- chi
 
 			// wait server handshake finish
 			select {
@@ -264,7 +264,15 @@ func (a *attacker) httpsTlsDial(ctx context.Context, cconn net.Conn, conn net.Co
 			case <-serverTlsStateChan:
 			}
 
-			return a.ca.GetCert(clientHello.ServerName)
+			c, err := a.ca.GetCert(chi.ServerName)
+			if err != nil {
+				return nil, err
+			}
+			return &tls.Config{
+				SessionTicketsDisabled: true,
+				Certificates:           []tls.Certificate{*c},
+			}, nil
+
 		},
 	})
 	go func() {
