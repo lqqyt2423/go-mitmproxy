@@ -79,6 +79,7 @@ func (helper *testProxyHelper) init(t *testing.T) {
 	tlsConfig := &tls.Config{
 		Certificates: []tls.Certificate{*cert},
 	}
+	helper.server.TLSConfig = tlsConfig
 	helper.tlsLn = tls.NewListener(tlsPlainLn, tlsConfig)
 
 	httpEndpoint := "http://" + ln.Addr().String() + "/"

@@ -311,6 +311,7 @@ func (e *entry) httpsDialFirstAttack(res http.ResponseWriter, req *http.Request,
 	}
 
 	// is tls
+	f.ConnContext.ClientConn.Tls = true
 	proxy.attacker.httpsTlsDial(req.Context(), cconn, conn)
 }
 
@@ -349,5 +350,6 @@ func (e *entry) httpsDialLazyAttack(res http.ResponseWriter, req *http.Request, 
 	}
 
 	// is tls
+	f.ConnContext.ClientConn.Tls = true
 	proxy.attacker.httpsLazyAttack(req.Context(), cconn, req)
 }
