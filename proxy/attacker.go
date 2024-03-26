@@ -299,7 +299,7 @@ func (a *attacker) httpsTlsDial(ctx context.Context, cconn net.Conn, conn net.Co
 	clientHandshakeDoneChan := make(chan struct{})
 
 	clientTlsConn := tls.Server(cconn, &tls.Config{
-		SessionTicketsDisabled: true, // 设置此值为 true ，确保每次都会调用下面的 GetCertificate 方法
+		SessionTicketsDisabled: true, // 设置此值为 true ，确保每次都会调用下面的 GetConfigForClient 方法
 		GetConfigForClient: func(chi *tls.ClientHelloInfo) (*tls.Config, error) {
 			clientHelloChan <- chi
 			nextProtos := make([]string, 0)
@@ -376,10 +376,18 @@ func (a *attacker) httpsLazyAttack(ctx context.Context, cconn net.Conn, req *htt
 	})
 
 	clientTlsConn := tls.Server(cconn, &tls.Config{
-		SessionTicketsDisabled: true, // 设置此值为 true ，确保每次都会调用下面的 GetCertificate 方法
-		GetCertificate: func(clientHello *tls.ClientHelloInfo) (*tls.Certificate, error) {
-			connCtx.ClientConn.clientHello = clientHello
-			return a.ca.GetCert(clientHello.ServerName)
+		SessionTicketsDisabled: true, // 设置此值为 true ，确保每次都会调用下面的 GetConfigForClient 方法
+		GetConfigForClient: func(chi *tls.ClientHelloInfo) (*tls.Config, error) {
+			connCtx.ClientConn.clientHello = chi
+			c, err := a.ca.GetCert(chi.ServerName)
+			if err != nil {
+				return nil, err
+			}
+			return &tls.Config{
+				SessionTicketsDisabled: true,
+				Certificates:           []tls.Certificate{*c},
+				NextProtos:             []string{"http/1.1"}, // todo
+			}, nil
 		},
 	})
 	if err := clientTlsConn.HandshakeContext(ctx); err != nil {
