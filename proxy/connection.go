@@ -18,11 +18,12 @@ import (
 
 // client connection
 type ClientConn struct {
-	Id           uuid.UUID
-	Conn         net.Conn
-	Tls          bool
-	UpstreamCert bool // Connect to upstream server to look up certificate details. Default: True
-	clientHello  *tls.ClientHelloInfo
+	Id                 uuid.UUID
+	Conn               net.Conn
+	Tls                bool
+	NegotiatedProtocol string
+	UpstreamCert       bool // Connect to upstream server to look up certificate details. Default: True
+	clientHello        *tls.ClientHelloInfo
 }
 
 func newClientConn(c net.Conn) *ClientConn {

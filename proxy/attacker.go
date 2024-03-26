@@ -12,6 +12,7 @@ import (
 	"github.com/lqqyt2423/go-mitmproxy/cert"
 	"github.com/lqqyt2423/go-mitmproxy/internal/helper"
 	log "github.com/sirupsen/logrus"
+	"golang.org/x/net/http2"
 )
 
 type attackerListener struct {
@@ -38,6 +39,7 @@ type attacker struct {
 	proxy    *Proxy
 	ca       *cert.CA
 	server   *http.Server
+	h2Server *http2.Server
 	client   *http.Client
 	listener *attackerListener
 }
@@ -78,11 +80,55 @@ func newAttacker(proxy *Proxy) (*attacker, error) {
 		},
 	}
 
+	a.h2Server = &http2.Server{
+		MaxConcurrentStreams: 100, // todo: wait for remote server setting
+		NewWriteScheduler:    func() http2.WriteScheduler { return http2.NewPriorityWriteScheduler(nil) },
+	}
+
 	return a, nil
 }
 
 func (a *attacker) start() error {
 	return a.server.Serve(a.listener)
+}
+
+func (a *attacker) serveConn(clientTlsConn *tls.Conn, connCtx *ConnContext) {
+	connCtx.ClientConn.NegotiatedProtocol = clientTlsConn.ConnectionState().NegotiatedProtocol
+
+	if connCtx.ClientConn.NegotiatedProtocol == "h2" && connCtx.ServerConn != nil {
+		connCtx.ServerConn.client = &http.Client{
+			Transport: &http2.Transport{
+				DialTLSContext: func(ctx context.Context, network, addr string, cfg *tls.Config) (net.Conn, error) {
+					return connCtx.ServerConn.tlsConn, nil
+				},
+				DisableCompression: true,
+			},
+			CheckRedirect: func(req *http.Request, via []*http.Request) error {
+				// 禁止自动重定向
+				return http.ErrUseLastResponse
+			},
+		}
+
+		ctx := context.WithValue(context.Background(), connContextKey, connCtx)
+		ctx, cancel := context.WithCancel(ctx)
+		go func() {
+			<-connCtx.ClientConn.Conn.(*wrapClientConn).closeChan
+			cancel()
+		}()
+		go func() {
+			a.h2Server.ServeConn(clientTlsConn, &http2.ServeConnOpts{
+				Context:    ctx,
+				Handler:    a,
+				BaseConfig: a.server,
+			})
+		}()
+		return
+	}
+
+	a.listener.accept(&attackerConn{
+		Conn:    clientTlsConn,
+		connCtx: connCtx,
+	})
 }
 
 func (a *attacker) ServeHTTP(res http.ResponseWriter, req *http.Request) {
@@ -153,7 +199,7 @@ func (a *attacker) serverTlsHandshake(ctx context.Context, connCtx *ConnContext)
 		InsecureSkipVerify: proxy.Opts.SslInsecure,
 		KeyLogWriter:       getTlsKeyLogWriter(),
 		ServerName:         clientHello.ServerName,
-		NextProtos:         []string{"http/1.1"}, // todo: h2
+		NextProtos:         clientHello.SupportedProtos,
 		// CurvePreferences:   clientHello.SupportedCurves, // todo: 如果打开会出错
 		CipherSuites: clientHello.CipherSuites,
 	}
@@ -187,8 +233,8 @@ func (a *attacker) serverTlsHandshake(ctx context.Context, connCtx *ConnContext)
 			DialTLSContext: func(ctx context.Context, network, addr string) (net.Conn, error) {
 				return serverTlsConn, nil
 			},
-			ForceAttemptHTTP2:  false, // disable http2
-			DisableCompression: true,  // To get the original response from the server, set Transport.DisableCompression to true.
+			ForceAttemptHTTP2:  true,
+			DisableCompression: true, // To get the original response from the server, set Transport.DisableCompression to true.
 		},
 		CheckRedirect: func(req *http.Request, via []*http.Request) error {
 			// 禁止自动重定向
@@ -256,12 +302,16 @@ func (a *attacker) httpsTlsDial(ctx context.Context, cconn net.Conn, conn net.Co
 		SessionTicketsDisabled: true, // 设置此值为 true ，确保每次都会调用下面的 GetCertificate 方法
 		GetConfigForClient: func(chi *tls.ClientHelloInfo) (*tls.Config, error) {
 			clientHelloChan <- chi
+			nextProtos := make([]string, 0)
 
 			// wait server handshake finish
 			select {
 			case err := <-errChan2:
 				return nil, err
-			case <-serverTlsStateChan:
+			case serverTlsState := <-serverTlsStateChan:
+				if serverTlsState.NegotiatedProtocol != "" {
+					nextProtos = append(nextProtos, serverTlsState.NegotiatedProtocol)
+				}
 			}
 
 			c, err := a.ca.GetCert(chi.ServerName)
@@ -271,6 +321,7 @@ func (a *attacker) httpsTlsDial(ctx context.Context, cconn net.Conn, conn net.Co
 			return &tls.Config{
 				SessionTicketsDisabled: true,
 				Certificates:           []tls.Certificate{*c},
+				NextProtos:             nextProtos,
 			}, nil
 
 		},
@@ -314,10 +365,7 @@ func (a *attacker) httpsTlsDial(ctx context.Context, cconn net.Conn, conn net.Co
 	}
 
 	// will go to attacker.ServeHTTP
-	a.listener.accept(&attackerConn{
-		Conn:    clientTlsConn,
-		connCtx: connCtx,
-	})
+	a.serveConn(clientTlsConn, connCtx)
 }
 
 func (a *attacker) httpsLazyAttack(ctx context.Context, cconn net.Conn, req *http.Request) {
@@ -342,10 +390,7 @@ func (a *attacker) httpsLazyAttack(ctx context.Context, cconn net.Conn, req *htt
 
 	// will go to attacker.ServeHTTP
 	a.initHttpsDialFn(req)
-	a.listener.accept(&attackerConn{
-		Conn:    clientTlsConn,
-		connCtx: connCtx,
-	})
+	a.serveConn(clientTlsConn, connCtx)
 }
 
 func (a *attacker) attack(res http.ResponseWriter, req *http.Request) {

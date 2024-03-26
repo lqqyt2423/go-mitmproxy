@@ -38,18 +38,20 @@ func (l *wrapListener) Accept() (net.Conn, error) {
 // wrap tcpConn for remote client
 type wrapClientConn struct {
 	net.Conn
-	r        *bufio.Reader
-	proxy    *Proxy
-	connCtx  *ConnContext
-	closed   bool
-	closeErr error
+	r         *bufio.Reader
+	proxy     *Proxy
+	connCtx   *ConnContext
+	closed    bool
+	closeErr  error
+	closeChan chan struct{}
 }
 
 func newWrapClientConn(c net.Conn, proxy *Proxy) *wrapClientConn {
 	return &wrapClientConn{
-		Conn:  c,
-		r:     bufio.NewReader(c),
-		proxy: proxy,
+		Conn:      c,
+		r:         bufio.NewReader(c),
+		proxy:     proxy,
+		closeChan: make(chan struct{}),
 	}
 }
 
@@ -69,6 +71,7 @@ func (c *wrapClientConn) Close() error {
 
 	c.closed = true
 	c.closeErr = c.Conn.Close()
+	close(c.closeChan)
 
 	for _, addon := range c.proxy.Addons {
 		addon.ClientDisconnected(c.connCtx.ClientConn)
