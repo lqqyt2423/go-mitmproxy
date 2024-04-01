@@ -10,12 +10,13 @@
 - 支持[插件机制](#通过开发插件添加功能)，方便扩展自己需要的功能。多种事件 HOOK 可参考 [examples](./examples)。
 - HTTPS 证书相关逻辑与 [mitmproxy](https://mitmproxy.org/) 兼容，并保存在 `~/.mitmproxy` 文件夹中。如果之前已经用过 `mitmproxy` 并安装信任了根证书，则 `go-mitmproxy` 可以直接使用。
 - 支持 Map Remote 和 Map Local。
+- 支持 HTTP/2
 - 更多功能请参考[配置文档](#更多参数)。
 
 ## 暂未实现的功能
 
 - 只支持客户端显示设置代理，不支持透明代理模式。
-- 暂不支持 http/2 协议解析和 websocket 协议解析。
+- 暂不支持 websocket 协议解析。
 
 > 如需了解显示设置代理和透明代理模式的区别，请参考 Python 版本的 mitmproxy 文档：[How mitmproxy works](https://docs.mitmproxy.org/stable/concepts-howmitmproxyworks/)。`go-mitmproxy` 目前支持文中提到的『Explicit HTTP』和『Explicit HTTPS』。
 
@@ -69,6 +70,8 @@ Usage of go-mitmproxy:
     	不验证上游服务器的 SSL/TLS 证书
   -upstream string
     	upstream proxy
+  -upstream_cert
+    	connect to upstream server to look up certificate details (default true)
   -version
     	显示 go-mitmproxy 版本
   -web_addr string

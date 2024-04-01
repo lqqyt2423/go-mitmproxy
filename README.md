@@ -10,12 +10,13 @@
 - Supports a [plugin mechanism](#adding-functionality-by-developing-plugins) for easily extending functionality. Various event hooks can be found in the [examples](./examples) directory.
 - HTTPS certificate handling is compatible with [mitmproxy](https://mitmproxy.org/) and stored in the `~/.mitmproxy` folder. If the root certificate is already trusted from a previous use of `mitmproxy`, `go-mitmproxy` can use it directly.
 - Map Remote and Map Local support.
+- HTTP/2 support.
 - Refer to the [configuration documentation](#additional-parameters) for more features.
 
 ## Unsupported features
 
 - Only supports setting the proxy manually in the client, not transparent proxy mode.
-- Currently does not support HTTP/2 protocol parsing or WebSocket protocol parsing.
+- Currently does not support WebSocket protocol parsing.
 
 > For more information on the difference between manually setting a proxy and transparent proxy mode, please refer to the mitmproxy documentation for the Python version: [How mitmproxy works](https://docs.mitmproxy.org/stable/concepts-howmitmproxyworks/). go-mitmproxy currently supports "Explicit HTTP" and "Explicit HTTPS" as mentioned in the article.
 
@@ -69,6 +70,8 @@ Usage of go-mitmproxy:
     	not verify upstream server SSL/TLS certificates.
   -upstream string
     	upstream proxy
+  -upstream_cert
+    	connect to upstream server to look up certificate details (default true)
   -version
     	show go-mitmproxy version
   -web_addr string
