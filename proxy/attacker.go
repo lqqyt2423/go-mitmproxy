@@ -56,8 +56,8 @@ func newAttacker(proxy *Proxy) (*attacker, error) {
 		client: &http.Client{
 			Transport: &http.Transport{
 				Proxy:              proxy.realUpstreamProxy(),
-				ForceAttemptHTTP2:  false, // disable http2
-				DisableCompression: true,  // To get the original response from the server, set Transport.DisableCompression to true.
+				ForceAttemptHTTP2:  true,
+				DisableCompression: true, // To get the original response from the server, set Transport.DisableCompression to true.
 				TLSClientConfig: &tls.Config{
 					InsecureSkipVerify: proxy.Opts.SslInsecure,
 					KeyLogWriter:       getTlsKeyLogWriter(),
@@ -95,20 +95,18 @@ func (a *attacker) start() error {
 func (a *attacker) serveConn(clientTlsConn *tls.Conn, connCtx *ConnContext) {
 	connCtx.ClientConn.NegotiatedProtocol = clientTlsConn.ConnectionState().NegotiatedProtocol
 
-	if connCtx.ClientConn.NegotiatedProtocol == "h2" {
-		if connCtx.ServerConn != nil {
-			connCtx.ServerConn.client = &http.Client{
-				Transport: &http2.Transport{
-					DialTLSContext: func(ctx context.Context, network, addr string, cfg *tls.Config) (net.Conn, error) {
-						return connCtx.ServerConn.tlsConn, nil
-					},
-					DisableCompression: true,
+	if connCtx.ClientConn.NegotiatedProtocol == "h2" && connCtx.ServerConn != nil {
+		connCtx.ServerConn.client = &http.Client{
+			Transport: &http2.Transport{
+				DialTLSContext: func(ctx context.Context, network, addr string, cfg *tls.Config) (net.Conn, error) {
+					return connCtx.ServerConn.tlsConn, nil
 				},
-				CheckRedirect: func(req *http.Request, via []*http.Request) error {
-					// 禁止自动重定向
-					return http.ErrUseLastResponse
-				},
-			}
+				DisableCompression: true,
+			},
+			CheckRedirect: func(req *http.Request, via []*http.Request) error {
+				// 禁止自动重定向
+				return http.ErrUseLastResponse
+			},
 		}
 
 		ctx := context.WithValue(context.Background(), connContextKey, connCtx)
@@ -388,7 +386,7 @@ func (a *attacker) httpsLazyAttack(ctx context.Context, cconn net.Conn, req *htt
 			return &tls.Config{
 				SessionTicketsDisabled: true,
 				Certificates:           []tls.Certificate{*c},
-				NextProtos:             []string{"h2", "http/1.1"},
+				NextProtos:             []string{"http/1.1"}, // only support http/1.1
 			}, nil
 		},
 	})

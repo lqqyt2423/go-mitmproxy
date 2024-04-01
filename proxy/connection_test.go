@@ -150,7 +150,7 @@ func TestConnectionOffUpstreamCert(t *testing.T) {
 			}
 		})
 
-		t.Run("h2", func(t *testing.T) {
+		t.Run("h2 not support", func(t *testing.T) {
 			client := &http.Client{
 				Transport: &http.Transport{
 					ForceAttemptHTTP2: true,
@@ -166,7 +166,7 @@ func TestConnectionOffUpstreamCert(t *testing.T) {
 			if resp.Header.Get("tls") != "1" {
 				t.Fatalf("expected %s, but got %s", "1", resp.Header.Get("tls"))
 			}
-			if resp.Header.Get("protocol") != "h2" {
+			if resp.Header.Get("protocol") != "http/1.1" {
 				t.Fatalf("expected %s, but got %s", "h2", resp.Header.Get("protocol"))
 			}
 		})
