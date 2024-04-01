@@ -7,6 +7,7 @@ import (
 	"net/http"
 	"net/url"
 
+	"github.com/lqqyt2423/go-mitmproxy/internal/helper"
 	log "github.com/sirupsen/logrus"
 )
 
@@ -113,7 +114,7 @@ func (proxy *Proxy) getUpstreamConn(ctx context.Context, req *http.Request) (net
 	}
 	var conn net.Conn
 	if proxyUrl != nil {
-		conn, err = getProxyConn(ctx, proxyUrl, req.Host)
+		conn, err = helper.GetProxyConn(ctx, proxyUrl, req.Host)
 	} else {
 		conn, err = (&net.Dialer{}).DialContext(ctx, "tcp", req.Host)
 	}

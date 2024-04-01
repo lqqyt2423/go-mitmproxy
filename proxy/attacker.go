@@ -60,7 +60,7 @@ func newAttacker(proxy *Proxy) (*attacker, error) {
 				DisableCompression: true, // To get the original response from the server, set Transport.DisableCompression to true.
 				TLSClientConfig: &tls.Config{
 					InsecureSkipVerify: proxy.Opts.SslInsecure,
-					KeyLogWriter:       getTlsKeyLogWriter(),
+					KeyLogWriter:       helper.GetTlsKeyLogWriter(),
 				},
 			},
 			CheckRedirect: func(req *http.Request, via []*http.Request) error {
@@ -197,7 +197,7 @@ func (a *attacker) serverTlsHandshake(ctx context.Context, connCtx *ConnContext)
 
 	serverTlsConfig := &tls.Config{
 		InsecureSkipVerify: proxy.Opts.SslInsecure,
-		KeyLogWriter:       getTlsKeyLogWriter(),
+		KeyLogWriter:       helper.GetTlsKeyLogWriter(),
 		ServerName:         clientHello.ServerName,
 		NextProtos:         clientHello.SupportedProtos,
 		// CurvePreferences:   clientHello.SupportedCurves, // todo: 如果打开会出错
@@ -472,7 +472,7 @@ func (a *attacker) attack(res http.ResponseWriter, req *http.Request) {
 	// Read request body
 	var reqBody io.Reader = req.Body
 	if !f.Stream {
-		reqBuf, r, err := readerToBuffer(req.Body, proxy.Opts.StreamLargeBodies)
+		reqBuf, r, err := helper.ReaderToBuffer(req.Body, proxy.Opts.StreamLargeBodies)
 		reqBody = r
 		if err != nil {
 			log.Error(err)
@@ -566,7 +566,7 @@ func (a *attacker) attack(res http.ResponseWriter, req *http.Request) {
 	// Read response body
 	var resBody io.Reader = proxyRes.Body
 	if !f.Stream {
-		resBuf, r, err := readerToBuffer(proxyRes.Body, proxy.Opts.StreamLargeBodies)
+		resBuf, r, err := helper.ReaderToBuffer(proxyRes.Body, proxy.Opts.StreamLargeBodies)
 		resBody = r
 		if err != nil {
 			log.Error(err)
