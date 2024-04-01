@@ -287,7 +287,7 @@ func (a *attacker) httpsDial(ctx context.Context, req *http.Request) (net.Conn, 
 func (a *attacker) httpsTlsDial(ctx context.Context, cconn net.Conn, conn net.Conn) {
 	connCtx := cconn.(*wrapClientConn).connCtx
 	log := log.WithFields(log.Fields{
-		"in":   "Proxy.httpsTlsDial",
+		"in":   "Proxy.attacker.httpsTlsDial",
 		"host": connCtx.ClientConn.Conn.RemoteAddr().String(),
 	})
 
@@ -371,7 +371,7 @@ func (a *attacker) httpsTlsDial(ctx context.Context, cconn net.Conn, conn net.Co
 func (a *attacker) httpsLazyAttack(ctx context.Context, cconn net.Conn, req *http.Request) {
 	connCtx := cconn.(*wrapClientConn).connCtx
 	log := log.WithFields(log.Fields{
-		"in":   "Proxy.httpsLazyAttack",
+		"in":   "Proxy.attacker.httpsLazyAttack",
 		"host": connCtx.ClientConn.Conn.RemoteAddr().String(),
 	})
 
@@ -405,7 +405,7 @@ func (a *attacker) attack(res http.ResponseWriter, req *http.Request) {
 	proxy := a.proxy
 
 	log := log.WithFields(log.Fields{
-		"in":     "Proxy.ServeHTTP",
+		"in":     "Proxy.attacker.attack",
 		"url":    req.URL,
 		"method": req.Method,
 	})

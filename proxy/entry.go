@@ -193,7 +193,7 @@ func (e *entry) handleConnect(res http.ResponseWriter, req *http.Request) {
 	proxy := e.proxy
 
 	log := log.WithFields(log.Fields{
-		"in":   "Proxy.handleConnect",
+		"in":   "Proxy.entry.handleConnect",
 		"host": req.Host,
 	})
 
@@ -252,7 +252,7 @@ func (e *entry) establishConnection(res http.ResponseWriter, f *Flow) (net.Conn,
 func (e *entry) directTransfer(res http.ResponseWriter, req *http.Request, f *Flow) {
 	proxy := e.proxy
 	log := log.WithFields(log.Fields{
-		"in":   "Proxy.directTransfer",
+		"in":   "Proxy.entry.directTransfer",
 		"host": req.Host,
 	})
 
@@ -277,7 +277,7 @@ func (e *entry) directTransfer(res http.ResponseWriter, req *http.Request, f *Fl
 func (e *entry) httpsDialFirstAttack(res http.ResponseWriter, req *http.Request, f *Flow) {
 	proxy := e.proxy
 	log := log.WithFields(log.Fields{
-		"in":   "Proxy.httpsDialFirstTransfer",
+		"in":   "Proxy.entry.httpsDialFirstAttack",
 		"host": req.Host,
 	})
 
@@ -318,7 +318,7 @@ func (e *entry) httpsDialFirstAttack(res http.ResponseWriter, req *http.Request,
 func (e *entry) httpsDialLazyAttack(res http.ResponseWriter, req *http.Request, f *Flow) {
 	proxy := e.proxy
 	log := log.WithFields(log.Fields{
-		"in":   "Proxy.httpsDialLazyAttack",
+		"in":   "Proxy.entry.httpsDialLazyAttack",
 		"host": req.Host,
 	})
 
