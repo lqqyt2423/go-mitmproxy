@@ -95,18 +95,20 @@ func (a *attacker) start() error {
 func (a *attacker) serveConn(clientTlsConn *tls.Conn, connCtx *ConnContext) {
 	connCtx.ClientConn.NegotiatedProtocol = clientTlsConn.ConnectionState().NegotiatedProtocol
 
-	if connCtx.ClientConn.NegotiatedProtocol == "h2" && connCtx.ServerConn != nil {
-		connCtx.ServerConn.client = &http.Client{
-			Transport: &http2.Transport{
-				DialTLSContext: func(ctx context.Context, network, addr string, cfg *tls.Config) (net.Conn, error) {
-					return connCtx.ServerConn.tlsConn, nil
+	if connCtx.ClientConn.NegotiatedProtocol == "h2" {
+		if connCtx.ServerConn != nil {
+			connCtx.ServerConn.client = &http.Client{
+				Transport: &http2.Transport{
+					DialTLSContext: func(ctx context.Context, network, addr string, cfg *tls.Config) (net.Conn, error) {
+						return connCtx.ServerConn.tlsConn, nil
+					},
+					DisableCompression: true,
 				},
-				DisableCompression: true,
-			},
-			CheckRedirect: func(req *http.Request, via []*http.Request) error {
-				// 禁止自动重定向
-				return http.ErrUseLastResponse
-			},
+				CheckRedirect: func(req *http.Request, via []*http.Request) error {
+					// 禁止自动重定向
+					return http.ErrUseLastResponse
+				},
+			}
 		}
 
 		ctx := context.WithValue(context.Background(), connContextKey, connCtx)
@@ -310,7 +312,7 @@ func (a *attacker) httpsTlsDial(ctx context.Context, cconn net.Conn, conn net.Co
 				return nil, err
 			case serverTlsState := <-serverTlsStateChan:
 				if serverTlsState.NegotiatedProtocol != "" {
-					nextProtos = append(nextProtos, serverTlsState.NegotiatedProtocol)
+					nextProtos = append([]string{serverTlsState.NegotiatedProtocol}, nextProtos...)
 				}
 			}
 
@@ -386,7 +388,7 @@ func (a *attacker) httpsLazyAttack(ctx context.Context, cconn net.Conn, req *htt
 			return &tls.Config{
 				SessionTicketsDisabled: true,
 				Certificates:           []tls.Certificate{*c},
-				NextProtos:             []string{"http/1.1"}, // todo
+				NextProtos:             []string{"h2", "http/1.1"},
 			}, nil
 		},
 	})

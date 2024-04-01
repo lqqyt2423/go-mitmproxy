@@ -106,3 +106,69 @@ func TestConnection(t *testing.T) {
 		})
 	})
 }
+
+func TestConnectionOffUpstreamCert(t *testing.T) {
+	helper := &testProxyHelper{
+		server:    &http.Server{},
+		proxyAddr: ":29088",
+	}
+	helper.init(t)
+	httpEndpoint := helper.httpEndpoint
+	httpsEndpoint := helper.httpsEndpoint
+	testProxy := helper.testProxy
+	testProxy.AddAddon(NewUpstreamCertAddon(false))
+	testProxy.AddAddon(&testConnectionAddon{})
+	getProxyClient := helper.getProxyClient
+	defer helper.ln.Close()
+	go helper.server.Serve(helper.ln)
+	defer helper.tlsPlainLn.Close()
+	helper.server.TLSConfig.NextProtos = []string{"h2"}
+	go helper.server.ServeTLS(helper.tlsPlainLn, "", "")
+	go testProxy.Start()
+	time.Sleep(time.Millisecond * 10) // wait for test proxy startup
+
+	t.Run("ClientConn state", func(t *testing.T) {
+		t.Run("http", func(t *testing.T) {
+			client := getProxyClient()
+			resp, _ := testGetResponse(t, httpEndpoint, client)
+			if resp.Header.Get("tls") != "0" {
+				t.Fatalf("expected %s, but got %s", "0", resp.Header.Get("tls"))
+			}
+			if resp.Header.Get("protocol") != "null" {
+				t.Fatalf("expected %s, but got %s", "null", resp.Header.Get("protocol"))
+			}
+		})
+
+		t.Run("https", func(t *testing.T) {
+			client := getProxyClient()
+			resp, _ := testGetResponse(t, httpsEndpoint, client)
+			if resp.Header.Get("tls") != "1" {
+				t.Fatalf("expected %s, but got %s", "1", resp.Header.Get("tls"))
+			}
+			if resp.Header.Get("protocol") != "null" {
+				t.Fatalf("expected %s, but got %s", "null", resp.Header.Get("protocol"))
+			}
+		})
+
+		t.Run("h2", func(t *testing.T) {
+			client := &http.Client{
+				Transport: &http.Transport{
+					ForceAttemptHTTP2: true,
+					TLSClientConfig: &tls.Config{
+						InsecureSkipVerify: true,
+					},
+					Proxy: func(r *http.Request) (*url.URL, error) {
+						return url.Parse("http://127.0.0.1" + helper.proxyAddr)
+					},
+				},
+			}
+			resp, _ := testGetResponse(t, httpsEndpoint, client)
+			if resp.Header.Get("tls") != "1" {
+				t.Fatalf("expected %s, but got %s", "1", resp.Header.Get("tls"))
+			}
+			if resp.Header.Get("protocol") != "h2" {
+				t.Fatalf("expected %s, but got %s", "h2", resp.Header.Get("protocol"))
+			}
+		})
+	})
+}
