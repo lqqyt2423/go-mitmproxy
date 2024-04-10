@@ -171,17 +171,28 @@ type Addon interface {
 
 ### 赞助我
 
-如果你觉得这个项目对你有帮助，不妨考虑给我买杯咖啡。
+如果你觉得这个项目对你有帮助，不妨考虑给我买杯咖啡。如有技术问题，欢迎沟通。
 
-赞助时可备注来源 go-mitmproxy，我会将你添加至下面的赞助列表中。
+作者目前离职，如果你有全职或兼职工作介绍，欢迎扫码添加微信好友交流。
 
-<div align="center">
-	<img alt="sponsorme" src="./assets/sponsor-me.jpeg" style="width: 300px" />
-</div>
-
-感谢以下赞助者：
-
-暂无
+<table>
+  <thead>
+    <tr>
+      <th align="center" style="width: 240px;">
+        <div>
+          <img src="./assets/sponsor-me.jpeg" height="200px" alt="微信赞赏码"><br>
+          <sub>微信赞赏码</sub>
+        </div>
+      </th>
+      <th align="center" style="width: 240px;">
+        <div>
+          <img src="./assets/wx.jpg" height="200px" alt="联系我"><br>
+          <sub>联系我</sub>
+        </div>
+      </th>
+    </tr>
+  </thead>
+</table>
 
 ## License
 
