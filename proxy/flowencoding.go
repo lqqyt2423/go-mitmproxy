@@ -10,6 +10,7 @@ import (
 	"strings"
 
 	"github.com/andybalholm/brotli"
+	"github.com/klauspost/compress/zstd"
 	log "github.com/sirupsen/logrus"
 )
 
@@ -110,6 +111,17 @@ func decode(enc string, body []byte) ([]byte, error) {
 		dreader := flate.NewReader(bytes.NewReader(body))
 		buf := bytes.NewBuffer(make([]byte, 0))
 		_, err := io.Copy(buf, dreader)
+		if err != nil {
+			return nil, err
+		}
+		return buf.Bytes(), nil
+	} else if enc == "zstd" {
+		dreader, err := zstd.NewReader(bytes.NewReader(body))
+		if err != nil {
+			return nil, err
+		}
+		buf := bytes.NewBuffer(make([]byte, 0))
+		_, err = io.Copy(buf, dreader)
 		if err != nil {
 			return nil, err
 		}
