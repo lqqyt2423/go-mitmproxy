@@ -19,6 +19,22 @@ func GetProxyConn(ctx context.Context, proxyUrl *url.URL, address string) (net.C
 	if err != nil {
 		return nil, err
 	}
+	// 如果代理URL是HTTPS，则进行TLS握手
+	if proxyUrl.Scheme == "https" {
+		tlsConfig := &tls.Config{
+			ServerName: proxyUrl.Hostname(), // 设置TLS握手的服务器名称
+			InsecureSkipVerify: proxy.Opts.SslInsecure
+			// 可以在这里添加其他TLS配置
+		}
+		// 包装原始连接为TLS连接
+		tlsConn := tls.Client(conn, tlsConfig)
+		// 执行TLS握手
+		if err := tlsConn.Handshake(); err != nil {
+			conn.Close() // 握手失败，关闭连接
+			return nil, err
+		}
+		conn = tlsConn // 使用TLS连接替换原始连接
+	}
 	connectReq := &http.Request{
 		Method: "CONNECT",
 		URL:    &url.URL{Opaque: address},
