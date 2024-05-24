@@ -3,6 +3,7 @@ package helper
 import (
 	"bufio"
 	"context"
+	"crypto/tls"
 	"encoding/base64"
 	"errors"
 	"net"
@@ -14,10 +15,26 @@ import (
 
 // GetProxyConn connect proxy
 // ref: http/transport.go dialConn func
-func GetProxyConn(ctx context.Context, proxyUrl *url.URL, address string) (net.Conn, error) {
+func GetProxyConn(ctx context.Context, proxyUrl *url.URL, address string, sslInsecure bool) (net.Conn, error) {
 	conn, err := (&net.Dialer{}).DialContext(ctx, "tcp", proxyUrl.Host)
 	if err != nil {
 		return nil, err
+	}
+	// 如果代理URL是HTTPS，则进行TLS握手
+	if proxyUrl.Scheme == "https" {
+		tlsConfig := &tls.Config{
+			ServerName:         proxyUrl.Hostname(), // 设置TLS握手的服务器名称
+			InsecureSkipVerify: sslInsecure,
+			// 可以在这里添加其他TLS配置
+		}
+		// 包装原始连接为TLS连接
+		tlsConn := tls.Client(conn, tlsConfig)
+		// 执行TLS握手
+		if err := tlsConn.HandshakeContext(ctx); err != nil {
+			conn.Close() // 握手失败，关闭连接
+			return nil, err
+		}
+		conn = tlsConn // 使用TLS连接替换原始连接
 	}
 	connectReq := &http.Request{
 		Method: "CONNECT",
