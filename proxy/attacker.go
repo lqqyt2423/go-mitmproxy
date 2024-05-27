@@ -150,9 +150,8 @@ func (a *attacker) ServeHTTP(res http.ResponseWriter, req *http.Request) {
 func (a *attacker) initHttpDialFn(req *http.Request) {
 	connCtx := req.Context().Value(connContextKey).(*ConnContext)
 	connCtx.dialFn = func(ctx context.Context) error {
-		// todo: proxy
 		addr := helper.CanonicalAddr(req.URL)
-		c, err := (&net.Dialer{}).DialContext(ctx, "tcp", addr)
+		c, err := a.proxy.getUpstreamConn(ctx, req)
 		if err != nil {
 			return err
 		}

@@ -113,10 +113,11 @@ func (proxy *Proxy) getUpstreamConn(ctx context.Context, req *http.Request) (net
 		return nil, err
 	}
 	var conn net.Conn
+	address := helper.CanonicalAddr(req.URL)
 	if proxyUrl != nil {
-		conn, err = helper.GetProxyConn(ctx, proxyUrl, req.Host, proxy.Opts.SslInsecure)
+		conn, err = helper.GetProxyConn(ctx, proxyUrl, address, proxy.Opts.SslInsecure)
 	} else {
-		conn, err = (&net.Dialer{}).DialContext(ctx, "tcp", req.Host)
+		conn, err = (&net.Dialer{}).DialContext(ctx, "tcp", address)
 	}
 	return conn, err
 }
