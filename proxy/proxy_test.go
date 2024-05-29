@@ -72,7 +72,7 @@ func (helper *testProxyHelper) init(t *testing.T) {
 	tlsPlainLn, err := net.Listen("tcp", "127.0.0.1:0")
 	handleError(t, err)
 	helper.tlsPlainLn = tlsPlainLn
-	ca, err := cert.NewCAMemory()
+	ca, err := cert.NewSelfSignCAMemory()
 	handleError(t, err)
 	cert, err := ca.GetCert("localhost")
 	handleError(t, err)

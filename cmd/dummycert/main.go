@@ -37,10 +37,11 @@ func main() {
 		log.Fatal("commonName required")
 	}
 
-	ca, err := cert.NewCA("")
+	caApi, err := cert.NewSelfSignCA("")
 	if err != nil {
 		panic(err)
 	}
+	ca := caApi.(*cert.SelfSignCA)
 
 	cert, err := ca.DummyCert(config.commonName)
 	if err != nil {

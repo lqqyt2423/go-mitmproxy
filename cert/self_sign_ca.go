@@ -30,7 +30,7 @@ import (
 
 var errCaNotFound = errors.New("ca not found")
 
-type CA struct {
+type SelfSignCA struct {
 	rsa.PrivateKey
 	RootCert  x509.Certificate
 	StorePath string
@@ -83,13 +83,13 @@ func createCert() (*rsa.PrivateKey, *x509.Certificate, error) {
 	return key, cert, nil
 }
 
-// Create new ca only live in memory, will change when process restart
-func NewCAMemory() (*CA, error) {
+// NewSelfSignCAMemory Create new ca only live in memory, will change when process restart
+func NewSelfSignCAMemory() (CA, error) {
 	key, cert, err := createCert()
 	if err != nil {
 		return nil, err
 	}
-	return &CA{
+	return &SelfSignCA{
 		PrivateKey: *key,
 		RootCert:   *cert,
 		StorePath:  "",
@@ -98,14 +98,14 @@ func NewCAMemory() (*CA, error) {
 	}, nil
 }
 
-// Load ca from store path or create new ca then store
-func NewCA(path string) (*CA, error) {
+// NewSelfSignCA Load ca from store path or create new ca then store
+func NewSelfSignCA(path string) (CA, error) {
 	storePath, err := getStorePath(path)
 	if err != nil {
 		return nil, err
 	}
 
-	ca := &CA{
+	ca := &SelfSignCA{
 		StorePath: storePath,
 		cache:     lru.New(100),
 		group:     new(singleflight.Group),
@@ -164,20 +164,20 @@ func getStorePath(path string) (string, error) {
 }
 
 // The certificate and the private key in PEM format.
-func (ca *CA) caFile() string {
+func (ca *SelfSignCA) caFile() string {
 	return filepath.Join(ca.StorePath, "mitmproxy-ca.pem")
 }
 
 // The certificate in PEM format.
-func (ca *CA) caCertFile() string {
+func (ca *SelfSignCA) caCertFile() string {
 	return filepath.Join(ca.StorePath, "mitmproxy-ca-cert.pem")
 }
 
-func (ca *CA) caCertCerFile() string {
+func (ca *SelfSignCA) caCertCerFile() string {
 	return filepath.Join(ca.StorePath, "mitmproxy-ca-cert.cer")
 }
 
-func (ca *CA) load() error {
+func (ca *SelfSignCA) load() error {
 	caFile := ca.caFile()
 	stat, err := os.Stat(caFile)
 	if err != nil {
@@ -235,7 +235,7 @@ func (ca *CA) load() error {
 	return nil
 }
 
-func (ca *CA) create() error {
+func (ca *SelfSignCA) create() error {
 	key, cert, err := createCert()
 	if err != nil {
 		return err
@@ -250,7 +250,7 @@ func (ca *CA) create() error {
 	return ca.saveCert()
 }
 
-func (ca *CA) saveTo(out io.Writer) error {
+func (ca *SelfSignCA) saveTo(out io.Writer) error {
 	keyBytes, err := x509.MarshalPKCS8PrivateKey(&ca.PrivateKey)
 	if err != nil {
 		return err
@@ -263,11 +263,11 @@ func (ca *CA) saveTo(out io.Writer) error {
 	return pem.Encode(out, &pem.Block{Type: "CERTIFICATE", Bytes: ca.RootCert.Raw})
 }
 
-func (ca *CA) saveCertTo(out io.Writer) error {
+func (ca *SelfSignCA) saveCertTo(out io.Writer) error {
 	return pem.Encode(out, &pem.Block{Type: "CERTIFICATE", Bytes: ca.RootCert.Raw})
 }
 
-func (ca *CA) save() error {
+func (ca *SelfSignCA) save() error {
 	file, err := os.Create(ca.caFile())
 	if err != nil {
 		return err
@@ -276,7 +276,7 @@ func (ca *CA) save() error {
 	return ca.saveTo(file)
 }
 
-func (ca *CA) saveCert() error {
+func (ca *SelfSignCA) saveCert() error {
 	file, err := os.Create(ca.caCertFile())
 	if err != nil {
 		return err
@@ -299,7 +299,11 @@ func (ca *CA) saveCert() error {
 	return err
 }
 
-func (ca *CA) GetCert(commonName string) (*tls.Certificate, error) {
+func (ca *SelfSignCA) GetRootCA() *x509.Certificate {
+	return &ca.RootCert
+}
+
+func (ca *SelfSignCA) GetCert(commonName string) (*tls.Certificate, error) {
 	ca.cacheMu.Lock()
 	if val, ok := ca.cache.Get(commonName); ok {
 		ca.cacheMu.Unlock()
@@ -326,7 +330,7 @@ func (ca *CA) GetCert(commonName string) (*tls.Certificate, error) {
 }
 
 // TODO: 是否应该支持多个 SubjectAltName
-func (ca *CA) DummyCert(commonName string) (*tls.Certificate, error) {
+func (ca *SelfSignCA) DummyCert(commonName string) (*tls.Certificate, error) {
 	log.Debugf("ca DummyCert: %v", commonName)
 	template := &x509.Certificate{
 		SerialNumber: big.NewInt(time.Now().UnixNano() / 100000),

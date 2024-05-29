@@ -37,7 +37,7 @@ type attackerConn struct {
 
 type attacker struct {
 	proxy    *Proxy
-	ca       *cert.CA
+	ca       cert.CA
 	server   *http.Server
 	h2Server *http2.Server
 	client   *http.Client
@@ -45,7 +45,7 @@ type attacker struct {
 }
 
 func newAttacker(proxy *Proxy) (*attacker, error) {
-	ca, err := cert.NewCA(proxy.Opts.CaRootPath)
+	ca, err := newCa(proxy.Opts)
 	if err != nil {
 		return nil, err
 	}
@@ -86,6 +86,14 @@ func newAttacker(proxy *Proxy) (*attacker, error) {
 	}
 
 	return a, nil
+}
+
+func newCa(opts *Options) (cert.CA, error) {
+	newCaFunc := opts.NewCaFunc
+	if newCaFunc != nil {
+		return newCaFunc()
+	}
+	return cert.NewSelfSignCA(opts.CaRootPath)
 }
 
 func (a *attacker) start() error {

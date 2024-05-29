@@ -18,10 +18,11 @@ func TestGetStorePath(t *testing.T) {
 }
 
 func TestNewCA(t *testing.T) {
-	ca, err := NewCA("")
+	caApi, err := NewSelfSignCA("")
 	if err != nil {
 		t.Fatal(err)
 	}
+	ca := caApi.(*SelfSignCA)
 
 	data := make([]byte, 0)
 	buf := bytes.NewBuffer(data)
