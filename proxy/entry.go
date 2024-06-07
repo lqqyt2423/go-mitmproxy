@@ -39,9 +39,11 @@ func (l *wrapListener) Accept() (net.Conn, error) {
 // wrap tcpConn for remote client
 type wrapClientConn struct {
 	net.Conn
-	r         *bufio.Reader
-	proxy     *Proxy
-	connCtx   *ConnContext
+	r       *bufio.Reader
+	proxy   *Proxy
+	connCtx *ConnContext
+
+	closeMu   sync.Mutex
 	closed    bool
 	closeErr  error
 	closeChan chan struct{}
@@ -65,13 +67,16 @@ func (c *wrapClientConn) Read(data []byte) (int, error) {
 }
 
 func (c *wrapClientConn) Close() error {
+	c.closeMu.Lock()
 	if c.closed {
+		c.closeMu.Unlock()
 		return c.closeErr
 	}
 	log.Debugln("in wrapClientConn close", c.connCtx.ClientConn.Conn.RemoteAddr())
 
 	c.closed = true
 	c.closeErr = c.Conn.Close()
+	c.closeMu.Unlock()
 	close(c.closeChan)
 
 	for _, addon := range c.proxy.Addons {
