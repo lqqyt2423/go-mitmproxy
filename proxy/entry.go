@@ -6,6 +6,7 @@ import (
 	"io"
 	"net"
 	"net/http"
+	"sync"
 
 	"github.com/lqqyt2423/go-mitmproxy/internal/helper"
 	log "github.com/sirupsen/logrus"
@@ -87,20 +88,25 @@ func (c *wrapClientConn) Close() error {
 // wrap tcpConn for remote server
 type wrapServerConn struct {
 	net.Conn
-	proxy    *Proxy
-	connCtx  *ConnContext
+	proxy   *Proxy
+	connCtx *ConnContext
+
+	closeMu  sync.Mutex
 	closed   bool
 	closeErr error
 }
 
 func (c *wrapServerConn) Close() error {
+	c.closeMu.Lock()
 	if c.closed {
+		c.closeMu.Unlock()
 		return c.closeErr
 	}
 	log.Debugln("in wrapServerConn close", c.connCtx.ClientConn.Conn.RemoteAddr())
 
 	c.closed = true
 	c.closeErr = c.Conn.Close()
+	c.closeMu.Unlock()
 
 	for _, addon := range c.proxy.Addons {
 		addon.ServerDisconnected(c.connCtx)
