@@ -12,6 +12,8 @@ dummycert:
 clean:
 	rm -f go-mitmproxy dummycert
 
+# add -race to check data race
+# add -count=1 to disable test cache
 .PHONY: test
 test:
 	go test ./... -v

@@ -48,6 +48,7 @@ func TestConnection(t *testing.T) {
 		proxyAddr: ":29087",
 	}
 	helper.init(t)
+	helper.server.TLSConfig.NextProtos = []string{"h2"}
 	httpEndpoint := helper.httpEndpoint
 	httpsEndpoint := helper.httpsEndpoint
 	testProxy := helper.testProxy
@@ -56,7 +57,6 @@ func TestConnection(t *testing.T) {
 	defer helper.ln.Close()
 	go helper.server.Serve(helper.ln)
 	defer helper.tlsPlainLn.Close()
-	helper.server.TLSConfig.NextProtos = []string{"h2"}
 	go helper.server.ServeTLS(helper.tlsPlainLn, "", "")
 	go testProxy.Start()
 	time.Sleep(time.Millisecond * 10) // wait for test proxy startup
@@ -113,6 +113,7 @@ func TestConnectionOffUpstreamCert(t *testing.T) {
 		proxyAddr: ":29088",
 	}
 	helper.init(t)
+	helper.server.TLSConfig.NextProtos = []string{"h2"}
 	httpEndpoint := helper.httpEndpoint
 	httpsEndpoint := helper.httpsEndpoint
 	testProxy := helper.testProxy
@@ -122,7 +123,6 @@ func TestConnectionOffUpstreamCert(t *testing.T) {
 	defer helper.ln.Close()
 	go helper.server.Serve(helper.ln)
 	defer helper.tlsPlainLn.Close()
-	helper.server.TLSConfig.NextProtos = []string{"h2"}
 	go helper.server.ServeTLS(helper.tlsPlainLn, "", "")
 	go testProxy.Start()
 	time.Sleep(time.Millisecond * 10) // wait for test proxy startup
