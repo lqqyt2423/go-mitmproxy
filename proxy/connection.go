@@ -8,6 +8,7 @@ import (
 	"net/http"
 
 	uuid "github.com/satori/go.uuid"
+	"go.uber.org/atomic"
 )
 
 // client connection
@@ -75,10 +76,10 @@ var connContextKey = new(struct{})
 
 // connection context
 type ConnContext struct {
-	ClientConn *ClientConn `json:"clientConn"`
-	ServerConn *ServerConn `json:"serverConn"`
-	Intercept  bool        `json:"intercept"` // Indicates whether to parse HTTPS
-	FlowCount  uint32      `json:"-"`         // Number of HTTP requests made on the same connection
+	ClientConn *ClientConn   `json:"clientConn"`
+	ServerConn *ServerConn   `json:"serverConn"`
+	Intercept  bool          `json:"intercept"` // Indicates whether to parse HTTPS
+	FlowCount  atomic.Uint32 `json:"-"`         // Number of HTTP requests made on the same connection
 
 	proxy              *Proxy
 	closeAfterResponse bool                        // after http response, http server will close the connection

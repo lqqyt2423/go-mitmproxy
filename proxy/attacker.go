@@ -462,7 +462,7 @@ func (a *attacker) attack(res http.ResponseWriter, req *http.Request) {
 	f.ConnContext = req.Context().Value(connContextKey).(*ConnContext)
 	defer f.finish()
 
-	f.ConnContext.FlowCount = f.ConnContext.FlowCount + 1
+	f.ConnContext.FlowCount.Add(1)
 
 	rawReqUrlHost := f.Request.URL.Host
 	rawReqUrlScheme := f.Request.URL.Scheme

@@ -118,7 +118,7 @@ func newMessageFlow(mType messageType, f *proxy.Flow) *messageFlow {
 
 func newMessageConnClose(connCtx *proxy.ConnContext) *messageFlow {
 	var buf bytes.Buffer
-	binary.Write(&buf, binary.BigEndian, connCtx.FlowCount)
+	binary.Write(&buf, binary.BigEndian, connCtx.FlowCount.Load())
 	return &messageFlow{
 		mType:   messageTypeConnClose,
 		id:      connCtx.Id(),
