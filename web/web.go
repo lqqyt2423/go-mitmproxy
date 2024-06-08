@@ -2,6 +2,7 @@ package web
 
 import (
 	"embed"
+	"fmt"
 	"io/fs"
 	"net/http"
 	"sync"
@@ -16,6 +17,8 @@ var assets embed.FS
 
 type WebAddon struct {
 	proxy.BaseAddon
+
+	server   *http.Server
 	upgrader *websocket.Upgrader
 
 	conns   []*concurrentConn
@@ -23,28 +26,37 @@ type WebAddon struct {
 }
 
 func NewWebAddon(addr string) *WebAddon {
-	web := new(WebAddon)
-	web.upgrader = &websocket.Upgrader{
-		CheckOrigin: func(r *http.Request) bool {
-			return true
-		},
-	}
+	web := &WebAddon{}
 
-	serverMux := new(http.ServeMux)
-	serverMux.HandleFunc("/echo", web.echo)
-
-	fsys, err := fs.Sub(assets, "client/build")
+	_, err := assets.ReadDir("client/build/dist")
 	if err != nil {
-		panic(err)
-	}
-	serverMux.Handle("/", http.FileServer(http.FS(fsys)))
+		web.server = &http.Server{
+			Addr: addr,
+			Handler: http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+				w.WriteHeader(http.StatusNotFound)
+				fmt.Fprintf(w, `Please build frontend: "cd web/client; yarn build"`)
+			}),
+		}
+	} else {
+		web.upgrader = &websocket.Upgrader{
+			CheckOrigin: func(r *http.Request) bool {
+				return true
+			},
+		}
 
-	server := &http.Server{Addr: addr, Handler: serverMux}
-	web.conns = make([]*concurrentConn, 0)
+		serverMux := new(http.ServeMux)
+		serverMux.HandleFunc("/echo", web.echo)
+
+		fsys, _ := fs.Sub(assets, "client/build/dist")
+		serverMux.Handle("/", http.FileServer(http.FS(fsys)))
+
+		web.server = &http.Server{Addr: addr, Handler: serverMux}
+		web.conns = make([]*concurrentConn, 0)
+	}
 
 	go func() {
 		log.Infof("web interface start listen at %v\n", addr)
-		err := server.ListenAndServe()
+		err := web.server.ListenAndServe()
 		log.Error(err)
 	}()
 
