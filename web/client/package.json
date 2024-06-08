@@ -23,7 +23,7 @@
   },
   "scripts": {
     "start": "react-scripts start",
-    "build": "react-scripts build",
+    "build": "BUILD_PATH=build/dist react-scripts build",
     "test": "react-scripts test",
     "eject": "react-scripts eject"
   },
