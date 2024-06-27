@@ -11,11 +11,11 @@ require (
 	github.com/satori/go.uuid v1.2.0
 	github.com/sirupsen/logrus v1.8.1
 	github.com/tidwall/match v1.1.1
+	go.uber.org/atomic v1.11.0
 	golang.org/x/net v0.22.0
 )
 
 require (
-	go.uber.org/atomic v1.11.0 // indirect
 	golang.org/x/exp v0.0.0-20220303212507-bbda1eaf7a17 // indirect
 	golang.org/x/sys v0.18.0 // indirect
 	golang.org/x/text v0.14.0 // indirect
