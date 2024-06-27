@@ -122,21 +122,23 @@ func (web *WebAddon) forEachConn(do func(c *concurrentConn)) bool {
 	return true
 }
 
-func (web *WebAddon) sendFlowMayWait(f *proxy.Flow, msgFn func() *messageFlow) bool {
+func (web *WebAddon) sendFlowMayWait(f *proxy.Flow, msgFn func() (*messageFlow, error)) {
 	web.connsMu.RLock()
 	conns := web.conns
 	web.connsMu.RUnlock()
 
 	if len(conns) == 0 {
-		return false
+		return
 	}
 
-	msg := msgFn()
+	msg, err := msgFn()
+	if err != nil {
+		log.Error(fmt.Errorf("web addon gen msg: %w", err))
+		return
+	}
 	for _, c := range conns {
 		c.writeMessageMayWait(msg, f)
 	}
-
-	return true
 }
 
 func (web *WebAddon) Requestheaders(f *proxy.Flow) {
@@ -162,10 +164,10 @@ func (web *WebAddon) Requestheaders(f *proxy.Flow) {
 
 func (web *WebAddon) Request(f *proxy.Flow) {
 	if web.isIntercpt(f, messageTypeRequestBody) {
-		web.sendFlowMayWait(f, func() *messageFlow {
+		web.sendFlowMayWait(f, func() (*messageFlow, error) {
 			return newMessageFlow(messageTypeRequest, f)
 		})
-		web.sendFlowMayWait(f, func() *messageFlow {
+		web.sendFlowMayWait(f, func() (*messageFlow, error) {
 			return newMessageFlow(messageTypeRequestBody, f)
 		})
 	}
@@ -183,10 +185,10 @@ func (web *WebAddon) Responseheaders(f *proxy.Flow) {
 
 func (web *WebAddon) Response(f *proxy.Flow) {
 	if web.isIntercpt(f, messageTypeResponseBody) {
-		web.sendFlowMayWait(f, func() *messageFlow {
+		web.sendFlowMayWait(f, func() (*messageFlow, error) {
 			return newMessageFlow(messageTypeResponse, f)
 		})
-		web.sendFlowMayWait(f, func() *messageFlow {
+		web.sendFlowMayWait(f, func() (*messageFlow, error) {
 			return newMessageFlow(messageTypeResponseBody, f)
 		})
 	}
@@ -215,21 +217,23 @@ func (web *WebAddon) isIntercpt(f *proxy.Flow, mType messageType) bool {
 	return false
 }
 
-func (web *WebAddon) sendFlow(msgFn func() *messageFlow) bool {
+func (web *WebAddon) sendFlow(msgFn func() (*messageFlow, error)) {
 	web.connsMu.RLock()
 	conns := web.conns
 	web.connsMu.RUnlock()
 
 	if len(conns) == 0 {
-		return false
+		return
 	}
 
-	msg := msgFn()
+	msg, err := msgFn()
+	if err != nil {
+		log.Error(fmt.Errorf("web addon gen msg: %w", err))
+		return
+	}
 	for _, c := range conns {
 		c.writeMessage(msg)
 	}
-
-	return true
 }
 
 func (web *WebAddon) sendMessageUntil(f *proxy.Flow, mType messageType) {
@@ -242,7 +246,7 @@ func (web *WebAddon) sendMessageUntil(f *proxy.Flow, mType messageType) {
 	web.flowMu.Unlock()
 
 	for ; state <= mType; state++ {
-		web.sendFlow(func() *messageFlow {
+		web.sendFlow(func() (*messageFlow, error) {
 			return newMessageFlow(state, f)
 		})
 	}

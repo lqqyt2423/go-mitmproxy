@@ -79,41 +79,47 @@ type messageFlow struct {
 	content       []byte
 }
 
-func newMessageFlow(mType messageType, f *proxy.Flow) *messageFlow {
+func newMessageFlow(mType messageType, f *proxy.Flow) (*messageFlow, error) {
 	var content []byte
-	var err error = nil
+	var err error
+	id := f.Id
 
-	if mType == messageTypeConn {
+	switch mType {
+	case messageTypeConn:
+		id = f.ConnContext.Id()
 		content, err = json.Marshal(f.ConnContext)
-	} else if mType == messageTypeRequest {
+	case messageTypeRequest:
 		m := make(map[string]interface{})
 		m["request"] = f.Request
 		m["connId"] = f.ConnContext.Id().String()
 		content, err = json.Marshal(m)
-	} else if mType == messageTypeRequestBody {
+	case messageTypeRequestBody:
 		content = f.Request.Body
-	} else if mType == messageTypeResponse {
+	case messageTypeResponse:
+		if f.Response == nil {
+			err = errors.New("no response")
+			break
+		}
 		content, err = json.Marshal(f.Response)
-	} else if mType == messageTypeResponseBody {
+	case messageTypeResponseBody:
+		if f.Response == nil {
+			err = errors.New("no response")
+			break
+		}
 		content, err = f.Response.DecodedBody()
-	} else {
-		panic(errors.New("invalid message type"))
+	default:
+		err = errors.New("invalid message type")
 	}
 
 	if err != nil {
-		panic(err)
-	}
-
-	id := f.Id
-	if mType == messageTypeConn {
-		id = f.ConnContext.Id()
+		return nil, err
 	}
 
 	return &messageFlow{
 		mType:   mType,
 		id:      id,
 		content: content,
-	}
+	}, nil
 }
 
 func newMessageConnClose(connCtx *proxy.ConnContext) *messageFlow {

@@ -1,6 +1,7 @@
 package web
 
 import (
+	"fmt"
 	"strings"
 	"sync"
 
@@ -44,8 +45,12 @@ func (c *concurrentConn) trySendConnMessage(f *proxy.Flow) {
 		return
 	}
 	c.sendConnMessageMap[key] = true
-	msg := newMessageFlow(messageTypeConn, f)
-	err := c.conn.WriteMessage(websocket.BinaryMessage, msg.bytes())
+	msg, err := newMessageFlow(messageTypeConn, f)
+	if err != nil {
+		log.Error(fmt.Errorf("web addon gen msg: %w", err))
+		return
+	}
+	err = c.conn.WriteMessage(websocket.BinaryMessage, msg.bytes())
 	if err != nil {
 		log.Error(err)
 		return
