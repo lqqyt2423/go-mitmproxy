@@ -25,6 +25,7 @@ type WebAddon struct {
 	connsMu sync.RWMutex
 
 	flowMessageState map[*proxy.Flow]messageType
+	flowMu           sync.Mutex
 }
 
 func NewWebAddon(addr string) *WebAddon {
@@ -139,11 +140,17 @@ func (web *WebAddon) sendFlowMayWait(f *proxy.Flow, msgFn func() *messageFlow) b
 }
 
 func (web *WebAddon) Requestheaders(f *proxy.Flow) {
+	web.flowMu.Lock()
 	web.flowMessageState[f] = messageType(0)
+	web.flowMu.Unlock()
+
 	go func() {
 		<-f.Done()
 		web.sendMessageUntil(f, messageTypeResponseBody)
+
+		web.flowMu.Lock()
 		delete(web.flowMessageState, f)
+		web.flowMu.Unlock()
 	}()
 
 	if f.ConnContext.ClientConn.Tls {
@@ -226,13 +233,21 @@ func (web *WebAddon) sendFlow(msgFn func() *messageFlow) bool {
 }
 
 func (web *WebAddon) sendMessageUntil(f *proxy.Flow, mType messageType) {
+	web.flowMu.Lock()
 	if web.flowMessageState[f] >= mType {
+		web.flowMu.Unlock()
 		return
 	}
-	for state := web.flowMessageState[f] + 1; state <= mType; state++ {
+	state := web.flowMessageState[f] + 1
+	web.flowMu.Unlock()
+
+	for ; state <= mType; state++ {
 		web.sendFlow(func() *messageFlow {
 			return newMessageFlow(state, f)
 		})
 	}
+
+	web.flowMu.Lock()
 	web.flowMessageState[f] = mType
+	web.flowMu.Unlock()
 }
