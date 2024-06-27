@@ -127,19 +127,26 @@ class App extends React.Component<IProps, IState> {
         this.connMgr.delete(msg.id)
       }
       else if (msg.type === MessageType.REQUEST) {
-        const flow = new Flow(msg, this.connMgr)
-        flow.getConn()
-        this.flowMgr.add(flow)
-
-        let shouldScroll = false
-        if (this.tableBottomRef?.current && isInViewPort(this.tableBottomRef.current)) {
-          shouldScroll = true
-        }
-        this.setState({ flows: this.flowMgr.showList() }, () => {
-          if (shouldScroll) {
-            this.tableBottomRef?.current?.scrollIntoView({ behavior: 'auto' })
+        let flow = this.flowMgr.get(msg.id)
+        if (!flow) {
+          flow = new Flow(msg, this.connMgr)
+          flow.getConn()
+          this.flowMgr.add(flow)
+  
+          let shouldScroll = false
+          if (this.tableBottomRef?.current && isInViewPort(this.tableBottomRef.current)) {
+            shouldScroll = true
           }
-        })
+          this.setState({ flows: this.flowMgr.showList() }, () => {
+            if (shouldScroll) {
+              this.tableBottomRef?.current?.scrollIntoView({ behavior: 'auto' })
+            }
+          })
+        } else {
+          flow.addRequest(msg)
+          flow.getConn()
+          this.setState({ flows: this.state.flows })
+        }
       }
       else if (msg.type === MessageType.REQUEST_BODY) {
         const flow = this.flowMgr.get(msg.id)

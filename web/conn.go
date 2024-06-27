@@ -66,8 +66,8 @@ func (c *concurrentConn) whenConnClose(connCtx *proxy.ConnContext) {
 	}
 }
 
-func (c *concurrentConn) writeMessage(msg *messageFlow, f *proxy.Flow) {
-	if c.isIntercpt(f, msg) {
+func (c *concurrentConn) writeMessageMayWait(msg *messageFlow, f *proxy.Flow) {
+	if c.isIntercpt(f, msg.mType) {
 		msg.waitIntercept = 1
 	}
 
@@ -80,7 +80,18 @@ func (c *concurrentConn) writeMessage(msg *messageFlow, f *proxy.Flow) {
 	}
 
 	if msg.waitIntercept == 1 {
-		c.waitIntercept(f, msg)
+		c.waitIntercept(f)
+	}
+}
+
+func (c *concurrentConn) writeMessage(msg *messageFlow) {
+	msg.waitIntercept = 0
+	c.mu.Lock()
+	err := c.conn.WriteMessage(websocket.BinaryMessage, msg.bytes())
+	c.mu.Unlock()
+	if err != nil {
+		log.Error(err)
+		return
 	}
 }
 
@@ -129,8 +140,8 @@ func (c *concurrentConn) initWaitChan(key string) chan interface{} {
 }
 
 // 是否拦截
-func (c *concurrentConn) isIntercpt(f *proxy.Flow, after *messageFlow) bool {
-	if after.mType != messageTypeRequestBody && after.mType != messageTypeResponseBody {
+func (c *concurrentConn) isIntercpt(f *proxy.Flow, mType messageType) bool {
+	if mType != messageTypeRequestBody && mType != messageTypeResponseBody {
 		return false
 	}
 
@@ -139,7 +150,7 @@ func (c *concurrentConn) isIntercpt(f *proxy.Flow, after *messageFlow) bool {
 	}
 
 	var action int
-	if after.mType == messageTypeRequestBody {
+	if mType == messageTypeRequestBody {
 		action = 1
 	} else {
 		action = 2
@@ -164,7 +175,7 @@ func (c *concurrentConn) isIntercpt(f *proxy.Flow, after *messageFlow) bool {
 }
 
 // 拦截
-func (c *concurrentConn) waitIntercept(f *proxy.Flow, after *messageFlow) {
+func (c *concurrentConn) waitIntercept(f *proxy.Flow) {
 	ch := c.initWaitChan(f.Id.String())
 	msg := (<-ch).(*messageEdit)
 

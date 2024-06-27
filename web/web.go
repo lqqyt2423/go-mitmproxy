@@ -23,10 +23,14 @@ type WebAddon struct {
 
 	conns   []*concurrentConn
 	connsMu sync.RWMutex
+
+	flowMessageState map[*proxy.Flow]messageType
 }
 
 func NewWebAddon(addr string) *WebAddon {
-	web := &WebAddon{}
+	web := &WebAddon{
+		flowMessageState: make(map[*proxy.Flow]messageType),
+	}
 
 	_, err := assets.ReadDir("client/build/dist")
 	if err != nil {
@@ -117,7 +121,7 @@ func (web *WebAddon) forEachConn(do func(c *concurrentConn)) bool {
 	return true
 }
 
-func (web *WebAddon) sendFlow(f *proxy.Flow, msgFn func() *messageFlow) bool {
+func (web *WebAddon) sendFlowMayWait(f *proxy.Flow, msgFn func() *messageFlow) bool {
 	web.connsMu.RLock()
 	conns := web.conns
 	web.connsMu.RUnlock()
@@ -128,28 +132,36 @@ func (web *WebAddon) sendFlow(f *proxy.Flow, msgFn func() *messageFlow) bool {
 
 	msg := msgFn()
 	for _, c := range conns {
-		c.writeMessage(msg, f)
+		c.writeMessageMayWait(msg, f)
 	}
 
 	return true
 }
 
 func (web *WebAddon) Requestheaders(f *proxy.Flow) {
+	web.flowMessageState[f] = messageType(0)
+	go func() {
+		<-f.Done()
+		web.sendMessageUntil(f, messageTypeResponseBody)
+		delete(web.flowMessageState, f)
+	}()
+
 	if f.ConnContext.ClientConn.Tls {
 		web.forEachConn(func(c *concurrentConn) {
 			c.trySendConnMessage(f)
 		})
 	}
-
-	web.sendFlow(f, func() *messageFlow {
-		return newMessageFlow(messageTypeRequest, f)
-	})
 }
 
 func (web *WebAddon) Request(f *proxy.Flow) {
-	web.sendFlow(f, func() *messageFlow {
-		return newMessageFlow(messageTypeRequestBody, f)
-	})
+	if web.isIntercpt(f, messageTypeRequestBody) {
+		web.sendFlowMayWait(f, func() *messageFlow {
+			return newMessageFlow(messageTypeRequest, f)
+		})
+		web.sendFlowMayWait(f, func() *messageFlow {
+			return newMessageFlow(messageTypeRequestBody, f)
+		})
+	}
 }
 
 func (web *WebAddon) Responseheaders(f *proxy.Flow) {
@@ -159,19 +171,68 @@ func (web *WebAddon) Responseheaders(f *proxy.Flow) {
 		})
 	}
 
-	web.sendFlow(f, func() *messageFlow {
-		return newMessageFlow(messageTypeResponse, f)
-	})
+	web.sendMessageUntil(f, messageTypeRequestBody)
 }
 
 func (web *WebAddon) Response(f *proxy.Flow) {
-	web.sendFlow(f, func() *messageFlow {
-		return newMessageFlow(messageTypeResponseBody, f)
-	})
+	if web.isIntercpt(f, messageTypeResponseBody) {
+		web.sendFlowMayWait(f, func() *messageFlow {
+			return newMessageFlow(messageTypeResponse, f)
+		})
+		web.sendFlowMayWait(f, func() *messageFlow {
+			return newMessageFlow(messageTypeResponseBody, f)
+		})
+	}
 }
 
 func (web *WebAddon) ServerDisconnected(connCtx *proxy.ConnContext) {
 	web.forEachConn(func(c *concurrentConn) {
 		c.whenConnClose(connCtx)
 	})
+}
+
+func (web *WebAddon) isIntercpt(f *proxy.Flow, mType messageType) bool {
+	web.connsMu.RLock()
+	conns := web.conns
+	web.connsMu.RUnlock()
+
+	if len(conns) == 0 {
+		return false
+	}
+
+	for _, c := range conns {
+		if c.isIntercpt(f, mType) {
+			return true
+		}
+	}
+	return false
+}
+
+func (web *WebAddon) sendFlow(msgFn func() *messageFlow) bool {
+	web.connsMu.RLock()
+	conns := web.conns
+	web.connsMu.RUnlock()
+
+	if len(conns) == 0 {
+		return false
+	}
+
+	msg := msgFn()
+	for _, c := range conns {
+		c.writeMessage(msg)
+	}
+
+	return true
+}
+
+func (web *WebAddon) sendMessageUntil(f *proxy.Flow, mType messageType) {
+	if web.flowMessageState[f] >= mType {
+		return
+	}
+	for state := web.flowMessageState[f] + 1; state <= mType; state++ {
+		web.sendFlow(func() *messageFlow {
+			return newMessageFlow(state, f)
+		})
+	}
+	web.flowMessageState[f] = mType
 }

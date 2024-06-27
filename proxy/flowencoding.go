@@ -36,44 +36,27 @@ func (r *Response) IsTextContentType() bool {
 }
 
 func (r *Response) DecodedBody() ([]byte, error) {
-	if r.decodedBody != nil {
-		return r.decodedBody, nil
-	}
-
-	if r.decodedErr != nil {
-		return nil, r.decodedErr
-	}
-
-	if r.Body == nil {
-		return nil, nil
-	}
-
 	if len(r.Body) == 0 {
-		r.decodedBody = r.Body
-		return r.decodedBody, nil
+		return r.Body, nil
 	}
 
 	enc := r.Header.Get("Content-Encoding")
 	if enc == "" || enc == "identity" {
-		r.decodedBody = r.Body
-		return r.decodedBody, nil
+		return r.Body, nil
 	}
 
 	decodedBody, decodedErr := decode(enc, r.Body)
 	if decodedErr != nil {
-		r.decodedErr = decodedErr
-		log.Error(r.decodedErr)
+		log.Error(decodedErr)
 		return nil, decodedErr
 	}
 
-	r.decodedBody = decodedBody
-	r.decoded = true
-	return r.decodedBody, nil
+	return decodedBody, nil
 }
 
 func (r *Response) ReplaceToDecodedBody() {
 	body, err := r.DecodedBody()
-	if err != nil || body == nil {
+	if err != nil {
 		return
 	}
 

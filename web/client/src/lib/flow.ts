@@ -46,13 +46,13 @@ export interface IFlowPreview {
 export class Flow {
   public no: number
   public id: string
-  public connId: string
-  public waitIntercept: boolean
-  public request: IRequest
+  public connId!: string
+  public waitIntercept!: boolean
+  public request!: IRequest
   public response: IResponse | null = null
 
-  public url: URL
-  private path: string
+  public url!: URL
+  private path!: string
   private _size = 0
   private size = '0'
   private headerContentLengthExist = false
@@ -82,6 +82,19 @@ export class Flow {
   constructor(msg: IMessage, connMgr: ConnectionManager) {
     this.no = ++Flow.curNo
     this.id = msg.id
+    
+    this.addRequest(msg)
+
+    this._isTextRequest = null
+    this._isTextResponse = null
+    this._requestBody = null
+    this._responseBody = null
+
+    this.connMgr = connMgr
+  }
+
+  public addRequest(msg: IMessage): Flow {
+    this.status = MessageType.REQUEST
     this.waitIntercept = msg.waitIntercept
 
     const flowRequestMsg = msg.content as IFlowRequest
@@ -93,12 +106,7 @@ export class Flow {
     this.url = new URL(rawUrl)
     this.path = this.url.pathname + this.url.search
 
-    this._isTextRequest = null
-    this._isTextResponse = null
-    this._requestBody = null
-    this._responseBody = null
-
-    this.connMgr = connMgr
+    return this
   }
 
   public addRequestBody(msg: IMessage): Flow {
