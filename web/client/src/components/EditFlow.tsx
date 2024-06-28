@@ -1,4 +1,4 @@
-import React from 'react'
+import React, { useState } from 'react'
 import Button from 'react-bootstrap/Button'
 import Modal from 'react-bootstrap/Modal'
 import Form from 'react-bootstrap/Form'
@@ -101,39 +101,17 @@ interface IProps {
   onMessage: (msg: ArrayBufferLike) => void
 }
 
-interface IState {
-  show: boolean
-  alertMsg: string
-  content: string
-}
+function EditFlow({ flow, onChangeRequest, onChangeResponse, onMessage }: IProps) {
+  const when = flow.response ? 'response' : 'request'
 
-class EditFlow extends React.Component<IProps, IState> {
-  constructor(props: IProps) {
-    super(props)
+  const [show, setShow] = useState(false)
+  const [alertMsg, setAlertMsg] = useState('')
+  const [content, setContent] = useState('')
 
-    this.state = {
-      show: false,
-      alertMsg: '',
-      content: '',
-    }
-
-    this.handleClose = this.handleClose.bind(this)
-    this.handleShow = this.handleShow.bind(this)
-    this.handleSave = this.handleSave.bind(this)
-  }
-
-  showAlert(msg: string) {
-    this.setState({ alertMsg: msg })
-  }
-
-  handleClose() {
-    this.setState({ show: false })
-  }
-
-  handleShow() {
-    const { flow } = this.props
-    const when = flow.response ? 'response' : 'request'
-
+  const showAlert = (msg: string) => setAlertMsg(msg)
+  const handleClose = () => setShow(false)
+  
+  const handleShow = () => {
     let content = ''
     if (when === 'request') {
       content = stringifyRequest(flow.request)
@@ -141,89 +119,76 @@ class EditFlow extends React.Component<IProps, IState> {
       content = stringifyResponse(flow.response as IResponse)
     }
 
-    this.setState({ show: true, alertMsg: '', content })
+    setAlertMsg('')
+    setContent(content)
+    setShow(true)
   }
 
-  handleSave() {
-    const { flow } = this.props
-    const when = flow.response ? 'response' : 'request'
-
-    const { content } = this.state
-
+  const handleSave = () => {
     if (when === 'request') {
       const request = parseRequest(content)
       if (!request) {
-        this.showAlert('parse error')
+        showAlert('parse error')
         return
       }
-
-      this.props.onChangeRequest(request)
-      this.handleClose()
+      onChangeRequest(request)
+      handleClose()
     } else {
       const response = parseResponse(content)
       if (!response) {
-        this.showAlert('parse error')
+        showAlert('parse error')
         return
       }
-
-      this.props.onChangeResponse(response)
-      this.handleClose()
+      onChangeResponse(response)
+      handleClose()
     }
   }
 
-  render() {
-    const { flow } = this.props
-    if (!flow.waitIntercept) return null
+  if (!flow.waitIntercept) return null
+  return (
+    <div className="flow-wait-area">
 
-    const { alertMsg } = this.state
+      <Button size="sm" onClick={handleShow}>Edit</Button>
 
-    const when = flow.response ? 'response' : 'request'
+      <Button size="sm" onClick={() => {
+        const msgType = when === 'response' ? SendMessageType.CHANGE_RESPONSE : SendMessageType.CHANGE_REQUEST
+        const msg = buildMessageEdit(msgType, flow)
+        onMessage(msg)
+      }}>Continue</Button>
 
-    return (
-      <div className="flow-wait-area">
-
-        <Button size="sm" onClick={this.handleShow}>Edit</Button>
-
-        <Button size="sm" onClick={() => {
-          const msgType = when === 'response' ? SendMessageType.CHANGE_RESPONSE : SendMessageType.CHANGE_REQUEST
-          const msg = buildMessageEdit(msgType, flow)
-          this.props.onMessage(msg)
-        }}>Continue</Button>
-
-        <Button size="sm" onClick={() => {
-          const msgType = when === 'response' ? SendMessageType.DROP_RESPONSE : SendMessageType.DROP_REQUEST
-          const msg = buildMessageEdit(msgType, flow)
-          this.props.onMessage(msg)
-        }}>Drop</Button>
+      <Button size="sm" onClick={() => {
+        const msgType = when === 'response' ? SendMessageType.DROP_RESPONSE : SendMessageType.DROP_REQUEST
+        const msg = buildMessageEdit(msgType, flow)
+        onMessage(msg)
+      }}>Drop</Button>
 
 
-        <Modal size="lg" show={this.state.show} onHide={this.handleClose}>
-          <Modal.Header closeButton>
-            <Modal.Title>Edit {when === 'request' ? 'Request' : 'Response'}</Modal.Title>
-          </Modal.Header>
+      <Modal size="lg" show={show} onHide={handleClose}>
+        <Modal.Header closeButton>
+          <Modal.Title>Edit {when === 'request' ? 'Request' : 'Response'}</Modal.Title>
+        </Modal.Header>
 
-          <Modal.Body>
-            <Form.Group>
-              <Form.Control as="textarea" rows={10} value={this.state.content} onChange={e => { this.setState({ content: e.target.value }) }} />
-            </Form.Group>
-            {
-              !alertMsg ? null : <Alert variant="danger">{alertMsg}</Alert>
-            }
-          </Modal.Body>
+        <Modal.Body>
+          <Form.Group>
+            <Form.Control as="textarea" rows={10} value={content} onChange={e => { setContent(e.target.value) }} />
+          </Form.Group>
+          {
+            !alertMsg ? null : <Alert variant="danger">{alertMsg}</Alert>
+          }
+        </Modal.Body>
 
-          <Modal.Footer>
-            <Button variant="secondary" onClick={this.handleClose}>
-              Close
-            </Button>
-            <Button variant="primary" onClick={this.handleSave}>
-              Save
-            </Button>
-          </Modal.Footer>
-        </Modal>
+        <Modal.Footer>
+          <Button variant="secondary" onClick={handleClose}>
+            Close
+          </Button>
+          <Button variant="primary" onClick={handleSave}>
+            Save
+          </Button>
+        </Modal.Footer>
+      </Modal>
 
-      </div>
-    )
-  }
+    </div>
+  )
 }
 
 export default EditFlow
