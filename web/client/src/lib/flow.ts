@@ -66,14 +66,14 @@ export class Flow {
 
   private status: MessageType = MessageType.REQUEST
 
-  private _isTextRequest: boolean | null
-  private _isTextResponse: boolean | null
   private _requestBody: string | null
-  private _hexviewRequestBody: string | null = null
-  private _responseBody: string | null
-
-  private _previewResponseBody: IPreviewBody | null = null
+  private _isTextRequest: boolean | null
   private _previewRequestBody: IPreviewBody | null = null
+  private _hexviewRequestBody: string | null = null
+
+  private _responseBody: string | null
+  private _isTextResponse: boolean | null
+  private _previewResponseBody: IPreviewBody | null = null
   private _hexviewResponseBody: string | null = null
 
   private connMgr: ConnectionManager
@@ -113,6 +113,10 @@ export class Flow {
     this.status = MessageType.REQUEST_BODY
     this.waitIntercept = msg.waitIntercept
     this.request.body = msg.content as ArrayBuffer
+    this._requestBody = null
+    this._isTextRequest = null
+    this._previewRequestBody = null
+    this._hexviewRequestBody = null
     return this
   }
 
@@ -139,7 +143,13 @@ export class Flow {
   public addResponseBody(msg: IMessage): Flow {
     this.status = MessageType.RESPONSE_BODY
     this.waitIntercept = msg.waitIntercept
-    if (this.response) this.response.body = msg.content as ArrayBuffer
+    if (this.response) {
+      this.response.body = msg.content as ArrayBuffer
+      this._responseBody = null
+      this._isTextResponse = null
+      this._previewResponseBody = null
+      this._hexviewResponseBody = null
+    }
     this.endTime = Date.now()
     this.costTime = String(this.endTime - this.startTime) + ' ms'
 
