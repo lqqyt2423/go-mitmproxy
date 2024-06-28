@@ -7,6 +7,8 @@ import JSONPretty from 'react-json-pretty'
 import { isTextBody } from '../lib/utils'
 import type { Flow, IResponse } from '../lib/flow'
 import EditFlow from './EditFlow'
+import { useSize } from 'ahooks'
+import { ResizerItem } from './ResizerItem'
 
 interface Iprops {
   flow: Flow | null
@@ -16,6 +18,12 @@ interface Iprops {
 }
 
 function ViewFlow({ flow, onClose, onReRenderFlows, onMessage }: Iprops) {
+  const bodySize = useSize(document.querySelector('body'))
+  const initWrapWidth = bodySize ? bodySize.width / 2 : 500
+  const maxWrapWidth = bodySize ? bodySize.width * 0.9 : 1000
+  const minWrapWidth = 500
+  const [wrapWidth, setWrapWidth] = useState(initWrapWidth)
+
   const [flowTab, setFlowTab] = useState<'Headers' | 'Preview' | 'Response' | 'Hexview' | 'Detail'>('Detail')
   const [copied, setCopied] = useState(false)
   const [requestBodyViewTab, setRequestBodyViewTab] = useState<'Raw' | 'Preview'>('Raw')
@@ -162,7 +170,15 @@ function ViewFlow({ flow, onClose, onReRenderFlows, onMessage }: Iprops) {
   }
 
   return (
-    <div className="flow-detail">
+    <div className="flow-detail" style={{ width: wrapWidth }}>
+      <ResizerItem
+        width={wrapWidth}
+        setWidth={setWrapWidth}
+        left={0}
+        minWidth={minWrapWidth}
+        maxWidth={maxWrapWidth}
+      />
+        
       <div className="header-tabs">
         <span
           style={{

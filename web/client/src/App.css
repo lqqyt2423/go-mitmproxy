@@ -3,7 +3,7 @@ body {
 }
 
 .main-table-wrap {
-  font-family: Menlo,Monaco;
+  font-family: Menlo, Monaco;
   font-size: 0.8rem;
   display: flex;
   flex-flow: column;
@@ -16,7 +16,7 @@ body {
   border-top: 1px solid rgb(222, 226, 230);
 }
 
-.table-wrap-div .table>:not(:first-child) {
+.table-wrap-div .table > :not(:first-child) {
   border-top: 0 solid rgb(222, 226, 230);
 }
 
@@ -30,7 +30,7 @@ body {
   background-color: white;
   position: sticky;
   top: 0;
-  background: linear-gradient(to top,rgb(33, 37, 41), rgb(33, 37, 41) 2px, white 1px, white 100%);
+  background: linear-gradient(to top, rgb(33, 37, 41), rgb(33, 37, 41) 2px, white 1px, white 100%);
 }
 
 .main-table-wrap table td {
@@ -68,8 +68,6 @@ body {
   border-top: 2px solid rgb(222, 226, 230);
   height: calc(100vh - 51px);
   background-color: #fff;
-  min-width: 500px;
-  width: 50%;
   overflow-y: auto;
 
   word-break: break-all;
