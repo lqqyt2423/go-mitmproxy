@@ -13,29 +13,36 @@ body {
 .table-wrap-div {
   flex: 1;
   overflow: auto;
-  border-top: 1px solid rgb(222, 226, 230);
 }
 
-.table-wrap-div .table > :not(:first-child) {
-  border-top: 0 solid rgb(222, 226, 230);
-}
-
-.table-wrap-div .table {
+/* https://stackoverflow.com/questions/50361698/border-style-do-not-work-with-sticky-position-element */
+.table-wrap-div table {
   margin-bottom: 0;
+  border-collapse: separate;
+  border-spacing: 0;
 }
 
-/* https://codepen.io/Ray-H/pen/bMedLL */
 .table-wrap-div thead tr {
-  border-width: 0;
-  background-color: white;
   position: sticky;
   top: 0;
-  background: linear-gradient(to top, rgb(33, 37, 41), rgb(33, 37, 41) 2px, white 1px, white 100%);
+}
+
+.main-table-wrap table th {
+  border-top: 1px solid rgb(222, 226, 230);
+  border-bottom: 1px solid rgb(222, 226, 230);
+  border-right: 1px solid rgb(222, 226, 230);
 }
 
 .main-table-wrap table td {
   overflow: hidden;
   white-space: nowrap;
+  border-bottom: 1px solid rgb(222, 226, 230);
+  border-right: 1px solid rgb(222, 226, 230);
+}
+
+.main-table-wrap table th:last-child,
+.main-table-wrap table td:last-child {
+  border-right: 0;
 }
 
 .top-control {
@@ -46,7 +53,7 @@ body {
   padding: 10px;
 }
 
-.main-table-wrap tbody tr.tr-selected {
+.main-table-wrap tbody tr.tr-selected td {
   background-color: rgb(35, 118, 229);
   color: white;
 }

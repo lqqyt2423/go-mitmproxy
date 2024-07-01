@@ -218,7 +218,7 @@ class App extends React.Component<IProps, IState> {
         </div>
 
         <div className="table-wrap-div">
-          <Table striped bordered size="sm" style={{ tableLayout: 'fixed' }}>
+          <Table striped size="sm" style={{ tableLayout: 'fixed' }}>
             <thead>
               <tr>
                 <Resizer width={50}>No</Resizer>
