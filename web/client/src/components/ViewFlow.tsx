@@ -9,6 +9,7 @@ import type { Flow, IResponse } from '../lib/flow'
 import EditFlow from './EditFlow'
 import { useSize } from 'ahooks'
 import { ResizerItem } from './ResizerItem'
+import { configViewFlowRequestBodyTab, configViewFlowResponseBodyLineBreak, configViewFlowTab, useConfig } from '../lib/config'
 
 interface Iprops {
   flow: Flow | null
@@ -24,10 +25,10 @@ function ViewFlow({ flow, onClose, onReRenderFlows, onMessage }: Iprops) {
   const minWrapWidth = 500
   const [wrapWidth, setWrapWidth] = useState(initWrapWidth)
 
-  const [flowTab, setFlowTab] = useState<'Headers' | 'Preview' | 'Response' | 'Hexview' | 'Detail'>('Detail')
+  const [flowTab, setFlowTab] = useConfig(configViewFlowTab)
   const [copied, setCopied] = useState(false)
-  const [requestBodyViewTab, setRequestBodyViewTab] = useState<'Raw' | 'Preview'>('Raw')
-  const [responseBodyLineBreak, setResponseBodyLineBreak] = useState(false)
+  const [requestBodyViewTab, setRequestBodyViewTab] = useConfig(configViewFlowRequestBodyTab)
+  const [responseBodyLineBreak, setResponseBodyLineBreak] = useConfig(configViewFlowResponseBodyLineBreak)
 
   const copyAsCurl = () => {
     if (!flow) return null
