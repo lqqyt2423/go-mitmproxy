@@ -58,7 +58,7 @@ body {
   color: white;
 }
 
-.main-table-wrap tbody tr.tr-wait-intercept {
+.main-table-wrap tbody tr.tr-wait-intercept td {
   background-color: rgb(216, 110, 83);
   color: white;
 }
