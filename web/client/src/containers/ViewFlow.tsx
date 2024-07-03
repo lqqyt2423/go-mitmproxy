@@ -4,12 +4,12 @@ import FormCheck from 'react-bootstrap/FormCheck'
 import fetchToCurl from 'fetch-to-curl'
 import copy from 'copy-to-clipboard'
 import JSONPretty from 'react-json-pretty'
-import { isTextBody } from '../lib/utils'
-import type { Flow, IResponse } from '../lib/flow'
+import { isTextBody } from '../utils/utils'
+import type { Flow, IResponse } from '../utils/flow'
 import EditFlow from './EditFlow'
 import { useSize } from 'ahooks'
-import { ResizerItem } from './ResizerItem'
-import { configViewFlowRequestBodyTab, configViewFlowResponseBodyLineBreak, configViewFlowTab, useConfig } from '../lib/config'
+import { ResizerItem } from '../components/ResizerItem'
+import { configViewFlowRequestBodyTab, configViewFlowResponseBodyLineBreak, configViewFlowTab, useConfig } from '../utils/config'
 
 interface Iprops {
   flow: Flow | null

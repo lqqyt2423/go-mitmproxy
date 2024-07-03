@@ -1,6 +1,6 @@
 import React from 'react'
-import { shallowEqual } from '../lib/utils'
-import type { IFlowPreview } from '../lib/flow'
+import { shallowEqual } from '../utils/utils'
+import type { IFlowPreview } from '../utils/flow'
 
 interface IProps {
   flow: IFlowPreview

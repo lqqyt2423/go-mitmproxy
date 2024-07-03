@@ -6,15 +6,15 @@ import './App.css'
 import GitHubLogo from './github-mark.svg'
 import Badge from 'react-bootstrap/Badge'
 
-import BreakPoint from './components/BreakPoint'
-import FlowPreview from './components/FlowPreview'
-import ViewFlow from './components/ViewFlow'
+import BreakPoint from './containers/BreakPoint'
+import FlowPreview from './containers/FlowPreview'
+import ViewFlow from './containers/ViewFlow'
 import Resizer from './components/Resizer'
 
-import { Flow, FlowManager } from './lib/flow'
-import { parseMessage, SendMessageType, buildMessageMeta, MessageType } from './lib/message'
-import { isInViewPort } from './lib/utils'
-import { ConnectionManager, IConnection } from './lib/connection'
+import { Flow, FlowManager } from './utils/flow'
+import { parseMessage, SendMessageType, buildMessageMeta, MessageType } from './utils/message'
+import { isInViewPort } from './utils/utils'
+import { ConnectionManager, IConnection } from './utils/connection'
 
 interface IState {
   flows: Flow[]

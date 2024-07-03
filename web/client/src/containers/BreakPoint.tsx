@@ -4,7 +4,7 @@ import Modal from 'react-bootstrap/Modal'
 import Form from 'react-bootstrap/Form'
 import Row from 'react-bootstrap/Row'
 import Col from 'react-bootstrap/Col'
-import { BreakPointRuleAction, BreakPointRuleMethod, IBreakPointRule, configBreakPointRule, useConfig } from '../lib/config'
+import { BreakPointRuleAction, BreakPointRuleMethod, IBreakPointRule, configBreakPointRule, useConfig } from '../utils/config'
 
 interface IProps {
   onSave: (rules: IBreakPointRule[]) => void
