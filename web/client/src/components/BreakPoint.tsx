@@ -1,25 +1,18 @@
-import React, { useState } from 'react'
+import React, { useEffect, useState } from 'react'
 import Button from 'react-bootstrap/Button'
 import Modal from 'react-bootstrap/Modal'
 import Form from 'react-bootstrap/Form'
 import Row from 'react-bootstrap/Row'
 import Col from 'react-bootstrap/Col'
-
-type Method = 'ALL' | 'GET' | 'POST' | 'PUT' | 'DELETE' | ''
-type Action = 1 | 2 | 3
-interface IRule {
-  method: Method
-  url: string
-  action: Action
-}
+import { BreakPointRuleAction, BreakPointRuleMethod, IBreakPointRule, configBreakPointRule, useConfig } from '../lib/config'
 
 interface IProps {
-  onSave: (rules: IRule[]) => void
+  onSave: (rules: IBreakPointRule[]) => void
 }
 
 function BreakPoint({ onSave }: IProps) {
   const [show, setShow] = useState(false)
-  const [rule, setRule] = useState<IRule>({ method: 'ALL', url: '', action: 1 })
+  const [rule, setRule] = useConfig(configBreakPointRule)
   const [haveRules, setHaveRules] = useState(false)
 
   const variant = haveRules ? 'success' : 'primary'
@@ -27,7 +20,7 @@ function BreakPoint({ onSave }: IProps) {
   const handleClose = () => setShow(false)
   const handleShow = () => setShow(true)
   const handleSave = () => {
-    const rules: IRule[] = []
+    const rules: IBreakPointRule[] = []
     if (rule.url) {
       rules.push({
         method: rule.method === 'ALL' ? '' : rule.method,
@@ -39,6 +32,10 @@ function BreakPoint({ onSave }: IProps) {
     handleClose()
     setHaveRules(rules.length ? true : false)
   }
+
+  useEffect(() => {
+    handleSave()
+  }, [])
 
   return (
     <div>
@@ -53,7 +50,7 @@ function BreakPoint({ onSave }: IProps) {
           <Form.Group as={Row}>
             <Form.Label column sm={2}>Method</Form.Label>
             <Col sm={10}>
-              <Form.Control as="select" value={rule.method} onChange={e => { setRule({ ...rule, method: e.target.value as Method }) }}>
+              <Form.Control as="select" value={rule.method} onChange={e => { setRule({ ...rule, method: e.target.value as BreakPointRuleMethod }) }}>
                 <option>ALL</option>
                 <option>GET</option>
                 <option>POST</option>
@@ -71,7 +68,7 @@ function BreakPoint({ onSave }: IProps) {
           <Form.Group as={Row}>
             <Form.Label column sm={2}>Action</Form.Label>
             <Col sm={10}>
-              <Form.Control as="select" value={rule.action} onChange={e => { setRule({ ...rule, action: parseInt(e.target.value) as Action }) }}>
+              <Form.Control as="select" value={rule.action} onChange={e => { setRule({ ...rule, action: parseInt(e.target.value) as BreakPointRuleAction }) }}>
                 <option value="1">Request</option>
                 <option value="2">Response</option>
                 <option value="3">Both</option>

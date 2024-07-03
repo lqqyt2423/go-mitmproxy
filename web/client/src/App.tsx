@@ -32,6 +32,7 @@ class App extends React.Component<IProps, IState> {
   private connMgr: ConnectionManager
   private flowMgr: FlowManager
   private ws: WebSocket | null
+  private pendingMessages: Array<string | ArrayBufferLike | Blob | ArrayBufferView>
   private wsUnmountClose: boolean
   private tableBottomRef: React.RefObject<HTMLDivElement>
 
@@ -51,6 +52,7 @@ class App extends React.Component<IProps, IState> {
     }
 
     this.ws = null
+    this.pendingMessages = []
     this.wsUnmountClose = false
     this.tableBottomRef = React.createRef<HTMLDivElement>()
   }
@@ -84,6 +86,11 @@ class App extends React.Component<IProps, IState> {
     this.ws.onopen = () => {
       this.wsReconnCount = -1
       this.setState({ wsStatus: 'open' })
+
+      for (const msg of this.pendingMessages) {
+        this.ws?.send(msg)
+      }
+      this.pendingMessages = []
     }
 
     this.ws.onerror = evt => {
@@ -170,6 +177,18 @@ class App extends React.Component<IProps, IState> {
     }
   }
 
+  wsSend(msg: string | ArrayBufferLike | Blob | ArrayBufferView) {
+    if (this.ws && this.ws.readyState === WebSocket.OPEN) {
+      this.ws.send(msg)
+      return
+    }
+    this.pendingMessages.push(msg)
+    // 先最多保留10条
+    if (this.pendingMessages.length > 10) {
+      this.pendingMessages = this.pendingMessages.slice(this.pendingMessages.length - 10)
+    }
+  }
+
   render() {
     const { flows } = this.state
     return (
@@ -204,7 +223,7 @@ class App extends React.Component<IProps, IState> {
             <div style={{ marginRight: '10px' }}>
               <BreakPoint onSave={rules => {
                 const msg = buildMessageMeta(SendMessageType.CHANGE_BREAK_POINT_RULES, rules)
-                if (this.ws) this.ws.send(msg)
+                this.wsSend(msg)
               }} />
             </div>
           </div>
@@ -257,7 +276,7 @@ class App extends React.Component<IProps, IState> {
           flow={this.state.flow}
           onClose={() => { this.setState({ flow: null }) }}
           onReRenderFlows={() => { this.setState({ flows: this.state.flows }) }}
-          onMessage={msg => { if (this.ws) this.ws.send(msg) }}
+          onMessage={msg => { this.wsSend(msg) }}
         />
       </div>
     )

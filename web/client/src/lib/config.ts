@@ -43,3 +43,30 @@ export const configViewFlowRequestBodyTab = (() => {
     set: (value: Value) => localStorage.setItem(key, value),
   }
 })()
+
+export type BreakPointRuleMethod = 'ALL' | 'GET' | 'POST' | 'PUT' | 'DELETE' | ''
+export type BreakPointRuleAction = 1 | 2 | 3
+export interface IBreakPointRule {
+  method: BreakPointRuleMethod
+  url: string
+  action: BreakPointRuleAction
+}
+export const configBreakPointRule = (() => {
+  const key = 'go-mitm.configBreakPointRule'
+  return {
+    get: () => {
+      let rule: IBreakPointRule | undefined
+      const str = localStorage.getItem(key)
+      if (str) {
+        try {
+          rule = JSON.parse(str)
+        } catch (err) {
+          // do nothing
+        }
+      }
+      if (!rule) rule = { method: 'ALL', url: '', action: 1 }
+      return rule
+    },
+    set: (value: IBreakPointRule) => localStorage.setItem(key, JSON.stringify(value)),
+  }
+})()
