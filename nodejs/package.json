@@ -1,0 +1,19 @@
+{
+  "name": "ngmp",
+  "main": "index.js",
+  "dependencies": {
+    "node-addon-api": "^4.0.0"
+  },
+  "scripts": {
+    "install": "node-gyp rebuild",
+    "test": "node test.js"
+  },
+  "engines": {
+    "node": ">= 10.16.0"
+  },
+  "version": "1.0.2",
+  "description": "An promise callback demo",
+  "author": "Node-API Team",
+  "license": "ISC",
+  "gypfile": true
+}
