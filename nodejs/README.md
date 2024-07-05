@@ -16,6 +16,8 @@ ngmp();
 
 ## 开发
 
+思路：c++ 里面循环调用 golang 方法，golang 方法阻塞，直到有数据，然后再 NonBlockingCall 至 js callback 中
+
 ### 编译 golang 代码为静态库
 
 ```bash
