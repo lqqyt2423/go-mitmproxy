@@ -16,7 +16,7 @@ ngmp();
 
 ## 开发
 
-思路：c++ 里面循环调用 golang 方法，golang 方法阻塞，直到有数据，然后再 NonBlockingCall 至 js callback 中
+思路：c++ 里面循环调用 golang 方法，golang 方法阻塞，直到有数据，然后再 BlockingCall 至 js callback 中
 
 ### 编译 golang 代码为静态库
 
@@ -42,5 +42,5 @@ npm publish
 ## 参考
 
 - [golang cgo](https://pkg.go.dev/cmd/cgo)
-- [node-addon-examples/promise_callback_demo.cc](https://github.com/nodejs/node-addon-examples/blob/main/src/6-threadsafe-function/promise-callback-demo/node-addon-api/src/promise_callback_demo.cc)
+- [node-addon-examples/thread_safe_function_counting](https://github.com/nodejs/node-addon-examples/blob/main/src/6-threadsafe-function/thread_safe_function_counting/node-addon-api/addon.cc)
 - [How to publish a n-api module](https://gist.github.com/gabrielschulhof/153edf2819362b8b50758d5ab4ff5e0e)

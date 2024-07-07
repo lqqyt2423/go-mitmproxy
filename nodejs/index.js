@@ -1,17 +1,9 @@
-'use strict';
+const { createTSFN } = require('bindings')('ngmp_addon');
 
-const { PromiseCallbackDemo } = require('./build/Release/ngmp_addon');
+const callback = (...args) => {
+  console.log(new Date(), ...args);
+};
 
-module.exports = function () {
-  let shouldFail = false;
-  // Resolve or reject a promise with an ISO date format after 100 milliseconds
-  function jsCallback() {
-    return new Promise((resolve, reject) =>
-      setTimeout(() => {
-        ((shouldFail = !shouldFail) ? reject : resolve)(new Date().toISOString());
-      }, 100)
-    );
-  }
-
-  new PromiseCallbackDemo(jsCallback);
+module.exports = async function () {
+  console.log(await createTSFN(callback));
 };

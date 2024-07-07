@@ -2,7 +2,7 @@
     "targets": [
         {
             "target_name": "ngmp_addon",
-            "sources": ["promise_callback_demo.cc"],
+            "sources": ["addon.cc"],
             "include_dirs": ["<!@(node -p \"require('node-addon-api').include\")"],
             "dependencies": ["<!(node -p \"require('node-addon-api').gyp\")"],
             "cflags!": ["-fno-exceptions"],
