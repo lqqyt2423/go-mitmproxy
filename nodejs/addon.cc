@@ -1,24 +1,18 @@
 #include <chrono>
 #include <thread>
-#include "napi.h"
+#include <napi.h>
 #include "libngmp.h"
-
-constexpr size_t ARRAY_LENGTH = 10;
+// #include <stdio.h>
 
 // Data structure representing our thread-safe function context.
 struct TsfnContext {
-  TsfnContext(Napi::Env env) : deferred(Napi::Promise::Deferred::New(env)) {
-    for (size_t i = 0; i < ARRAY_LENGTH; ++i) ints[i] = i;
-  };
+  TsfnContext(Napi::Env env) : deferred(Napi::Promise::Deferred::New(env)) {};
 
   // Native Promise returned to JavaScript
   Napi::Promise::Deferred deferred;
 
   // Native thread
   std::thread nativeThread;
-
-  // Some data to pass around
-  int ints[ARRAY_LENGTH];
 
   Napi::ThreadSafeFunction tsfn;
 };
@@ -35,6 +29,8 @@ void FinalizerCallback(Napi::Env env, void* finalizeData, TsfnContext* context);
 // Exported JavaScript function. Creates the thread-safe function and native
 // thread. Promise is resolved in the thread-safe function's finalizer.
 Napi::Value CreateTSFN(const Napi::CallbackInfo& info) {
+  StartProxy();
+
   Napi::Env env = info.Env();
 
   // Construct context data
@@ -64,24 +60,23 @@ void threadEntry(TsfnContext* context) {
   // This callback transforms the native addon data (int *data) to JavaScript
   // values. It also receives the treadsafe-function's registered callback, and
   // may choose to call it.
-  auto callback = [](Napi::Env env, Napi::Function jsCallback, int* data) {
-    jsCallback.Call({Napi::Number::New(env, *data)});
+  auto callback = [](Napi::Env env, Napi::Function jsCallback, char* nf) {
+    jsCallback.Call({Napi::String::New(env, nf)});
+    free(nf);
   };
 
-  for (size_t index = 0; index < ARRAY_LENGTH; ++index) {
+  char *nf;
+  while ((nf = AcceptFlow()) != NULL) {
+    // printf("c flow: %p %s\n", nf, nf);
     // Perform a call into JavaScript.
     napi_status status =
-        context->tsfn.BlockingCall(&context->ints[index], callback);
-    
-    Greet();
+        context->tsfn.BlockingCall(nf, callback);
 
     if (status != napi_ok) {
       Napi::Error::Fatal(
           "ThreadEntry",
           "Napi::ThreadSafeNapi::Function.BlockingCall() failed");
     }
-    // Sleep for some time.
-    std::this_thread::sleep_for(std::chrono::milliseconds(200));
   }
 
   // Release the thread-safe function. This decrements the internal thread

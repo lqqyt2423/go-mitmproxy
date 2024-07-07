@@ -42,5 +42,6 @@ npm publish
 ## 参考
 
 - [golang cgo](https://pkg.go.dev/cmd/cgo)
+- [cgo export struct](https://github.com/golang/go/issues/18412#issuecomment-268847417)
 - [node-addon-examples/thread_safe_function_counting](https://github.com/nodejs/node-addon-examples/blob/main/src/6-threadsafe-function/thread_safe_function_counting/node-addon-api/addon.cc)
 - [How to publish a n-api module](https://gist.github.com/gabrielschulhof/153edf2819362b8b50758d5ab4ff5e0e)
