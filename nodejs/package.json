@@ -3,7 +3,8 @@
   "main": "index.js",
   "dependencies": {
     "bindings": "^1.5.0",
-    "node-addon-api": "^4.0.0"
+    "node-addon-api": "^4.0.0",
+    "on-change": "^2.2.3"
   },
   "scripts": {
     "install": "node-gyp rebuild",

@@ -6,7 +6,6 @@ import (
 	"fmt"
 	"log"
 	"net/http"
-	"net/url"
 
 	"github.com/lqqyt2423/go-mitmproxy/proxy"
 	"github.com/lqqyt2423/go-mitmproxy/web"
@@ -95,7 +94,7 @@ type NFlow struct {
 }
 type NRequest struct {
 	Method string      `json:"method"`
-	URL    *url.URL    `json:"url"`
+	URL    string      `json:"url"`
 	Proto  string      `json:"proto"`
 	Header http.Header `json:"header"`
 	Body   []byte      `json:"body"`
@@ -122,7 +121,7 @@ func getNodejsFlow(f *proxy.Flow, at FlowHook) (*C.char, error) {
 			Id: f.Id,
 			Request: &NRequest{
 				Method: f.Request.Method,
-				URL:    f.Request.URL,
+				URL:    f.Request.URL.String(),
 				Proto:  f.Request.Proto,
 				Header: f.Request.Header,
 				Body:   f.Request.Body,

@@ -1,6 +1,12 @@
 'use strict';
 
 const { createTSFN, closeMitmProxy } = require('bindings')('ngmp_addon');
+const onChange = require('on-change');
+
+// todo: add golang method
+const ackMessage = (hookAt, action, payload) => {
+  console.log('ackMessage', hookAt, action, payload?.id);
+};
 
 const newMitmProxy = async function (handlers = {}) {
   const onMessage = (msg) => {
@@ -14,18 +20,26 @@ const newMitmProxy = async function (handlers = {}) {
     const handler = handlers[`hook${payload.hookAt}`];
     if (!handler) return;
 
-    const flow = new Proxy(payload.flow, {
-      set(target, property, value, receiver) {
-        console.log(`setting ${property}=${value}`);
-        return Reflect.set(...arguments);
-      },
+    const rawId = payload.flow.id;
+    payload.flow._dirty = false;
+    const flow = onChange(payload.flow, function (path, value, previousValue, name) {
+      payload.flow._dirty = true;
     });
 
     Promise.resolve()
       .then(() => handler(flow))
-      .then((res) => {
-        console.log('ok');
-        console.log(res);
+      .then((mayChangedFlow) => {
+        mayChangedFlow = mayChangedFlow || flow;
+        if (mayChangedFlow.id !== rawId) {
+          ackMessage(payload.hookAt, 'noChange', null);
+          return;
+        }
+
+        if (mayChangedFlow._dirty === true || mayChangedFlow._dirty == null) {
+          ackMessage(payload.hookAt, 'change', mayChangedFlow);
+        } else {
+          ackMessage(payload.hookAt, 'noChange', null);
+        }
       })
       .catch((err) => {
         console.error(err);
