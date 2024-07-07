@@ -21,6 +21,7 @@ func StartProxy() {
 	if err != nil {
 		log.Fatal(err)
 	}
+	globalProxy = p
 
 	fmt.Println("go-mitmproxy: " + p.Version)
 
@@ -33,12 +34,21 @@ func StartProxy() {
 	}()
 }
 
+//export CloseProxy
+func CloseProxy() {
+	close(nodejsFlowChan)
+	if globalProxy != nil {
+		globalProxy.Close()
+	}
+}
+
 //export AcceptFlow
 func AcceptFlow() *C.char {
 	nf := <-nodejsFlowChan
 	return nf
 }
 
+var globalProxy *proxy.Proxy
 var nodejsFlowChan = make(chan *C.char)
 
 type NodejsAddon struct {

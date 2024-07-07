@@ -1,8 +1,8 @@
 'use strict';
 
-const { createTSFN } = require('bindings')('ngmp_addon');
+const { createTSFN, closeMitmProxy } = require('bindings')('ngmp_addon');
 
-module.exports = async function (handlers = {}) {
+const newMitmProxy = async function (handlers = {}) {
   const onMessage = (msg) => {
     let payload;
     try {
@@ -33,4 +33,9 @@ module.exports = async function (handlers = {}) {
   };
 
   await createTSFN(onMessage);
+};
+
+module.exports = {
+  newMitmProxy,
+  closeMitmProxy,
 };

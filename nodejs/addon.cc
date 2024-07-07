@@ -95,9 +95,14 @@ void FinalizerCallback(Napi::Env env,
   delete context;
 }
 
+Napi::Value CloseMitmProxy(const Napi::CallbackInfo& info) {
+  CloseProxy();
+}
+
 // Addon entry point
 Napi::Object Init(Napi::Env env, Napi::Object exports) {
   exports["createTSFN"] = Napi::Function::New(env, CreateTSFN);
+  exports["closeMitmProxy"] = Napi::Function::New(env, CloseMitmProxy);
   return exports;
 }
 

@@ -75,6 +75,7 @@ extern "C" {
 #endif
 
 extern void StartProxy();
+extern void CloseProxy();
 extern char* AcceptFlow();
 
 #ifdef __cplusplus
