@@ -5,9 +5,12 @@ import (
 	"encoding/json"
 	"fmt"
 	"log"
+	"net/http"
+	"net/url"
 
 	"github.com/lqqyt2423/go-mitmproxy/proxy"
 	"github.com/lqqyt2423/go-mitmproxy/web"
+	uuid "github.com/satori/go.uuid"
 )
 
 func main() {}
@@ -56,12 +59,19 @@ type NodejsAddon struct {
 }
 
 func (a *NodejsAddon) Requestheaders(f *proxy.Flow) {
-	nf, err := getNodejsFlow(f, FlowHookRequestheaders)
-	if err != nil {
-		log.Printf("getNodejsFlow error: %v\n", err)
-		return
-	}
-	nodejsFlowChan <- nf
+	toNodejs(f, FlowHookRequestheaders)
+}
+
+func (a *NodejsAddon) Request(f *proxy.Flow) {
+	toNodejs(f, FlowHookRequest)
+}
+
+func (a *NodejsAddon) Responseheaders(f *proxy.Flow) {
+	toNodejs(f, FlowHookResponseheaders)
+}
+
+func (a *NodejsAddon) Response(f *proxy.Flow) {
+	toNodejs(f, FlowHookResponse)
 }
 
 type FlowHook string
@@ -74,14 +84,57 @@ const (
 )
 
 type NodejsFlow struct {
-	HookAt FlowHook    `json:"hookAt"`
-	Flow   *proxy.Flow `json:"flow"`
+	HookAt FlowHook `json:"hookAt"`
+	Flow   *NFlow   `json:"flow"`
+}
+
+type NFlow struct {
+	Id       uuid.UUID  `json:"id"`
+	Request  *NRequest  `json:"request"`
+	Response *NResponse `json:"response"`
+}
+type NRequest struct {
+	Method string      `json:"method"`
+	URL    *url.URL    `json:"url"`
+	Proto  string      `json:"proto"`
+	Header http.Header `json:"header"`
+	Body   []byte      `json:"body"`
+}
+type NResponse struct {
+	StatusCode int         `json:"statusCode"`
+	Header     http.Header `json:"header"`
+	Body       []byte      `json:"body"`
+}
+
+func toNodejs(f *proxy.Flow, at FlowHook) {
+	nf, err := getNodejsFlow(f, at)
+	if err != nil {
+		log.Printf("getNodejsFlow error: %v\n", err)
+		return
+	}
+	nodejsFlowChan <- nf
 }
 
 func getNodejsFlow(f *proxy.Flow, at FlowHook) (*C.char, error) {
 	nf := &NodejsFlow{
 		HookAt: at,
-		Flow:   f,
+		Flow: &NFlow{
+			Id: f.Id,
+			Request: &NRequest{
+				Method: f.Request.Method,
+				URL:    f.Request.URL,
+				Proto:  f.Request.Proto,
+				Header: f.Request.Header,
+				Body:   f.Request.Body,
+			},
+		},
+	}
+	if f.Response != nil {
+		nf.Flow.Response = &NResponse{
+			StatusCode: f.Response.StatusCode,
+			Header:     f.Response.Header,
+			Body:       f.Response.Body,
+		}
 	}
 	content, err := json.Marshal(nf)
 	if err != nil {

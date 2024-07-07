@@ -97,7 +97,7 @@ type Response struct {
 	StatusCode int         `json:"statusCode"`
 	Header     http.Header `json:"header"`
 	Body       []byte      `json:"-"`
-	BodyReader io.Reader
+	BodyReader io.Reader   `json:"-"`
 
 	close bool // connection close
 }
