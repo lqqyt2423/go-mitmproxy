@@ -47,10 +47,29 @@ const newMitmProxy = async function (handlers = {}) {
 
     const rawId = payload.flow.id;
     let dirty = false;
-    // todo: change this pkg
-    const flow = onChange(payload.flow, function (path, value, previousValue, name) {
-      dirty = true;
+
+    let flow = new Proxy(payload.flow, {});
+    flow.request = new Proxy(flow.request, {
+      set(target, property, value, receiver) {
+        dirty = true;
+        return Reflect.set(...arguments);
+      },
     });
+    if (flow.response) {
+      flow.response = new Proxy(flow.response, {
+        set(target, property, value, receiver) {
+          dirty = true;
+          return Reflect.set(...arguments);
+        },
+      });
+    }
+    flow = onChange(
+      flow,
+      function (path, value, previousValue, name) {
+        dirty = true;
+      },
+      { ignoreKeys: ['body'] } // buffer 会报错
+    );
 
     Promise.resolve()
       .then(() => handler(flow))
