@@ -17,28 +17,41 @@ const newMitmProxy = async function (handlers = {}) {
       return;
     }
 
-    const handler = handlers[`hook${payload.hookAt}`];
-    if (!handler) return;
+    const hookAt = payload.hookAt;
+    const ackMessageNoChange = () => ackMessage(hookAt, 'noChange', null);
+    const ackMessageChange = (payload) => ackMessage(hookAt, 'change', payload);
+
+    const handler = handlers[`hook${hookAt}`];
+    if (!handler) {
+      ackMessageNoChange();
+      return;
+    }
 
     const rawId = payload.flow.id;
-    payload.flow._dirty = false;
+    let dirty = false;
     const flow = onChange(payload.flow, function (path, value, previousValue, name) {
-      payload.flow._dirty = true;
+      dirty = true;
     });
 
     Promise.resolve()
       .then(() => handler(flow))
       .then((mayChangedFlow) => {
-        mayChangedFlow = mayChangedFlow || flow;
+        if (!mayChangedFlow) mayChangedFlow = flow;
+
         if (mayChangedFlow.id !== rawId) {
-          ackMessage(payload.hookAt, 'noChange', null);
+          ackMessageNoChange();
           return;
         }
 
-        if (mayChangedFlow._dirty === true || mayChangedFlow._dirty == null) {
-          ackMessage(payload.hookAt, 'change', mayChangedFlow);
+        if (mayChangedFlow !== flow) {
+          ackMessageChange(mayChangedFlow);
+          return;
+        }
+
+        if (dirty) {
+          ackMessageChange(flow);
         } else {
-          ackMessage(payload.hookAt, 'noChange', null);
+          ackMessageNoChange();
         }
       })
       .catch((err) => {

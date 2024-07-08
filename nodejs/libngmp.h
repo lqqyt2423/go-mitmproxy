@@ -74,9 +74,9 @@ typedef struct { void *data; GoInt len; GoInt cap; } GoSlice;
 extern "C" {
 #endif
 
-extern void StartProxy();
-extern void CloseProxy();
-extern char* AcceptFlow();
+extern void GoStartProxy();
+extern void GoCloseProxy();
+extern char* GoAcceptFlow();
 
 #ifdef __cplusplus
 }

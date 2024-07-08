@@ -29,7 +29,7 @@ void FinalizerCallback(Napi::Env env, void* finalizeData, TsfnContext* context);
 // Exported JavaScript function. Creates the thread-safe function and native
 // thread. Promise is resolved in the thread-safe function's finalizer.
 Napi::Value CreateTSFN(const Napi::CallbackInfo& info) {
-  StartProxy();
+  GoStartProxy();
 
   Napi::Env env = info.Env();
 
@@ -66,7 +66,7 @@ void threadEntry(TsfnContext* context) {
   };
 
   char *nf;
-  while ((nf = AcceptFlow()) != NULL) {
+  while ((nf = GoAcceptFlow()) != NULL) {
     // printf("c flow: %p %s\n", nf, nf);
     // Perform a call into JavaScript.
     napi_status status =
@@ -96,7 +96,7 @@ void FinalizerCallback(Napi::Env env,
 }
 
 Napi::Value CloseMitmProxy(const Napi::CallbackInfo& info) {
-  CloseProxy();
+  GoCloseProxy();
 }
 
 // Addon entry point

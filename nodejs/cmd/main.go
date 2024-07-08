@@ -14,8 +14,8 @@ import (
 
 func main() {}
 
-//export StartProxy
-func StartProxy() {
+//export GoStartProxy
+func GoStartProxy() {
 	opts := &proxy.Options{
 		Addr: ":9080",
 	}
@@ -36,16 +36,16 @@ func StartProxy() {
 	}()
 }
 
-//export CloseProxy
-func CloseProxy() {
+//export GoCloseProxy
+func GoCloseProxy() {
 	close(nodejsFlowChan)
 	if globalProxy != nil {
 		globalProxy.Close()
 	}
 }
 
-//export AcceptFlow
-func AcceptFlow() *C.char {
+//export GoAcceptFlow
+func GoAcceptFlow() *C.char {
 	nf := <-nodejsFlowChan
 	return nf
 }
