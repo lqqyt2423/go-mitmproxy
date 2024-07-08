@@ -6,6 +6,8 @@ import (
 	"fmt"
 	"log"
 	"net/http"
+	"net/url"
+	"sync"
 
 	"github.com/lqqyt2423/go-mitmproxy/proxy"
 	"github.com/lqqyt2423/go-mitmproxy/web"
@@ -32,6 +34,9 @@ func GoStartProxy() {
 	p.AddAddon(web.NewWebAddon(":9081"))
 
 	go func() {
+		loopAckMessage()
+	}()
+	go func() {
 		log.Fatal(p.Start())
 	}()
 }
@@ -39,6 +44,7 @@ func GoStartProxy() {
 //export GoCloseProxy
 func GoCloseProxy() {
 	close(nodejsFlowChan)
+	close(ackMessageChan)
 	if globalProxy != nil {
 		globalProxy.Close()
 	}
@@ -50,8 +56,23 @@ func GoAcceptFlow() *C.char {
 	return nf
 }
 
+//export GoAckMessage
+func GoAckMessage(rawStr *C.char) {
+	payload := C.GoString(rawStr)
+	am := &AckMessage{}
+	err := json.Unmarshal([]byte(payload), am)
+	if err != nil {
+		log.Printf("GoAckMessage error: %v\n", err)
+		return
+	}
+	ackMessageChan <- am
+}
+
 var globalProxy *proxy.Proxy
 var nodejsFlowChan = make(chan *C.char)
+var ackMessageChan = make(chan *AckMessage)
+var waitAckMap = make(map[string]func(*AckMessage))
+var waitAckMapLock = &sync.Mutex{}
 
 type NodejsAddon struct {
 	proxy.BaseAddon
@@ -112,6 +133,38 @@ func toNodejs(f *proxy.Flow, at FlowHook) {
 		return
 	}
 	nodejsFlowChan <- nf
+
+	// wait ack
+	waitChan := make(chan *AckMessage)
+	waitAckMapLock.Lock()
+	waitAckMap[f.Id.String()+string(at)] = func(am *AckMessage) {
+		waitChan <- am
+	}
+	waitAckMapLock.Unlock()
+	am := <-waitChan
+
+	// not change flow
+	if am.Action == AckMessageActionNoChange {
+		return
+	}
+
+	// change flow
+	f.Request.Method = am.Flow.Request.Method
+	if u, err := url.Parse(am.Flow.Request.URL); err == nil {
+		f.Request.URL = u
+	}
+	f.Request.Proto = am.Flow.Request.Proto
+	f.Request.Header = am.Flow.Request.Header
+	f.Request.Body = am.Flow.Request.Body
+
+	if am.Flow.Response != nil {
+		if f.Response == nil {
+			f.Response = &proxy.Response{}
+		}
+		f.Response.StatusCode = am.Flow.Response.StatusCode
+		f.Response.Header = am.Flow.Response.Header
+		f.Response.Body = am.Flow.Response.Body
+	}
 }
 
 func getNodejsFlow(f *proxy.Flow, at FlowHook) (*C.char, error) {
@@ -140,4 +193,31 @@ func getNodejsFlow(f *proxy.Flow, at FlowHook) (*C.char, error) {
 		return nil, err
 	}
 	return C.CString(string(content)), nil
+}
+
+type AckMessageAction string
+
+const (
+	AckMessageActionNoChange AckMessageAction = "noChange"
+	AckMessageActionChange   AckMessageAction = "change"
+)
+
+type AckMessage struct {
+	Action AckMessageAction `json:"action"`
+	HookAt FlowHook         `json:"hookAt"`
+	Id     uuid.UUID        `json:"id"`
+	Flow   *NFlow           `json:"flow"`
+}
+
+func loopAckMessage() {
+	for am := range ackMessageChan {
+		waitAckMapLock.Lock()
+		key := am.Id.String() + string(am.HookAt)
+		f, ok := waitAckMap[key]
+		if ok {
+			f(am)
+			delete(waitAckMap, key)
+		}
+		waitAckMapLock.Unlock()
+	}
 }

@@ -77,6 +77,7 @@ extern "C" {
 extern void GoStartProxy();
 extern void GoCloseProxy();
 extern char* GoAcceptFlow();
+extern void GoAckMessage(char* rawStr);
 
 #ifdef __cplusplus
 }

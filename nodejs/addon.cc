@@ -99,10 +99,33 @@ Napi::Value CloseMitmProxy(const Napi::CallbackInfo& info) {
   GoCloseProxy();
 }
 
+Napi::Value AckMessage(const Napi::CallbackInfo& info) {
+  Napi::Env env = info.Env();
+
+  if (info.Length() < 1) {
+    Napi::TypeError::New(env, "Wrong number of arguments")
+        .ThrowAsJavaScriptException();
+    return env.Null();
+  }
+
+  if (!info[0].IsString()) {
+    Napi::TypeError::New(env, "argument should be string")
+        .ThrowAsJavaScriptException();
+    return env.Null();
+  }
+
+  Napi::String payload = info[0].As<Napi::String>();
+
+  GoAckMessage((char *)payload.Utf8Value().c_str());
+
+  return env.Undefined();
+}
+
 // Addon entry point
 Napi::Object Init(Napi::Env env, Napi::Object exports) {
   exports["createTSFN"] = Napi::Function::New(env, CreateTSFN);
   exports["closeMitmProxy"] = Napi::Function::New(env, CloseMitmProxy);
+  exports["cAckMessage"] = Napi::Function::New(env, AckMessage);
   return exports;
 }
 

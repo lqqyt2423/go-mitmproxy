@@ -14,9 +14,10 @@ newMitmProxy({
   },
   hookResponse: async (flow) => {
     console.log('in hookResponse', flow);
-    // if (flow.response.body) {
-    //   console.log('body', Buffer.from(flow.response.body, 'base64').toString());
-    // }
+    const body = Buffer.from('hello world');
+    const bodyLen = body.length.toString();
+    flow.response.body = body;
+    flow.response.header['Content-Length'] = [bodyLen];
   },
 });
 

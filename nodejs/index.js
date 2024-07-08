@@ -1,11 +1,22 @@
 'use strict';
 
-const { createTSFN, closeMitmProxy } = require('bindings')('ngmp_addon');
+const { createTSFN, closeMitmProxy, cAckMessage } = require('bindings')('ngmp_addon');
 const onChange = require('on-change');
 
-// todo: add golang method
-const ackMessage = (hookAt, action, payload) => {
-  console.log('ackMessage', hookAt, action, payload?.id);
+const ackMessage = (hookAt, action, flow) => {
+  const am = {
+    action,
+    hookAt,
+    id: flow.id,
+    flow: action === 'change' ? flow : null,
+  };
+  if (am.flow?.request.body != null && Buffer.isBuffer(am.flow.request.body)) {
+    am.flow.request.body = am.flow.request.body.toString('base64');
+  }
+  if (am.flow?.response?.body != null && Buffer.isBuffer(am.flow.response.body)) {
+    am.flow.response.body = am.flow.response.body.toString('base64');
+  }
+  cAckMessage(JSON.stringify(am));
 };
 
 const newMitmProxy = async function (handlers = {}) {
@@ -18,8 +29,8 @@ const newMitmProxy = async function (handlers = {}) {
     }
 
     const hookAt = payload.hookAt;
-    const ackMessageNoChange = () => ackMessage(hookAt, 'noChange', null);
-    const ackMessageChange = (payload) => ackMessage(hookAt, 'change', payload);
+    const ackMessageNoChange = () => ackMessage(hookAt, 'noChange', payload.flow);
+    const ackMessageChange = (flow) => ackMessage(hookAt, 'change', flow);
 
     const handler = handlers[`hook${hookAt}`];
     if (!handler) {
@@ -27,8 +38,16 @@ const newMitmProxy = async function (handlers = {}) {
       return;
     }
 
+    if (payload.flow.request.body != null) {
+      payload.flow.request.body = Buffer.from(payload.flow.request.body, 'base64');
+    }
+    if (payload.flow.response?.body != null) {
+      payload.flow.response.body = Buffer.from(payload.flow.response.body, 'base64');
+    }
+
     const rawId = payload.flow.id;
     let dirty = false;
+    // todo: change this pkg
     const flow = onChange(payload.flow, function (path, value, previousValue, name) {
       dirty = true;
     });
@@ -49,7 +68,7 @@ const newMitmProxy = async function (handlers = {}) {
         }
 
         if (dirty) {
-          ackMessageChange(flow);
+          ackMessageChange(payload.flow);
         } else {
           ackMessageNoChange();
         }
