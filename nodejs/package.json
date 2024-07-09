@@ -13,7 +13,7 @@
   "engines": {
     "node": ">= 10.16.0"
   },
-  "version": "1.0.3",
+  "version": "1.0.4",
   "description": "An promise callback demo",
   "author": "Node-API Team",
   "license": "ISC",

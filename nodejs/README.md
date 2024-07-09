@@ -9,10 +9,31 @@ npm i ngmp
 ```
 
 ```js
-const ngmp = require('ngmp');
-// todo
-ngmp();
+const { createMitmProxy } = require('ngmp');
+
+createMitmProxy()
+  .addAddon({
+    hookRequestheaders: async (flow) => {
+      console.log('in hookRequestheaders', flow);
+    },
+    hookRequest: async (flow) => {
+      console.log('in hookRequest', flow);
+    },
+    hookResponseheaders: async (flow) => {
+      console.log('in hookResponseheaders', flow);
+    },
+    hookResponse: async (flow) => {
+      console.log('in hookResponse', flow);
+      flow.response.setBody('hello world');
+    },
+  })
+  .start()
+  .registerCloseSignal();
 ```
+
+可多次调用 addAddon 实现不同功能的逻辑模块，每个 Addon 里面实现 `hookRequestheaders`, `hookRequest`, `hookResponseheaders`, `hookResponse` 这四个方法其中一个或多个即可。
+
+目前所有配置均写死，后续可考虑在 `createMitmProxy`时传入配置参数，用于配置监听的端口号、是否启用 web ui 等功能。
 
 ## 开发
 
