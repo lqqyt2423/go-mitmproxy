@@ -3,22 +3,10 @@
 const { createTSFN, closeMitmProxy, cAckMessage } = require('bindings')('ngmp_addon');
 const onChange = require('on-change');
 
-const ackMessage = (hookAt, action, flow) => {
-  const am = {
-    action,
-    hookAt,
-    id: flow.id,
-    flow: action === 'change' ? flow : null,
-  };
-  if (am.flow?.request.body != null && Buffer.isBuffer(am.flow.request.body)) {
-    am.flow.request.body = am.flow.request.body.toString('base64');
-  }
-  if (am.flow?.response?.body != null && Buffer.isBuffer(am.flow.response.body)) {
-    am.flow.response.body = am.flow.response.body.toString('base64');
-  }
-  cAckMessage(JSON.stringify(am));
-};
-
+/**
+ *
+ * @param {import("./types").Handlers} handlers
+ */
 const newMitmProxy = async function (handlers = {}) {
   const onMessage = (msg) => {
     let payload;
@@ -36,6 +24,16 @@ const newMitmProxy = async function (handlers = {}) {
     if (!handler) {
       ackMessageNoChange();
       return;
+    }
+
+    Object.setPrototypeOf(payload.flow.request, reqOrResProto);
+    if (payload.flow.response) {
+      Object.setPrototypeOf(payload.flow.response, reqOrResProto);
+    }
+
+    payload.flow.request.header = transformHeader(payload.flow.request.header);
+    if (payload.flow.response) {
+      payload.flow.response.header = transformHeader(payload.flow.response.header);
     }
 
     if (payload.flow.request.body != null) {
@@ -68,7 +66,8 @@ const newMitmProxy = async function (handlers = {}) {
       function (path, value, previousValue, name) {
         dirty = true;
       },
-      { ignoreKeys: ['body'] } // buffer 会报错
+      // Buffer类型会报错，body是Buffer类型，所以才会有上面的额外Proxy的部分
+      { ignoreKeys: ['body'] }
     );
 
     Promise.resolve()
@@ -98,6 +97,52 @@ const newMitmProxy = async function (handlers = {}) {
   };
 
   await createTSFN(onMessage);
+};
+
+const ackMessage = (hookAt, action, flow) => {
+  const am = {
+    action,
+    hookAt,
+    id: flow.id,
+    flow: action === 'change' ? flow : null,
+  };
+
+  if (am.flow) {
+    am.flow.request.header = transformHeaderBack(am.flow.request.header);
+  }
+  if (am.flow?.response) {
+    am.flow.response.header = transformHeaderBack(am.flow.response.header);
+  }
+
+  if (am.flow?.request.body != null && Buffer.isBuffer(am.flow.request.body)) {
+    am.flow.request.body = am.flow.request.body.toString('base64');
+  }
+  if (am.flow?.response?.body != null && Buffer.isBuffer(am.flow.response.body)) {
+    am.flow.response.body = am.flow.response.body.toString('base64');
+  }
+
+  cAckMessage(JSON.stringify(am));
+};
+
+const transformHeader = (header) => {
+  return Object.keys(header).reduce((res, key) => {
+    res[key.toLowerCase()] = header[key].length > 1 ? header[key] : header[key][0];
+    return res;
+  }, {});
+};
+
+const transformHeaderBack = (header) => {
+  return Object.keys(header).reduce((res, key) => {
+    res[key] = Array.isArray(header[key]) ? header[key] : [header[key]];
+    return res;
+  }, {});
+};
+
+const reqOrResProto = {
+  setBody(body) {
+    this.header['content-length'] = body.length.toString();
+    this.body = body;
+  },
 };
 
 module.exports = {

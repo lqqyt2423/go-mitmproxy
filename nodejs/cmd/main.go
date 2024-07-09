@@ -91,6 +91,7 @@ func (a *NodejsAddon) Responseheaders(f *proxy.Flow) {
 }
 
 func (a *NodejsAddon) Response(f *proxy.Flow) {
+	f.Response.ReplaceToDecodedBody()
 	toNodejs(f, FlowHookResponse)
 }
 
