@@ -3,11 +3,61 @@
 const { createTSFN, closeMitmProxy, cAckMessage } = require('bindings')('ngmp_addon');
 const onChange = require('on-change');
 
+const createMitmProxy = () => new MitmProxy();
+
+class MitmProxy {
+  constructor() {
+    this.visitors = [];
+  }
+
+  start() {
+    const flowVisitor = ['hookRequestheaders', 'hookRequest', 'hookResponseheaders', 'hookResponse'].reduce((res, hookAt) => {
+      const fns = this.visitors.map((visitor) => visitor[hookAt]).filter((fn) => !!fn && typeof fn === 'function');
+      if (fns.length) {
+        res[hookAt] = async (flow) => {
+          for (const fn of fns) {
+            const resFlow = await fn(flow);
+            if (resFlow != null) flow = resFlow;
+          }
+          return flow;
+        };
+      }
+      return res;
+    }, {});
+
+    newGoMitmProxy(flowVisitor);
+    return this;
+  }
+
+  close() {
+    closeMitmProxy();
+  }
+
+  registerCloseSignal() {
+    process.on('SIGINT', () => {
+      this.close();
+    });
+
+    process.on('SIGTERM', () => {
+      this.close();
+    });
+  }
+
+  /**
+   *
+   * @param {import("./types").FlowVisitor} visitor
+   */
+  addAddon(visitor) {
+    this.visitors.push(visitor);
+    return this;
+  }
+}
+
 /**
  *
- * @param {import("./types").Handlers} handlers
+ * @param {import("./types").FlowVisitor} flowVisitor
  */
-const newMitmProxy = async function (handlers = {}) {
+const newGoMitmProxy = async function (flowVisitor = {}) {
   const onMessage = (msg) => {
     let payload;
     try {
@@ -20,7 +70,7 @@ const newMitmProxy = async function (handlers = {}) {
     const ackMessageNoChange = () => ackMessage(hookAt, 'noChange', payload.flow);
     const ackMessageChange = (flow) => ackMessage(hookAt, 'change', flow);
 
-    const handler = handlers[`hook${hookAt}`];
+    const handler = flowVisitor[`hook${hookAt}`];
     if (!handler) {
       ackMessageNoChange();
       return;
@@ -140,12 +190,12 @@ const transformHeaderBack = (header) => {
 
 const reqOrResProto = {
   setBody(body) {
+    if (typeof body === 'string') body = Buffer.from(body);
     this.header['content-length'] = body.length.toString();
     this.body = body;
   },
 };
 
 module.exports = {
-  newMitmProxy,
-  closeMitmProxy,
+  createMitmProxy,
 };

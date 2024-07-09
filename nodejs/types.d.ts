@@ -9,7 +9,7 @@ interface Request {
   header: Header;
   body?: Buffer;
   
-  setBody: (body: Buffer) => void;
+  setBody: (body: Buffer | string) => void;
 }
 
 interface Response {
@@ -17,7 +17,7 @@ interface Response {
   header: Header;
   body?: Buffer;
 
-  setBody: (body: Buffer) => void;
+  setBody: (body: Buffer | string) => void;
 }
 
 interface Flow {
@@ -28,7 +28,7 @@ interface Flow {
 
 type Handler = (flow: Flow) => void | Flow | Promise<void | Flow>
 
-export interface Handlers {
+export interface FlowVisitor {
   hookRequestheaders?: Handler;
   hookRequest?: Handler;
   hookResponseheaders?: Handler;
