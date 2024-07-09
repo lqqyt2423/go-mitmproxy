@@ -1,4 +1,36 @@
-import type { IRequest, IResponse } from './flow'
+import type { IRequest, IResponse, Header } from './flow'
+
+export const getHeader = (header: Header, key: string) => {
+  return header[key] || header[key.toLowerCase()] || null
+}
+
+export const setHeader = (header: Header, key: string, value: string[]) => {
+  if (header[key]) {
+    header[key] = value
+    return
+  }
+
+  if (header[key.toLowerCase()]) {
+    header[key.toLowerCase()] = value
+    return
+  }
+
+  header[key] = value
+}
+
+export const hasHeader = (header: Header, key: string) => {
+  return getHeader(header, key) != null
+}
+
+export const delHeader = (header: Header, key: string) => {
+  if (header[key]) {
+    delete header[key]
+  }
+
+  if (header[key.toLowerCase()]) {
+    delete header[key.toLowerCase()]
+  }
+}
 
 export const isTextBody = (payload: IRequest | IResponse) => {
   if (!payload) return false

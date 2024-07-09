@@ -1,5 +1,6 @@
 import type { IConnection } from './connection'
 import type { Flow, IFlowRequest, IRequest, IResponse } from './flow'
+import { delHeader, hasHeader, setHeader } from './utils'
 
 const MESSAGE_VERSION = 2
 
@@ -103,9 +104,9 @@ export const buildMessageEdit = (messageType: SendMessageType, flow: Flow) => {
   if (body instanceof ArrayBuffer) body = new Uint8Array(body)
   const bodyLen = (body && body.byteLength) ? body.byteLength : 0
 
-  if ('Content-Encoding' in header.header) delete header.header['Content-Encoding']
-  if ('Transfer-Encoding' in header.header) delete header.header['Transfer-Encoding']
-  header.header['Content-Length'] = [String(bodyLen)]
+  if (hasHeader(header.header, 'Content-Encoding')) delHeader(header.header, 'Content-Encoding')
+  if (hasHeader(header.header, 'Transfer-Encoding')) delHeader(header.header, 'Transfer-Encoding')
+  setHeader(header.header, 'Content-Length', [String(bodyLen)])
 
   const headerBytes = new TextEncoder().encode(JSON.stringify(header))
   const len = 2 + 36 + 4 + headerBytes.byteLength + 4 + bodyLen
