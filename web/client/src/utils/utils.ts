@@ -32,6 +32,12 @@ export const delHeader = (header: Header, key: string) => {
   }
 }
 
+export const flattenHeader = (header: Header) => {
+  return Object.keys(header).reduce((res, key) => {
+    return res.concat(header[key].map(value => ({ key, value })))
+  }, [] as Array<{ key: string; value: string }>)
+}
+
 export const isTextBody = (payload: IRequest | IResponse) => {
   if (!payload) return false
   if (!payload.header) return false

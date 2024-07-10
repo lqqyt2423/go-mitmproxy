@@ -4,7 +4,7 @@ import FormCheck from 'react-bootstrap/FormCheck'
 import fetchToCurl from 'fetch-to-curl'
 import copy from 'copy-to-clipboard'
 import JSONPretty from 'react-json-pretty'
-import { isTextBody } from '../utils/utils'
+import { flattenHeader, isTextBody } from '../utils/utils'
 import type { Flow, IResponse } from '../utils/flow'
 import EditFlow from './EditFlow'
 import { useSize } from 'ahooks'
@@ -244,9 +244,9 @@ function ViewFlow({ flow, onClose, onReRenderFlows, onMessage }: Iprops) {
                     <p>Response Headers</p>
                     <div className="header-block-content">
                       {
-                        Object.keys(response.header).map(key => {
+                        flattenHeader(response.header).map(({ key, value }) => {
                           return (
-                            <p key={key}>{key}: {response.header[key].join(' ')}</p>
+                            <p key={key+value}>{key}: {value}</p>
                           )
                         })
                       }
@@ -259,9 +259,9 @@ function ViewFlow({ flow, onClose, onReRenderFlows, onMessage }: Iprops) {
                 <div className="header-block-content">
                   {
                     !(request.header) ? null :
-                      Object.keys(request.header).map(key => {
+                      flattenHeader(request.header).map(({ key, value }) => {
                         return (
-                          <p key={key}>{key}: {request.header[key].join(' ')}</p>
+                          <p key={key+value}>{key}: {value}</p>
                         )
                       })
                   }
