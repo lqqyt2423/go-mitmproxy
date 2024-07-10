@@ -8,16 +8,12 @@ interface Request {
   proto: string;
   header: Header;
   body?: Buffer;
-  
-  setBody: (body: Buffer | string) => void;
 }
 
 interface Response {
   statusCode: number;
   header: Header;
   body?: Buffer;
-
-  setBody: (body: Buffer | string) => void;
 }
 
 interface Flow {

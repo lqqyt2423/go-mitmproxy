@@ -1,7 +1,6 @@
 'use strict';
 
 const { createTSFN, closeMitmProxy, cAckMessage } = require('bindings')('ngmp_addon');
-const onChange = require('on-change');
 
 /**
  *
@@ -64,50 +63,75 @@ const newGoMitmProxy = async function (flowVisitor = {}) {
       .catch((err) => {
         console.error(err);
       })
+      .then(watch.markEnd)
       .then(ackMessage);
   };
 
   await createTSFN(onMessage);
 };
 
-const reqOrResProto = {
-  setBody(body) {
-    if (typeof body === 'string') body = Buffer.from(body);
-    this.header['content-length'] = body.length.toString();
-    this.body = body;
-  },
-};
-
-const makeWatch = (rawFlow) => {
+const makeWatch = (flow) => {
   let dirty = false;
+  let end = false;
 
-  let flow = new Proxy(rawFlow, {});
-  flow.request = new Proxy(flow.request, {
-    set(target, property, value, receiver) {
-      dirty = true;
-      return Reflect.set(...arguments);
-    },
-  });
-  if (flow.response) {
-    flow.response = new Proxy(flow.response, {
+  const proxyHeader = (header) => {
+    return new Proxy(header, {
+      get(target, property, receiver) {
+        if (end) return Reflect.get(...arguments);
+
+        if (typeof property === 'symbol') return Reflect.get(...arguments);
+        property = property.toLowerCase();
+        return Reflect.get(target, property, receiver);
+      },
       set(target, property, value, receiver) {
+        if (end) return Reflect.set(...arguments);
+
         dirty = true;
-        return Reflect.set(...arguments);
+        if (typeof property === 'symbol') return Reflect.set(...arguments);
+
+        property = property.toLowerCase();
+        return Reflect.set(target, property, value, receiver);
+      },
+      deleteProperty(target, property) {
+        if (end) return Reflect.deleteProperty(...arguments);
+
+        dirty = true;
+        if (typeof property === 'symbol') return Reflect.deleteProperty(...arguments);
+        property = property.toLowerCase();
+        return Reflect.deleteProperty(target, property);
       },
     });
-  }
-  flow = onChange(
-    flow,
-    function (path, value, previousValue, name) {
-      dirty = true;
-    },
-    // Buffer类型会报错，body是Buffer类型，所以才会有上面的额外Proxy的部分
-    { ignoreKeys: ['body'] }
-  );
+  };
+
+  const proxyReqOrRes = (obj) => {
+    return new Proxy(obj, {
+      set(target, property, value, receiver) {
+        if (end) return Reflect.set(...arguments);
+
+        dirty = true;
+        if (typeof property === 'symbol') return Reflect.set(...arguments);
+        if (property !== 'body') return Reflect.set(...arguments);
+
+        // body
+        if (typeof value === 'string') value = Buffer.from(value);
+        target.header['content-length'] = value.length.toString();
+        return Reflect.set(target, property, value, receiver);
+      },
+    });
+  };
+
+  flow.request.header = proxyHeader(flow.request.header);
+  if (flow.response) flow.response.header = proxyHeader(flow.response.header);
+
+  flow.request = proxyReqOrRes(flow.request);
+  if (flow.response) flow.response = proxyReqOrRes(flow.response);
 
   return {
     flow,
     isDirty: () => dirty,
+    markEnd: () => {
+      end = true;
+    },
   };
 };
 
@@ -132,11 +156,6 @@ const flowToNode = (flow, ctx) => {
   }
   if (flow.response?.body != null) {
     flow.response.body = Buffer.from(flow.response.body, 'base64');
-  }
-
-  Object.setPrototypeOf(flow.request, reqOrResProto);
-  if (flow.response) {
-    Object.setPrototypeOf(flow.response, reqOrResProto);
   }
 };
 

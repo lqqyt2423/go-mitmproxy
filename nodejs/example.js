@@ -15,7 +15,7 @@ createMitmProxy()
     },
     hookResponse: async (flow) => {
       console.log('in hookResponse', flow);
-      flow.response.setBody('hello world');
+      flow.response.body = 'hello world';
     },
   })
   .start()

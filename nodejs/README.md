@@ -49,7 +49,7 @@ go build -o libngmp.a -buildmode=c-archive cmd/main.go
 
 ```bash
 npm i
-npm test
+node example.js
 ```
 
 ### 发布

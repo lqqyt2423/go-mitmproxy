@@ -3,19 +3,21 @@
   "main": "index.js",
   "dependencies": {
     "bindings": "^1.5.0",
-    "node-addon-api": "^4.0.0",
-    "on-change": "^2.2.3"
+    "node-addon-api": "^4.0.0"
   },
   "scripts": {
     "install": "node-gyp rebuild",
-    "test": "node test.js"
+    "test": "jest"
   },
   "engines": {
     "node": ">= 10.16.0"
   },
-  "version": "1.0.4",
+  "version": "1.0.5",
   "description": "An promise callback demo",
   "author": "Node-API Team",
   "license": "ISC",
-  "gypfile": true
+  "gypfile": true,
+  "devDependencies": {
+    "jest": "^29.7.0"
+  }
 }
