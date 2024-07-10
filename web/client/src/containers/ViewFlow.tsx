@@ -244,9 +244,9 @@ function ViewFlow({ flow, onClose, onReRenderFlows, onMessage }: Iprops) {
                     <p>Response Headers</p>
                     <div className="header-block-content">
                       {
-                        flattenHeader(response.header).map(({ key, value }) => {
+                        flattenHeader(response.header).map(({ key, value }, index) => {
                           return (
-                            <p key={key+value}>{key}: {value}</p>
+                            <p key={flow.id+key+index}>{key}: {value}</p>
                           )
                         })
                       }
@@ -259,9 +259,9 @@ function ViewFlow({ flow, onClose, onReRenderFlows, onMessage }: Iprops) {
                 <div className="header-block-content">
                   {
                     !(request.header) ? null :
-                      flattenHeader(request.header).map(({ key, value }) => {
+                      flattenHeader(request.header).map(({ key, value }, index) => {
                         return (
-                          <p key={key+value}>{key}: {value}</p>
+                          <p key={flow.id+key+index}>{key}: {value}</p>
                         )
                       })
                   }
