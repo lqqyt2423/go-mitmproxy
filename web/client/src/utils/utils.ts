@@ -41,9 +41,9 @@ export const flattenHeader = (header: Header) => {
 export const isTextBody = (payload: IRequest | IResponse) => {
   if (!payload) return false
   if (!payload.header) return false
-  if (!payload.header['Content-Type']) return false
+  if (!hasHeader(payload.header, 'Content-Type')) return false
 
-  return /text|javascript|json|x-www-form-urlencoded|xml|form-data/.test(payload.header['Content-Type'].join(''))
+  return /text|javascript|json|x-www-form-urlencoded|xml|form-data/.test(getHeader(payload.header, 'Content-Type').join(''))
 }
 
 export const getSize = (len: number) => {
