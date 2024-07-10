@@ -1,6 +1,6 @@
 import type { ConnectionManager, IConnection } from './connection'
 import { IMessage, MessageType } from './message'
-import { arrayBufferToBase64, bufHexView, getSize, isTextBody } from './utils'
+import { arrayBufferToBase64, bufHexView, getHeader, getSize, hasHeader, isTextBody } from './utils'
 import { FlowFilter } from './filter'
 
 export type Header = Record<string, string[]>
@@ -126,13 +126,13 @@ export class Flow {
     this.response = msg.content as IResponse
 
     if (this.response && this.response.header) {
-      if (this.response.header['Content-Type'] != null) {
-        this.contentType = this.response.header['Content-Type'][0].split(';')[0]
+      if (hasHeader(this.response.header, 'Content-Type')) {
+        this.contentType = getHeader(this.response.header, 'Content-Type')[0].split(';')[0]
         if (this.contentType.includes('javascript')) this.contentType = 'javascript'
       }
-      if (this.response.header['Content-Length'] != null) {
+      if (hasHeader(this.response.header, 'Content-Length')) {
         this.headerContentLengthExist = true
-        this._size = parseInt(this.response.header['Content-Length'][0])
+        this._size = parseInt(getHeader(this.response.header, 'Content-Length')[0])
         this.size = getSize(this._size)
       }
     }
@@ -228,7 +228,7 @@ export class Flow {
     if (!(this.response?.body?.byteLength)) return null
 
     let contentType: string | undefined
-    if (this.response.header['Content-Type']) contentType = this.response.header['Content-Type'][0]
+    if (hasHeader(this.response.header, 'Content-Type')) contentType = getHeader(this.response.header, 'Content-Type')[0]
     if (!contentType) return null
 
     if (contentType.startsWith('image/')) {
@@ -258,7 +258,7 @@ export class Flow {
         type: 'binary',
         data: this.hexviewRequestBody(),
       }
-    } else if (/json/.test(this.request.header['Content-Type'].join(''))) {
+    } else if (/json/.test(getHeader(this.request.header, 'Content-Type').join(''))) {
       this._previewRequestBody = {
         type: 'json',
         data: this.requestBody(),
