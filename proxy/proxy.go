@@ -21,6 +21,7 @@ type Options struct {
 	CaRootPath        string
 	NewCaFunc         func() (cert.CA, error) //创建 Ca 的函数
 	Upstream          string
+	Authorization     func(string) (bool, error) // 代理验证方法
 }
 
 type Proxy struct {

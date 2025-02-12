@@ -175,6 +175,14 @@ func (e *entry) shutdown(ctx context.Context) error {
 func (e *entry) ServeHTTP(res http.ResponseWriter, req *http.Request) {
 	proxy := e.proxy
 
+	if proxy.Opts.Authorization != nil {
+		if ok, err := proxy.Opts.Authorization(req.Header.Get("Proxy-Authorization")); !ok {
+			log.Errorf("entry Authorization: %v", err)
+			res.WriteHeader(407)
+			return
+		}
+	}
+
 	// proxy via connect tunnel
 	if req.Method == "CONNECT" {
 		e.handleConnect(res, req)
