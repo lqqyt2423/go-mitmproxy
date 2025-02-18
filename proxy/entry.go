@@ -175,6 +175,19 @@ func (e *entry) shutdown(ctx context.Context) error {
 func (e *entry) ServeHTTP(res http.ResponseWriter, req *http.Request) {
 	proxy := e.proxy
 
+	log := log.WithFields(log.Fields{
+		"in":   "Proxy.entry.ServeHTTP",
+		"host": req.Host,
+	})
+	// Add entry proxy authentication
+	if e.proxy.authProxy != nil {
+		b, err := e.proxy.authProxy(res, req)
+		if !b {
+			log.Errorf("Proxy authentication failed: %s", err.Error())
+			httpError(res, "", http.StatusProxyAuthRequired)
+			return
+		}
+	}
 	// proxy via connect tunnel
 	if req.Method == "CONNECT" {
 		e.handleConnect(res, req)

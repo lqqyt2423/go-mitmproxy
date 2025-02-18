@@ -536,7 +536,12 @@ func (a *attacker) attack(res http.ResponseWriter, req *http.Request) {
 	} else {
 		if f.ConnContext.ServerConn == nil && f.ConnContext.dialFn != nil {
 			if err := f.ConnContext.dialFn(req.Context()); err != nil {
+				// Check for authentication failure
 				log.Error(err)
+				if strings.Contains(err.Error(), "Proxy Authentication Required") {
+					httpError(res, "", http.StatusProxyAuthRequired)
+					return
+				}
 				res.WriteHeader(502)
 				return
 			}
