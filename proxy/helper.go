@@ -1,8 +1,10 @@
 package proxy
 
 import (
+	"fmt"
 	"io"
 	"net"
+	"net/http"
 	"strings"
 
 	log "github.com/sirupsen/logrus"
@@ -76,4 +78,11 @@ func transfer(log *log.Entry, server, client io.ReadWriteCloser) {
 			return // 如果有错误，直接返回
 		}
 	}
+}
+
+func httpError(w http.ResponseWriter, error string, code int) {
+	w.Header().Set("Content-Type", "text/plain; charset=utf-8")
+	w.Header().Set("Proxy-Authenticate", `Basic realm="proxy"`) // Indicates that the proxy server requires client credentials
+	w.WriteHeader(code)
+	fmt.Fprintln(w, error)
 }
