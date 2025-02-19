@@ -66,6 +66,8 @@ Usage of go-mitmproxy:
     	map local json配置文件地址
   -map_remote string
     	map remote json配置文件地址
+  -proxyauth string
+        启用代理认证。格式："user:pass"、"user1:pass1|user2:pass2"，或使用 "any" 允许所有用户
   -ssl_insecure
     	不验证上游服务器的 SSL/TLS 证书
   -upstream string
