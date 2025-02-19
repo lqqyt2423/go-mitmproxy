@@ -5,6 +5,7 @@ import (
 	rawLog "log"
 	"net/http"
 	"os"
+	"strings"
 
 	"github.com/lqqyt2423/go-mitmproxy/addon"
 	"github.com/lqqyt2423/go-mitmproxy/internal/helper"
@@ -31,6 +32,9 @@ type Config struct {
 	MapLocal     string   // map local config filename
 
 	filename string // read config from the filename
+
+	ProxyAuth string // Require proxy authentication
+
 }
 
 func main() {
@@ -85,6 +89,12 @@ func main() {
 	if !config.UpstreamCert {
 		p.AddAddon(proxy.NewUpstreamCertAddon(false))
 		log.Infoln("UpstreamCert config false")
+	}
+
+	if config.ProxyAuth != "" && strings.ToLower(config.ProxyAuth) != "any" {
+		log.Infoln("Enable entry authentication")
+		auth := NewDefaultBasicAuth(config.ProxyAuth)
+		p.SetAuthProxy(auth.EntryAuth)
 	}
 
 	p.AddAddon(&proxy.LogAddon{})
