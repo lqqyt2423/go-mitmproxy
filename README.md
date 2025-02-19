@@ -66,6 +66,8 @@ Usage of go-mitmproxy:
     	map local config filename
   -map_remote string
     	map remote config filename
+  -proxyauth string
+        enable proxy authentication. Format: "username:pass", "user1:pass1|user2:pass2","any" to accept any user/pass combination
   -ssl_insecure
     	not verify upstream server SSL/TLS certificates.
   -upstream string

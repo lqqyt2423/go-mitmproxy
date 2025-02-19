@@ -34,6 +34,8 @@ func loadConfigFromCli() *Config {
 	flag.StringVar(&config.MapRemote, "map_remote", "", "map remote config filename")
 	flag.StringVar(&config.MapLocal, "map_local", "", "map local config filename")
 	flag.StringVar(&config.filename, "f", "", "read config from the filename")
+
+	flag.StringVar(&config.ProxyAuth, "proxyauth", "", `enable proxy authentication. Format: "username:pass", "user1:pass1|user2:pass2","any" to accept any user/pass combination`)
 	flag.Parse()
 
 	return config
