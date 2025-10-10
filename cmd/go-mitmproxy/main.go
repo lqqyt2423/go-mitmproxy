@@ -30,6 +30,7 @@ type Config struct {
 	UpstreamCert bool     // Connect to upstream server to look up certificate details. Default: True
 	MapRemote    string   // map remote config filename
 	MapLocal     string   // map local config filename
+	LogFile      string   // log file path
 
 	filename string // read config from the filename
 
@@ -61,6 +62,7 @@ func main() {
 		SslInsecure:       config.SslInsecure,
 		CaRootPath:        config.CertPath,
 		Upstream:          config.Upstream,
+		LogFilePath:       config.LogFile,
 	}
 
 	p, err := proxy.NewProxy(opts)
@@ -97,7 +99,14 @@ func main() {
 		p.SetAuthProxy(auth.EntryAuth)
 	}
 
-	p.AddAddon(&proxy.LogAddon{})
+	if config.LogFile != "" {
+		// Use instance logger with file output
+		p.AddAddon(proxy.NewInstanceLogAddonWithFile(config.Addr, "", config.LogFile))
+		log.Infof("Logging to file: %s", config.LogFile)
+	} else {
+		// Use default logger
+		p.AddAddon(&proxy.LogAddon{})
+	}
 	p.AddAddon(web.NewWebAddon(config.WebAddr))
 
 	if config.MapRemote != "" {

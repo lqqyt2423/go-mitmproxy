@@ -2,6 +2,7 @@ package proxy
 
 import (
 	"fmt"
+	"os"
 	"strings"
 
 	uuid "github.com/satori/go.uuid"
@@ -12,11 +13,18 @@ type InstanceLogger struct {
 	InstanceID   string
 	InstanceName string
 	Port         string
+	LogFilePath  string
 	logger       *log.Entry
+	fileLogger   *log.Logger
 }
 
 // NewInstanceLogger creates a logger with instance identification
 func NewInstanceLogger(addr string, instanceName string) *InstanceLogger {
+	return NewInstanceLoggerWithFile(addr, instanceName, "")
+}
+
+// NewInstanceLoggerWithFile creates a logger with instance identification and optional file output
+func NewInstanceLoggerWithFile(addr string, instanceName string, logFilePath string) *InstanceLogger {
 	// Extract port from address
 	port := addr
 	if idx := strings.LastIndex(addr, ":"); idx != -1 {
@@ -32,9 +40,31 @@ func NewInstanceLogger(addr string, instanceName string) *InstanceLogger {
 		InstanceID:   uuid.NewV4().String()[:8],
 		InstanceName: instanceName,
 		Port:         port,
+		LogFilePath:  logFilePath,
 	}
 
-	// Create logger with persistent fields
+	// Configure file logger if path provided
+	if logFilePath != "" {
+		file, err := os.OpenFile(logFilePath, os.O_CREATE|os.O_WRONLY|os.O_APPEND, 0666)
+		if err != nil {
+			log.WithError(err).Errorf("Failed to open log file: %s", logFilePath)
+		} else {
+			// Create a dedicated logger for file output
+			il.fileLogger = log.New()
+			il.fileLogger.SetOutput(file)
+			il.fileLogger.SetFormatter(&log.JSONFormatter{})
+			
+			// Use the file logger as base
+			il.logger = il.fileLogger.WithFields(log.Fields{
+				"instance_id":   il.InstanceID,
+				"instance_name": il.InstanceName,
+				"port":          il.Port,
+			})
+			return il
+		}
+	}
+
+	// Default: use standard logger with persistent fields
 	il.logger = log.WithFields(log.Fields{
 		"instance_id":   il.InstanceID,
 		"instance_name": il.InstanceName,

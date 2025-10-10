@@ -10,10 +10,10 @@ type InstanceLogAddon struct {
 	logger *InstanceLogger
 }
 
-// NewInstanceLogAddon creates a new instance-aware log addon
-func NewInstanceLogAddon(addr string, instanceName string) *InstanceLogAddon {
+// NewInstanceLogAddonWithFile creates a new instance-aware log addon with file output
+func NewInstanceLogAddonWithFile(addr string, instanceName string, logFilePath string) *InstanceLogAddon {
 	return &InstanceLogAddon{
-		logger: NewInstanceLogger(addr, instanceName),
+		logger: NewInstanceLoggerWithFile(addr, instanceName, logFilePath),
 	}
 }
 
