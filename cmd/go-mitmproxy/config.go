@@ -33,6 +33,7 @@ func loadConfigFromCli() *Config {
 	flag.BoolVar(&config.UpstreamCert, "upstream_cert", true, "connect to upstream server to look up certificate details")
 	flag.StringVar(&config.MapRemote, "map_remote", "", "map remote config filename")
 	flag.StringVar(&config.MapLocal, "map_local", "", "map local config filename")
+	flag.StringVar(&config.LogFile, "log_file", "", "log file path")
 	flag.StringVar(&config.filename, "f", "", "read config from the filename")
 
 	flag.StringVar(&config.ProxyAuth, "proxyauth", "", `enable proxy authentication. Format: "username:pass", "user1:pass1|user2:pass2","any" to accept any user/pass combination`)
@@ -82,6 +83,9 @@ func mergeConfigs(fileConfig, cliConfig *Config) *Config {
 	}
 	if cliConfig.MapLocal != "" {
 		config.MapLocal = cliConfig.MapLocal
+	}
+	if cliConfig.LogFile != "" {
+		config.LogFile = cliConfig.LogFile
 	}
 	return config
 }
