@@ -1,5 +1,15 @@
 # go-mitmproxy
 
+<div align="center" markdown="1">
+   <a href="https://apps.apple.com/cn/app/sqlman-mysql-gui-%E6%95%B0%E6%8D%AE%E5%BA%93%E5%AE%A2%E6%88%B7%E7%AB%AF/id6498632117?mt=12">
+     <img src="./assets/sqlman-cn.png" alt="sqlman" width="650"/>
+   </a>
+
+[欢迎使用作者开发的软件：Sqlman - MySQL GUI 数据库客户端](https://apps.apple.com/cn/app/sqlman-mysql-gui-%E6%95%B0%E6%8D%AE%E5%BA%93%E5%AE%A2%E6%88%B7%E7%AB%AF/id6498632117?mt=12)
+<br>
+
+</div>
+
 [English](./README.md)
 
 `go-mitmproxy` 是一个用 Golang 实现的 [mitmproxy](https://mitmproxy.org/)，支持中间人攻击（Man-in-the-middle）并解析、监测、篡改 HTTP/HTTPS 流量。
