@@ -25,7 +25,7 @@ export interface IResponse {
 }
 
 export interface IPreviewBody {
-  type: 'image' | 'json' | 'binary'
+  type: 'image' | 'json' | 'binary' | 'x-json-stream'
   data: string | null
 }
 
@@ -82,7 +82,7 @@ export class Flow {
   constructor(msg: IMessage, connMgr: ConnectionManager) {
     this.no = ++Flow.curNo
     this.id = msg.id
-    
+
     this.addRequest(msg)
 
     this._isTextRequest = null
@@ -257,6 +257,11 @@ export class Flow {
       this._previewRequestBody = {
         type: 'binary',
         data: this.hexviewRequestBody(),
+      }
+    } else if (getHeader(this.request.header, 'Content-Type').join('').toLowerCase().includes('x-json-stream')) {
+      this._previewRequestBody = {
+        type: 'x-json-stream',
+        data: this.requestBody(),
       }
     } else if (/json/.test(getHeader(this.request.header, 'Content-Type').join(''))) {
       this._previewRequestBody = {

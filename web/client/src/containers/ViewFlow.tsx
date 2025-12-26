@@ -83,6 +83,17 @@ function ViewFlow({ flow, onClose, onReRenderFlows, onMessage }: Iprops) {
     if (pv.type === 'json') {
       return <div><JSONPretty data={pv.data} keyStyle={'color: rgb(130,40,144);'} stringStyle={'color: rgb(153,68,60);'} valueStyle={'color: rgb(25,1,199);'} booleanStyle={'color: rgb(94,105,192);'} /></div>
     }
+    else if (pv.type === 'x-json-stream') {
+      return <div>
+        {
+          pv.data?.split('\n').map((line, index) => {
+            if (!line) return null
+
+            return <JSONPretty key={flow.id + index} data={line} keyStyle={'color: rgb(130,40,144);'} stringStyle={'color: rgb(153,68,60);'} valueStyle={'color: rgb(25,1,199);'} booleanStyle={'color: rgb(94,105,192);'} />
+          })
+        }
+      </div>
+    }
     else if (pv.type === 'binary') {
       return <div><pre>{pv.data}</pre></div>
     }
@@ -179,7 +190,7 @@ function ViewFlow({ flow, onClose, onReRenderFlows, onMessage }: Iprops) {
         minWidth={minWrapWidth}
         maxWidth={maxWrapWidth}
       />
-        
+
       <div className="header-tabs">
         <span
           style={{
@@ -246,7 +257,7 @@ function ViewFlow({ flow, onClose, onReRenderFlows, onMessage }: Iprops) {
                       {
                         flattenHeader(response.header).map(({ key, value }, index) => {
                           return (
-                            <p key={flow.id+key+index}>{key}: {value}</p>
+                            <p key={flow.id + key + index}>{key}: {value}</p>
                           )
                         })
                       }
@@ -261,7 +272,7 @@ function ViewFlow({ flow, onClose, onReRenderFlows, onMessage }: Iprops) {
                     !(request.header) ? null :
                       flattenHeader(request.header).map(({ key, value }, index) => {
                         return (
-                          <p key={flow.id+key+index}>{key}: {value}</p>
+                          <p key={flow.id + key + index}>{key}: {value}</p>
                         )
                       })
                   }
