@@ -94,7 +94,7 @@ func newMessageFlow(mType messageType, f *proxy.Flow) (*messageFlow, error) {
 		m["connId"] = f.ConnContext.Id().String()
 		content, err = json.Marshal(m)
 	case messageTypeRequestBody:
-		content = f.Request.Body
+		content, err = f.Request.DecodedBody()
 	case messageTypeResponse:
 		if f.Response == nil {
 			err = errors.New("no response")

@@ -35,6 +35,25 @@ func (r *Response) IsTextContentType() bool {
 	return false
 }
 
+func (req *Request) DecodedBody() ([]byte, error) {
+	if len(req.Body) == 0 {
+		return req.Body, nil
+	}
+
+	enc := req.Header.Get("Content-Encoding")
+	if enc == "" || enc == "identity" {
+		return req.Body, nil
+	}
+
+	decodedBody, decodedErr := decode(enc, req.Body)
+	if decodedErr != nil {
+		log.Error(decodedErr)
+		return nil, decodedErr
+	}
+
+	return decodedBody, nil
+}
+
 func (r *Response) DecodedBody() ([]byte, error) {
 	if len(r.Body) == 0 {
 		return r.Body, nil
