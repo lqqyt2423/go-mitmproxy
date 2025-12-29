@@ -139,7 +139,7 @@ class App extends React.Component<IProps, IState> {
           flow = new Flow(msg, this.connMgr)
           flow.getConn()
           this.flowMgr.add(flow)
-  
+
           let shouldScroll = false
           if (this.tableBottomRef?.current && isInViewPort(this.tableBottomRef.current)) {
             shouldScroll = true
@@ -199,7 +199,7 @@ class App extends React.Component<IProps, IState> {
               this.flowMgr.clear()
               this.setState({ flows: this.flowMgr.showList(), flow: null })
             }}>Clear</Button></div>
-            <div style={{ marginRight: '10px' }}>
+            <div style={{ marginRight: '10px', display: 'flex', alignItems: 'center', gap: '8px' }}>
               <Form.Control
                 size="sm" placeholder="Filter"
                 style={{ width: '350px' }}
@@ -218,8 +218,26 @@ class App extends React.Component<IProps, IState> {
                 }}
               >
               </Form.Control>
+              <span style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
+
+                <a href='https://github.com/lqqyt2423/go-mitmproxy/blob/main/docs/web-filter-rules_CN.md' target='_blank' rel="noreferrer">
+                  <span style={{
+                    display: 'inline-block',
+                    width: '16px',
+                    height: '16px',
+                    borderRadius: '50%',
+                    backgroundColor: '#007bff',
+                    color: 'white',
+                    textAlign: 'center',
+                    fontSize: '12px',
+                    fontWeight: 'bold',
+                    lineHeight: '16px',
+                    cursor: 'pointer'
+                  }} title="Filter Rules">?</span>
+                </a>
+              </span>
             </div>
-            
+
             <div style={{ marginRight: '10px' }}>
               <BreakPoint onSave={rules => {
                 const msg = buildMessageMeta(SendMessageType.CHANGE_BREAK_POINT_RULES, rules)
@@ -227,10 +245,10 @@ class App extends React.Component<IProps, IState> {
               }} />
             </div>
           </div>
-          
+
           <div style={{ display: 'flex', alignItems: 'center' }}>
             <div style={{ marginRight: '10px' }}>
-              { this.state.wsStatus === 'open' ? <Badge pill bg="success">on</Badge> : <Badge pill bg="danger">off</Badge> }
+              {this.state.wsStatus === 'open' ? <Badge pill bg="success">on</Badge> : <Badge pill bg="danger">off</Badge>}
             </div>
             <a href='https://github.com/lqqyt2423/go-mitmproxy' target='_blank' rel="noreferrer"><img style={{ height: '30px' }} src={GitHubLogo} alt="GitHub Logo" /></a>
           </div>
