@@ -3,11 +3,12 @@ package proxy
 import (
 	"bufio"
 	"crypto/tls"
-	"io"
+	"net"
 	"net/http"
 	"net/http/httputil"
 	"strings"
 
+	"github.com/gorilla/websocket"
 	log "github.com/sirupsen/logrus"
 )
 
@@ -74,24 +75,150 @@ func newWebSocketHandler() *webSocketHandler {
 	return &webSocketHandler{}
 }
 
-func (wsh *webSocketHandler) handle(server, client io.ReadWriteCloser) error {
-	clientReq, err := http.ReadRequest(bufio.NewReader(client))
+// connResponseWriter 自定义 ResponseWriter，包装 net.Conn
+// 用于让 websocket.Upgrader 能够升级连接
+type connResponseWriter struct {
+	conn        net.Conn
+	header      http.Header
+	statusCode  int
+	wroteHeader bool
+}
+
+func newConnResponseWriter(conn net.Conn) *connResponseWriter {
+	return &connResponseWriter{
+		conn:   conn,
+		header: make(http.Header),
+	}
+}
+
+func (w *connResponseWriter) Header() http.Header {
+	return w.header
+}
+
+func (w *connResponseWriter) Write(data []byte) (int, error) {
+	if !w.wroteHeader {
+		w.WriteHeader(http.StatusOK)
+	}
+	return w.conn.Write(data)
+}
+
+func (w *connResponseWriter) WriteHeader(statusCode int) {
+	w.wroteHeader = true
+	w.statusCode = statusCode
+}
+
+// Hijack 劫持连接，返回底层的 net.Conn 和 bufio.ReadWriter
+// websocket.Upgrader.Upgrade() 需要调用这个方法
+func (w *connResponseWriter) Hijack() (net.Conn, *bufio.ReadWriter, error) {
+	buf := bufio.NewReadWriter(bufio.NewReader(w.conn), bufio.NewWriter(w.conn))
+	return w.conn, buf, nil
+}
+
+// handle 处理 WebSocket 连接
+// serverConn: 与服务器的连接（已经建立 TCP 连接）
+// clientConn: 与客户端的连接（已经完成 CONNECT，客户端发送了 WebSocket 握手请求）
+func (h *webSocketHandler) handle(serverConn, clientConn net.Conn) error {
+	// 步骤 1: 读取客户端握手请求
+	buf := bufio.NewReader(clientConn)
+	clientReq, err := http.ReadRequest(buf)
 	if err != nil {
+		log.Errorf("Failed to read client handshake: %v", err)
 		return err
 	}
-	err = clientReq.Write(server)
+
+	log.Infof("Client WebSocket handshake: %s %s", clientReq.Method, clientReq.URL.Path)
+
+	// 步骤 2: 使用 Dialer 连接到服务器
+	dialer := &websocket.Dialer{
+		NetDial: func(network, addr string) (net.Conn, error) {
+			return serverConn, nil
+		},
+		// 使用已有的连接，不需要重新拨号
+		HandshakeTimeout: 0,
+	}
+
+	serverURL := "ws://" + clientReq.Host + clientReq.URL.RequestURI()
+	log.Infof("Connecting to server: %s", serverURL)
+
+	// Dialer 会自动添加所有必需的 WebSocket 握手头
+	// 我们不传递 clientReq.Header，避免重复头的错误
+	serverWS, _, err := dialer.Dial(serverURL, nil)
 	if err != nil {
+		log.Errorf("Failed to dial server: %v", err)
 		return err
 	}
-	serverResp, err := http.ReadResponse(bufio.NewReader(server), nil)
+	defer serverWS.Close()
+
+	log.Infof("Server WebSocket connected, subprotocol: %s", serverWS.Subprotocol())
+
+	// 步骤 3: 使用 Upgrader 升级客户端连接
+	respWriter := newConnResponseWriter(clientConn)
+
+	upgrader := &websocket.Upgrader{
+		ReadBufferSize:  1024,
+		WriteBufferSize: 1024,
+		CheckOrigin: func(r *http.Request) bool {
+			return true // 代理模式下总是允许
+		},
+	}
+
+	clientWS, err := upgrader.Upgrade(respWriter, clientReq, nil)
 	if err != nil {
+		log.Errorf("Failed to upgrade client connection: %v", err)
 		return err
 	}
-	err = serverResp.Write(client)
-	if err != nil {
-		return err
-	}
-	// todo: 判断是否 upgrade 成功
-	// todo: 转发消息
-	return nil
+	defer clientWS.Close()
+
+	log.Infof("Client WebSocket upgraded successfully")
+
+	// 步骤 4: 双向转发消息
+	return h.forwardMessages(clientWS, serverWS)
+}
+
+// forwardMessages 双向转发 WebSocket 消息
+func (h *webSocketHandler) forwardMessages(clientWS, serverWS *websocket.Conn) error {
+	errChan := make(chan error, 2)
+
+	// 客户端 -> 服务器
+	go func() {
+		for {
+			msgType, msg, err := clientWS.ReadMessage()
+			if err != nil {
+				log.Infof("Client -> Server: Read error: %v", err)
+				errChan <- err
+				return
+			}
+
+			log.Infof("Client -> Server: type=%d, len=%d, msg=%s", msgType, len(msg), string(msg))
+
+			if err := serverWS.WriteMessage(msgType, msg); err != nil {
+				log.Errorf("Client -> Server: Write error: %v", err)
+				errChan <- err
+				return
+			}
+		}
+	}()
+
+	// 服务器 -> 客户端
+	go func() {
+		for {
+			msgType, msg, err := serverWS.ReadMessage()
+			if err != nil {
+				log.Infof("Server -> Client: Read error: %v", err)
+				errChan <- err
+				return
+			}
+
+			log.Infof("Server -> Client: type=%d, len=%d, msg=%s", msgType, len(msg), string(msg))
+
+			if err := clientWS.WriteMessage(msgType, msg); err != nil {
+				log.Errorf("Server -> Client: Write error: %v", err)
+				errChan <- err
+				return
+			}
+		}
+	}()
+
+	// 等待任一方向出错或关闭
+	return <-errChan
 }
