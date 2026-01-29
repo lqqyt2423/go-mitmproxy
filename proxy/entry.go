@@ -351,9 +351,9 @@ func (e *entry) httpsDialFirstAttack(res http.ResponseWriter, req *http.Request,
 	if helper.IsWebSocket(wsPeek) {
 		err = proxy.webSocketHandler.handle(conn, cconn)
 		if err != nil {
+			log.Errorf("WebSocket handle error: %v", err)
 			cconn.Close()
 			conn.Close()
-			log.Error(err)
 		}
 		return
 	}

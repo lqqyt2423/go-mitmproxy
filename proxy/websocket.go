@@ -126,7 +126,7 @@ func (h *webSocketHandler) handle(serverConn, clientConn net.Conn) error {
 		return err
 	}
 
-	log.Infof("Client WebSocket handshake: %s %s", clientReq.Method, clientReq.URL.Path)
+	log.Debugf("Client WebSocket handshake: %s %s", clientReq.Method, clientReq.URL.Path)
 
 	// 步骤 2: 使用 Dialer 连接到服务器
 	dialer := &websocket.Dialer{
@@ -138,7 +138,7 @@ func (h *webSocketHandler) handle(serverConn, clientConn net.Conn) error {
 	}
 
 	serverURL := "ws://" + clientReq.Host + clientReq.URL.RequestURI()
-	log.Infof("Connecting to server: %s", serverURL)
+	log.Debugf("Connecting to server: %s", serverURL)
 
 	// Dialer 会自动添加所有必需的 WebSocket 握手头
 	// 我们不传递 clientReq.Header，避免重复头的错误
@@ -149,7 +149,7 @@ func (h *webSocketHandler) handle(serverConn, clientConn net.Conn) error {
 	}
 	defer serverWS.Close()
 
-	log.Infof("Server WebSocket connected, subprotocol: %s", serverWS.Subprotocol())
+	log.Debugf("Server WebSocket connected, subprotocol: %s", serverWS.Subprotocol())
 
 	// 步骤 3: 使用 Upgrader 升级客户端连接
 	respWriter := newConnResponseWriter(clientConn)
@@ -169,7 +169,7 @@ func (h *webSocketHandler) handle(serverConn, clientConn net.Conn) error {
 	}
 	defer clientWS.Close()
 
-	log.Infof("Client WebSocket upgraded successfully")
+	log.Debugf("Client WebSocket upgraded successfully")
 
 	// 步骤 4: 双向转发消息
 	return h.forwardMessages(clientWS, serverWS)
@@ -181,15 +181,31 @@ func (h *webSocketHandler) forwardMessages(clientWS, serverWS *websocket.Conn) e
 
 	// 客户端 -> 服务器
 	go func() {
+		defer func() {
+			// 优雅关闭服务器连接
+			serverWS.WriteMessage(websocket.CloseMessage, websocket.FormatCloseMessage(websocket.CloseNormalClosure, ""))
+			serverWS.Close()
+		}()
+
 		for {
 			msgType, msg, err := clientWS.ReadMessage()
 			if err != nil {
-				log.Infof("Client -> Server: Read error: %v", err)
+				// 判断是否是正常的关闭
+				if websocket.IsCloseError(err, websocket.CloseNormalClosure, websocket.CloseGoingAway) {
+					log.Debugf("Client -> Server: Normal close: %v", err)
+					errChan <- nil // 正常关闭，不返回错误
+					return
+				}
+				if websocket.IsUnexpectedCloseError(err, websocket.CloseNormalClosure, websocket.CloseGoingAway) {
+					log.Debugf("Client -> Server: Unexpected close: %v", err)
+				} else {
+					log.Debugf("Client -> Server: Read error: %v", err)
+				}
 				errChan <- err
 				return
 			}
 
-			log.Infof("Client -> Server: type=%d, len=%d, msg=%s", msgType, len(msg), string(msg))
+			log.Debugf("Client -> Server: type=%d, len=%d, msg=%s", msgType, len(msg), string(msg))
 
 			if err := serverWS.WriteMessage(msgType, msg); err != nil {
 				log.Errorf("Client -> Server: Write error: %v", err)
@@ -201,15 +217,31 @@ func (h *webSocketHandler) forwardMessages(clientWS, serverWS *websocket.Conn) e
 
 	// 服务器 -> 客户端
 	go func() {
+		defer func() {
+			// 优雅关闭客户端连接
+			clientWS.WriteMessage(websocket.CloseMessage, websocket.FormatCloseMessage(websocket.CloseNormalClosure, ""))
+			clientWS.Close()
+		}()
+
 		for {
 			msgType, msg, err := serverWS.ReadMessage()
 			if err != nil {
-				log.Infof("Server -> Client: Read error: %v", err)
+				// 判断是否是正常的关闭
+				if websocket.IsCloseError(err, websocket.CloseNormalClosure, websocket.CloseGoingAway) {
+					log.Debugf("Server -> Client: Normal close: %v", err)
+					errChan <- nil // 正常关闭，不返回错误
+					return
+				}
+				if websocket.IsUnexpectedCloseError(err, websocket.CloseNormalClosure, websocket.CloseGoingAway) {
+					log.Debugf("Server -> Client: Unexpected close: %v", err)
+				} else {
+					log.Debugf("Server -> Client: Read error: %v", err)
+				}
 				errChan <- err
 				return
 			}
 
-			log.Infof("Server -> Client: type=%d, len=%d, msg=%s", msgType, len(msg), string(msg))
+			log.Debugf("Server -> Client: type=%d, len=%d, msg=%s", msgType, len(msg), string(msg))
 
 			if err := clientWS.WriteMessage(msgType, msg); err != nil {
 				log.Errorf("Server -> Client: Write error: %v", err)
@@ -220,5 +252,7 @@ func (h *webSocketHandler) forwardMessages(clientWS, serverWS *websocket.Conn) e
 	}()
 
 	// 等待任一方向出错或关闭
-	return <-errChan
+	err := <-errChan
+	// 如果是正常关闭（nil），返回 nil
+	return err
 }

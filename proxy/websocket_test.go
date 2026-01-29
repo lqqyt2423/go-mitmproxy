@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"github.com/gorilla/websocket"
+	log "github.com/sirupsen/logrus"
 )
 
 // testWebSocketServer 创建一个测试用的 WS 服务器
@@ -58,6 +59,12 @@ func testEchoWebSocketHandler(t *testing.T) func(*websocket.Conn) {
 
 // TestWebSocketWSProxy 测试 WS 代理基本功能
 func TestWebSocketWSProxy(t *testing.T) {
+	// 设置日志级别为 Debug，以便查看详细的调试信息
+	log.SetLevel(log.DebugLevel)
+	log.SetFormatter(&log.TextFormatter{
+		FullTimestamp: true,
+	})
+
 	t.Run("should proxy WS connection", func(t *testing.T) {
 		// 创建测试用的 WS 服务器
 		wsServer := testWebSocketServer(t, testEchoWebSocketHandler(t))
