@@ -349,10 +349,12 @@ func (e *entry) httpsDialFirstAttack(res http.ResponseWriter, req *http.Request,
 	}
 
 	if helper.IsWebSocket(wsPeek) {
-		// todo
-		transfer(log, conn, cconn)
-		cconn.Close()
-		conn.Close()
+		err = proxy.webSocketHandler.handle(conn, cconn)
+		if err != nil {
+			cconn.Close()
+			conn.Close()
+			log.Error(err)
+		}
 		return
 	}
 

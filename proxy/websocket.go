@@ -1,7 +1,9 @@
 package proxy
 
 import (
+	"bufio"
 	"crypto/tls"
+	"io"
 	"net/http"
 	"net/http/httputil"
 	"strings"
@@ -63,4 +65,33 @@ func (s *webSocket) wss(res http.ResponseWriter, req *http.Request) {
 		return
 	}
 	transfer(log, conn, cconn)
+}
+
+type webSocketHandler struct {
+}
+
+func newWebSocketHandler() *webSocketHandler {
+	return &webSocketHandler{}
+}
+
+func (wsh *webSocketHandler) handle(server, client io.ReadWriteCloser) error {
+	clientReq, err := http.ReadRequest(bufio.NewReader(client))
+	if err != nil {
+		return err
+	}
+	err = clientReq.Write(server)
+	if err != nil {
+		return err
+	}
+	serverResp, err := http.ReadResponse(bufio.NewReader(server), nil)
+	if err != nil {
+		return err
+	}
+	err = serverResp.Write(client)
+	if err != nil {
+		return err
+	}
+	// todo: 判断是否 upgrade 成功
+	// todo: 转发消息
+	return nil
 }
