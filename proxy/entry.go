@@ -62,6 +62,10 @@ func (c *wrapClientConn) Peek(n int) ([]byte, error) {
 	return c.r.Peek(n)
 }
 
+func (c *wrapClientConn) PeekBuffered() ([]byte, error) {
+	return c.r.Peek(c.r.Buffered())
+}
+
 func (c *wrapClientConn) Read(data []byte) (int, error) {
 	return c.r.Read(data)
 }
@@ -326,17 +330,35 @@ func (e *entry) httpsDialFirstAttack(res http.ResponseWriter, req *http.Request,
 		log.Error(err)
 		return
 	}
-	if !helper.IsTls(peek) {
-		// todo: http, ws
+
+	if helper.IsTls(peek) {
+		f.ConnContext.ClientConn.Tls = true
+		proxy.attacker.httpsTlsDial(req.Context(), cconn, conn)
+		return
+	}
+
+	wsPeek, err := cconn.(*wrapClientConn).PeekBuffered()
+	if err == io.EOF {
+		err = nil
+	}
+	if err != nil {
+		cconn.Close()
+		conn.Close()
+		log.Error(err)
+		return
+	}
+
+	if helper.IsWebSocket(wsPeek) {
+		// todo
 		transfer(log, conn, cconn)
 		cconn.Close()
 		conn.Close()
 		return
 	}
 
-	// is tls
-	f.ConnContext.ClientConn.Tls = true
-	proxy.attacker.httpsTlsDial(req.Context(), cconn, conn)
+	transfer(log, conn, cconn)
+	cconn.Close()
+	conn.Close()
 }
 
 func (e *entry) httpsDialLazyAttack(res http.ResponseWriter, req *http.Request, f *Flow) {
