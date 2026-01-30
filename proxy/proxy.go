@@ -59,7 +59,7 @@ func NewProxy(opts *Options) (*Proxy, error) {
 	}
 	proxy.attacker = attacker
 
-	proxy.webSocketHandler = newWebSocketHandler()
+	proxy.webSocketHandler = newWebSocketHandler(proxy)
 
 	return proxy, nil
 }

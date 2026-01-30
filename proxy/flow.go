@@ -6,6 +6,8 @@ import (
 	"io"
 	"net/http"
 	"net/url"
+	"sync"
+	"time"
 
 	uuid "github.com/satori/go.uuid"
 )
@@ -108,6 +110,7 @@ type Flow struct {
 	ConnContext *ConnContext
 	Request     *Request
 	Response    *Response
+	WebScoket   *WebSocketData
 
 	// https://docs.mitmproxy.org/stable/overview-features/#streaming
 	// 如果为 true，则不缓冲 Request.Body 和 Response.Body，且不进入之后的 Addon.Request 和 Addon.Response
@@ -137,4 +140,39 @@ func (f *Flow) MarshalJSON() ([]byte, error) {
 	j["request"] = f.Request
 	j["response"] = f.Response
 	return json.Marshal(j)
+}
+
+type WebSocketMessage struct {
+	Type       int
+	Content    []byte
+	FromClient bool
+	Timestamp  time.Time
+}
+
+func newWebSocketMessage(msgType int, content []byte, fromClient bool) *WebSocketMessage {
+	return &WebSocketMessage{
+		Type:       msgType,
+		Content:    content,
+		FromClient: fromClient,
+		Timestamp:  time.Now(),
+	}
+}
+
+type WebSocketData struct {
+	Messages []*WebSocketMessage
+
+	mu sync.Mutex
+}
+
+func newWebSocketData() *WebSocketData {
+	return &WebSocketData{
+		Messages: make([]*WebSocketMessage, 0),
+	}
+}
+
+func (wsData *WebSocketData) addMessage(msgType int, content []byte, fromClient bool) {
+	msg := newWebSocketMessage(msgType, content, fromClient)
+	wsData.mu.Lock()
+	defer wsData.mu.Unlock()
+	wsData.Messages = append(wsData.Messages, msg)
 }

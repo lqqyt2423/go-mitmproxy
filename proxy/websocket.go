@@ -69,10 +69,11 @@ func (s *webSocket) wss(res http.ResponseWriter, req *http.Request) {
 }
 
 type webSocketHandler struct {
+	proxy *Proxy
 }
 
-func newWebSocketHandler() *webSocketHandler {
-	return &webSocketHandler{}
+func newWebSocketHandler(proxy *Proxy) *webSocketHandler {
+	return &webSocketHandler{proxy: proxy}
 }
 
 // connResponseWriter 自定义 ResponseWriter，包装 net.Conn
@@ -117,7 +118,7 @@ func (w *connResponseWriter) Hijack() (net.Conn, *bufio.ReadWriter, error) {
 // handle 处理 WebSocket 连接
 // serverConn: 与服务器的连接（已经建立 TCP 连接）
 // clientConn: 与客户端的连接（已经完成 CONNECT，客户端发送了 WebSocket 握手请求）
-func (h *webSocketHandler) handle(serverConn, clientConn net.Conn) error {
+func (h *webSocketHandler) handle(serverConn, clientConn net.Conn, f *Flow) error {
 	// 步骤 1: 读取客户端握手请求
 	buf := bufio.NewReader(clientConn)
 	clientReq, err := http.ReadRequest(buf)
@@ -171,12 +172,25 @@ func (h *webSocketHandler) handle(serverConn, clientConn net.Conn) error {
 
 	log.Debugf("Client WebSocket upgraded successfully")
 
+	wsData := newWebSocketData()
+	f.WebScoket = wsData
+
+	for _, addon := range h.proxy.Addons {
+		addon.WebSocketStart(f)
+	}
+
 	// 步骤 4: 双向转发消息
-	return h.forwardMessages(clientWS, serverWS)
+	return h.forwardMessages(clientWS, serverWS, f)
 }
 
 // forwardMessages 双向转发 WebSocket 消息
-func (h *webSocketHandler) forwardMessages(clientWS, serverWS *websocket.Conn) error {
+func (h *webSocketHandler) forwardMessages(clientWS, serverWS *websocket.Conn, f *Flow) error {
+	defer func() {
+		for _, addon := range h.proxy.Addons {
+			addon.WebSocketEnd(f)
+		}
+	}()
+
 	errChan := make(chan error, 2)
 
 	// 客户端 -> 服务器
@@ -206,6 +220,10 @@ func (h *webSocketHandler) forwardMessages(clientWS, serverWS *websocket.Conn) e
 			}
 
 			log.Debugf("Client -> Server: type=%d, len=%d, msg=%s", msgType, len(msg), string(msg))
+			f.WebScoket.addMessage(msgType, msg, true)
+			for _, addon := range h.proxy.Addons {
+				addon.WebSocketMessage(f)
+			}
 
 			if err := serverWS.WriteMessage(msgType, msg); err != nil {
 				log.Errorf("Client -> Server: Write error: %v", err)
@@ -242,6 +260,10 @@ func (h *webSocketHandler) forwardMessages(clientWS, serverWS *websocket.Conn) e
 			}
 
 			log.Debugf("Server -> Client: type=%d, len=%d, msg=%s", msgType, len(msg), string(msg))
+			f.WebScoket.addMessage(msgType, msg, false)
+			for _, addon := range h.proxy.Addons {
+				addon.WebSocketMessage(f)
+			}
 
 			if err := clientWS.WriteMessage(msgType, msg); err != nil {
 				log.Errorf("Server -> Client: Write error: %v", err)

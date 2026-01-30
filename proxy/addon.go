@@ -44,6 +44,10 @@ type Addon interface {
 
 	// onAccessProxyServer
 	AccessProxyServer(req *http.Request, res http.ResponseWriter)
+
+	WebSocketStart(*Flow)
+	WebSocketMessage(*Flow)
+	WebSocketEnd(*Flow)
 }
 
 // BaseAddon do nothing
@@ -61,6 +65,9 @@ func (addon *BaseAddon) Response(*Flow)                                         
 func (addon *BaseAddon) StreamRequestModifier(f *Flow, in io.Reader) io.Reader        { return in }
 func (addon *BaseAddon) StreamResponseModifier(f *Flow, in io.Reader) io.Reader       { return in }
 func (addon *BaseAddon) AccessProxyServer(req *http.Request, res http.ResponseWriter) {}
+func (addon *BaseAddon) WebSocketStart(*Flow)                                         {}
+func (addon *BaseAddon) WebSocketMessage(*Flow)                                       {}
+func (addon *BaseAddon) WebSocketEnd(*Flow)                                           {}
 
 // LogAddon log connection and flow
 type LogAddon struct {
