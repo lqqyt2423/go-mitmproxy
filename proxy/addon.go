@@ -107,6 +107,49 @@ func (addon *LogAddon) Requestheaders(f *Flow) {
 	}()
 }
 
+// WebSocketStart 记录 WebSocket 连接建立
+func (addon *LogAddon) WebSocketStart(f *Flow) {
+	log.Infof("%v WebSocket START %s - %s\n",
+		f.ConnContext.ClientConn.Conn.RemoteAddr(),
+		f.Request.URL.String(),
+		f.ConnContext.ServerConn.Address)
+}
+
+// WebSocketMessage 记录 WebSocket 消息
+func (addon *LogAddon) WebSocketMessage(f *Flow) {
+	lastMsg := f.WebScoket.Messages[len(f.WebScoket.Messages)-1]
+	direction := "C->S"
+	if !lastMsg.FromClient {
+		direction = "S->C"
+	}
+	msgType := "TEXT"
+	if lastMsg.Type == 2 {
+		msgType = "BINARY"
+	}
+
+	// 记录消息内容和方向
+	content := string(lastMsg.Content)
+	if len(content) > 100 {
+		content = content[:100] + "..."
+	}
+	log.Infof("%v WebSocket MSG %s %s [%s] len=%d %s\n",
+		f.ConnContext.ClientConn.Conn.RemoteAddr(),
+		f.Request.URL.String(),
+		direction,
+		msgType,
+		len(lastMsg.Content),
+		content)
+}
+
+// WebSocketEnd 记录 WebSocket 连接结束
+func (addon *LogAddon) WebSocketEnd(f *Flow) {
+	log.Infof("%v WebSocket END %s - %d messages\n",
+		f.ConnContext.ClientConn.Conn.RemoteAddr(),
+		f.Request.URL.String(),
+		len(f.WebScoket.Messages))
+}
+
+
 type UpstreamCertAddon struct {
 	BaseAddon
 	UpstreamCert bool // Connect to upstream server to look up certificate details.
