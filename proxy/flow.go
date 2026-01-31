@@ -149,6 +149,21 @@ type WebSocketMessage struct {
 	Timestamp  time.Time
 }
 
+func (m *WebSocketMessage) MarshalJSON() ([]byte, error) {
+	typeAlias := struct {
+		Type       int    `json:"type"`
+		Content    string `json:"content"`    // base64 encoded
+		FromClient bool   `json:"fromClient"`
+		Timestamp  string `json:"timestamp"`
+	}{
+		Type:       m.Type,
+		Content:    string(m.Content), // []byte 会被编码为 base64
+		FromClient: m.FromClient,
+		Timestamp:  m.Timestamp.Format(time.RFC3339Nano),
+	}
+	return json.Marshal(typeAlias)
+}
+
 func newWebSocketMessage(msgType int, content []byte, fromClient bool) *WebSocketMessage {
 	return &WebSocketMessage{
 		Type:       msgType,

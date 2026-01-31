@@ -30,12 +30,15 @@ const messageVersion = 2
 type messageType byte
 
 const (
-	messageTypeConn         messageType = 0
-	messageTypeConnClose    messageType = 5
-	messageTypeRequest      messageType = 1
-	messageTypeRequestBody  messageType = 2
-	messageTypeResponse     messageType = 3
-	messageTypeResponseBody messageType = 4
+	messageTypeConn            messageType = 0
+	messageTypeConnClose       messageType = 5
+	messageTypeRequest         messageType = 1
+	messageTypeRequestBody     messageType = 2
+	messageTypeResponse        messageType = 3
+	messageTypeResponseBody    messageType = 4
+	messageTypeWebSocketStart  messageType = 6
+	messageTypeWebSocketMessage messageType = 7
+	messageTypeWebSocketEnd    messageType = 8
 
 	messageTypeChangeRequest  messageType = 11
 	messageTypeChangeResponse messageType = 12
@@ -52,6 +55,9 @@ var allMessageTypes = []messageType{
 	messageTypeRequestBody,
 	messageTypeResponse,
 	messageTypeResponseBody,
+	messageTypeWebSocketStart,
+	messageTypeWebSocketMessage,
+	messageTypeWebSocketEnd,
 	messageTypeChangeRequest,
 	messageTypeChangeResponse,
 	messageTypeDropRequest,
@@ -107,6 +113,31 @@ func newMessageFlow(mType messageType, f *proxy.Flow) (*messageFlow, error) {
 			break
 		}
 		content, err = f.Response.DecodedBody()
+	case messageTypeWebSocketStart:
+		m := make(map[string]interface{})
+		m["connId"] = f.ConnContext.Id().String()
+		if f.Request != nil {
+			m["request"] = f.Request
+		}
+		content, err = json.Marshal(m)
+	case messageTypeWebSocketMessage:
+		if f.WebScoket == nil || len(f.WebScoket.Messages) == 0 {
+			err = errors.New("no websocket message")
+			break
+		}
+		lastMsg := f.WebScoket.Messages[len(f.WebScoket.Messages)-1]
+		m := make(map[string]interface{})
+		m["connId"] = f.ConnContext.Id().String()
+		m["message"] = lastMsg
+		m["msgIndex"] = len(f.WebScoket.Messages) - 1
+		content, err = json.Marshal(m)
+	case messageTypeWebSocketEnd:
+		m := make(map[string]interface{})
+		m["connId"] = f.ConnContext.Id().String()
+		if f.WebScoket != nil {
+			m["messageCount"] = len(f.WebScoket.Messages)
+		}
+		content, err = json.Marshal(m)
 	default:
 		err = errors.New("invalid message type")
 	}

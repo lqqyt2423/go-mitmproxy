@@ -6,27 +6,61 @@ const MESSAGE_VERSION = 2
 
 export enum MessageType {
   CONN = 0,
-  CONN_CLOSE = 5,
   REQUEST = 1,
   REQUEST_BODY = 2,
   RESPONSE = 3,
   RESPONSE_BODY = 4,
+  CONN_CLOSE = 5,
+  WEBSOCKET_START = 6,
+  WEBSOCKET_MESSAGE = 7,
+  WEBSOCKET_END = 8,
 }
 
 const allMessageBytes = [
   MessageType.CONN,
-  MessageType.CONN_CLOSE,
   MessageType.REQUEST,
   MessageType.REQUEST_BODY,
   MessageType.RESPONSE,
   MessageType.RESPONSE_BODY,
+  MessageType.CONN_CLOSE,
+  MessageType.WEBSOCKET_START,
+  MessageType.WEBSOCKET_MESSAGE,
+  MessageType.WEBSOCKET_END,
 ]
+
+// WebSocket 消息结构
+export interface IWebSocketMessage {
+  type: number       // 1=Text, 2=Binary
+  content: string     // base64 编码的内容
+  fromClient: boolean
+  timestamp: string   // ISO 8601 格式时间戳
+}
+
+// WebSocket Start 消息内容
+export interface IWebSocketStart {
+  connId: string
+  request?: IRequest
+}
+
+// WebSocket Message 消息内容
+export interface IWebSocketMessageData {
+  connId: string
+  message: IWebSocketMessage
+  msgIndex: number
+}
+
+// WebSocket End 消息内容
+export interface IWebSocketEnd {
+  connId: string
+  messageCount: number
+}
 
 export interface IMessage {
   type: MessageType
   id: string
   waitIntercept: boolean
-  content?: ArrayBuffer | IFlowRequest | IResponse | IConnection | number
+  content?: ArrayBuffer | IFlowRequest | IResponse | IConnection | number |
+    IWebSocketStart | IWebSocketMessageData | IWebSocketEnd
 }
 
 // type: 0/1/2/3/4

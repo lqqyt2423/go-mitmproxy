@@ -192,6 +192,27 @@ func (web *WebAddon) ServerDisconnected(connCtx *proxy.ConnContext) {
 	})
 }
 
+// WebSocketStart 发送 WebSocket 连接建立消息
+func (web *WebAddon) WebSocketStart(f *proxy.Flow) {
+	web.sendFlow(func() (*messageFlow, error) {
+		return newMessageFlow(messageTypeWebSocketStart, f)
+	})
+}
+
+// WebSocketMessage 发送 WebSocket 消息
+func (web *WebAddon) WebSocketMessage(f *proxy.Flow) {
+	web.sendFlow(func() (*messageFlow, error) {
+		return newMessageFlow(messageTypeWebSocketMessage, f)
+	})
+}
+
+// WebSocketEnd 发送 WebSocket 连接结束消息
+func (web *WebAddon) WebSocketEnd(f *proxy.Flow) {
+	web.sendFlow(func() (*messageFlow, error) {
+		return newMessageFlow(messageTypeWebSocketEnd, f)
+	})
+}
+
 func (web *WebAddon) isIntercpt(f *proxy.Flow, mType messageType) bool {
 	web.connsMu.RLock()
 	conns := web.conns
