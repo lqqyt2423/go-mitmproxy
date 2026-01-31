@@ -262,6 +262,7 @@ func (h *webSocketHandler) handleWSS(res http.ResponseWriter, req *http.Request)
 
 	wsData := newWebSocketData()
 	f := newFlow()
+	f.Request = newRequest(req)
 	f.ConnContext = req.Context().Value(connContextKey).(*ConnContext)
 	f.WebScoket = wsData
 	defer f.finish()
