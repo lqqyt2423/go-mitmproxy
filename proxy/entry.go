@@ -383,21 +383,45 @@ func (e *entry) httpsDialLazyAttack(res http.ResponseWriter, req *http.Request, 
 		return
 	}
 
-	if !helper.IsTls(peek) {
-		// todo: http, ws
+	if helper.IsTls(peek) {
+		f.ConnContext.ClientConn.Tls = true
+		proxy.attacker.httpsLazyAttack(req.Context(), cconn, req)
+		return
+	}
+
+	wsPeek, err := cconn.(*wrapClientConn).PeekBuffered()
+	if err == io.EOF {
+		err = nil
+	}
+	if err != nil {
+		cconn.Close()
+		log.Error(err)
+		return
+	}
+
+	if helper.IsWebSocket(wsPeek) {
 		conn, err := proxy.attacker.httpsDial(req.Context(), req)
 		if err != nil {
 			cconn.Close()
 			log.Error(err)
 			return
 		}
-		transfer(log, conn, cconn)
-		conn.Close()
-		cconn.Close()
+		err = proxy.webSocketHandler.handle(conn, cconn, f)
+		if err != nil {
+			log.Errorf("WebSocket handle error: %v", err)
+			cconn.Close()
+			conn.Close()
+		}
 		return
 	}
 
-	// is tls
-	f.ConnContext.ClientConn.Tls = true
-	proxy.attacker.httpsLazyAttack(req.Context(), cconn, req)
+	conn, err := proxy.attacker.httpsDial(req.Context(), req)
+	if err != nil {
+		cconn.Close()
+		log.Error(err)
+		return
+	}
+	transfer(log, conn, cconn)
+	conn.Close()
+	cconn.Close()
 }
