@@ -2,8 +2,10 @@ package proxy
 
 import (
 	"bufio"
+	"crypto/tls"
 	"net"
 	"net/http"
+	"net/url"
 
 	"github.com/gorilla/websocket"
 	log "github.com/sirupsen/logrus"
@@ -221,7 +223,14 @@ func (h *webSocketHandler) forwardMessages(clientWS, serverWS *websocket.Conn, f
 }
 
 func (h *webSocketHandler) handleWSS(res http.ResponseWriter, req *http.Request) error {
-	dialer := &websocket.Dialer{}
+	dialer := &websocket.Dialer{
+		Proxy: func(r *http.Request) (*url.URL, error) {
+			return h.proxy.getUpstreamProxyUrl(req)
+		},
+		TLSClientConfig: &tls.Config{
+			InsecureSkipVerify: h.proxy.Opts.SslInsecure,
+		},
+	}
 	serverURL := "wss://" + req.Host + req.URL.RequestURI()
 	log.Debugf("Connecting to WSS server: %s", serverURL)
 
