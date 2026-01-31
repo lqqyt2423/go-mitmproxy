@@ -346,3 +346,88 @@ func TestWebSocketWSSProxy(t *testing.T) {
 		time.Sleep(time.Millisecond * 100)
 	})
 }
+
+// TestWebSocketUpstreamProxy 测试通过 upstream proxy 的 WebSocket 代理功能
+func TestWebSocketUpstreamProxy(t *testing.T) {
+	// 设置日志级别为 Debug，以便查看详细的调试信息
+	log.SetLevel(log.DebugLevel)
+	log.SetFormatter(&log.TextFormatter{
+		FullTimestamp: true,
+	})
+
+	t.Run("should proxy WS connection through upstream proxy", func(t *testing.T) {
+		// 创建测试用的 WS 服务器
+		wsServer := testWebSocketServer(t, testEchoWebSocketHandler(t))
+		defer wsServer.Close()
+
+		// 解析 WS 服务器地址
+		wsURL, err := url.Parse(wsServer.URL)
+		if err != nil {
+			t.Fatalf("Failed to parse WS server URL: %v", err)
+		}
+
+		// 启动 upstream proxy (第二层代理)
+		upstreamProxy, err := NewProxy(&Options{
+			Addr: ":29093",
+		})
+		if err != nil {
+			t.Fatalf("Failed to create upstream proxy: %v", err)
+		}
+		go upstreamProxy.Start()
+		defer upstreamProxy.Close()
+		time.Sleep(time.Millisecond * 100)
+
+		// 启动客户端 proxy (第一层代理)，配置 upstream 指向上层代理
+		clientProxy, err := NewProxy(&Options{
+			Addr:     ":29094",
+			Upstream: "http://127.0.0.1:29093",
+		})
+		if err != nil {
+			t.Fatalf("Failed to create client proxy: %v", err)
+		}
+		go clientProxy.Start()
+		defer clientProxy.Close()
+		time.Sleep(time.Millisecond * 100)
+
+		// 创建代理客户端，连接到第一层代理
+		proxyURL, _ := url.Parse("http://127.0.0.1:29094")
+		dialer := &websocket.Dialer{
+			Proxy:            http.ProxyURL(proxyURL),
+			HandshakeTimeout: time.Second * 5,
+		}
+
+		// 连接到 WS 服务器（通过两层代理）
+		wsEndpoint := "ws://" + wsURL.Host + "/ws"
+		conn, resp, err := dialer.Dial(wsEndpoint, nil)
+		if err != nil {
+			t.Fatalf("Failed to dial WS via proxy chain: %v, response: %v", err, resp)
+		}
+		defer conn.Close()
+
+		// 发送测试消息
+		testMessage := "Hello, WebSocket through upstream proxy!"
+
+		err = conn.WriteMessage(websocket.TextMessage, []byte(testMessage))
+		if err != nil {
+			t.Fatalf("Failed to send message: %v", err)
+		}
+
+		_, receivedMsg, err := conn.ReadMessage()
+		if err != nil {
+			t.Fatalf("Failed to read message: %v", err)
+		}
+
+		if string(receivedMsg) != testMessage {
+			t.Fatalf("Expected message %q, got %q", testMessage, string(receivedMsg))
+		}
+
+		// 关闭连接
+		err = conn.WriteMessage(websocket.CloseMessage, websocket.FormatCloseMessage(websocket.CloseNormalClosure, ""))
+		if err != nil {
+			t.Fatalf("Failed to send close message: %v", err)
+		}
+
+		// 等待连接关闭
+		time.Sleep(time.Millisecond * 100)
+	})
+}
