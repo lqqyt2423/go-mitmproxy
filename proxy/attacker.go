@@ -141,8 +141,9 @@ func (a *attacker) serveConn(clientTlsConn *tls.Conn, connCtx *ConnContext) {
 
 func (a *attacker) ServeHTTP(res http.ResponseWriter, req *http.Request) {
 	if strings.EqualFold(req.Header.Get("Connection"), "Upgrade") && strings.EqualFold(req.Header.Get("Upgrade"), "websocket") {
-		// wss
-		defaultWebSocket.wss(res, req)
+		if err := a.proxy.webSocketHandler.handleWSS(res, req); err != nil {
+			log.Errorf("handleWSS error: %v", err)
+		}
 		return
 	}
 
