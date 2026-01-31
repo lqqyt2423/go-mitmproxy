@@ -1,6 +1,8 @@
-import React, { useState } from 'react'
+import React, { useState, useEffect } from 'react'
 import Button from 'react-bootstrap/Button'
 import FormCheck from 'react-bootstrap/FormCheck'
+import Table from 'react-bootstrap/Table'
+import Badge from 'react-bootstrap/Badge'
 import fetchToCurl from 'fetch-to-curl'
 import copy from 'copy-to-clipboard'
 import JSONPretty from 'react-json-pretty'
@@ -29,6 +31,13 @@ function ViewFlow({ flow, onClose, onReRenderFlows, onMessage }: Iprops) {
   const [copied, setCopied] = useState(false)
   const [requestBodyViewTab, setRequestBodyViewTab] = useConfig(configViewFlowRequestBodyTab)
   const [responseBodyLineBreak, setResponseBodyLineBreak] = useConfig(configViewFlowResponseBodyLineBreak)
+
+  // 当 Flow 不是 WebSocket 但当前 tab 是 WebSocket 时，自动切换到 Detail
+  useEffect(() => {
+    if (flow && flowTab === 'WebSocket' && !flow.isWebSocket) {
+      setFlowTab('Detail')
+    }
+  }, [flow, flowTab, setFlowTab])
 
   const copyAsCurl = () => {
     if (!flow) return null
@@ -111,6 +120,77 @@ function ViewFlow({ flow, onClose, onReRenderFlows, onMessage }: Iprops) {
     }
 
     return <pre>{flow.hexviewResponseBody()}</pre>
+  }
+
+  const websocketView = () => {
+    if (!flow) return null
+    if (!flow.isWebSocket) {
+      return <div style={{ color: 'gray' }}>Not a WebSocket connection</div>
+    }
+
+    if (flow.webSocketMessages.length === 0) {
+      return <div style={{ color: 'gray' }}>No WebSocket messages yet</div>
+    }
+
+    // 尝试解码 base64 内容
+    const decodeContent = (content: string): string => {
+      try {
+        const decoded = atob(content)
+        // 检查是否是可打印的文本
+        if (/^[\x20-\x7E\r\n\t]*$/.test(decoded)) {
+          return decoded
+        }
+        return content // 保留 base64 格式
+      } catch {
+        return content
+      }
+    }
+
+    return (
+      <Table striped bordered hover size="sm">
+        <thead>
+          <tr>
+            <th style={{ width: '60px' }}>Index</th>
+            <th style={{ width: '80px' }}>Direction</th>
+            <th style={{ width: '60px' }}>Type</th>
+            <th>Content</th>
+            <th style={{ width: '180px' }}>Time</th>
+          </tr>
+        </thead>
+        <tbody>
+          {flow.webSocketMessages.map((msg, index) => (
+            <tr key={index}>
+              <td>{index}</td>
+              <td>
+                {msg.fromClient ?
+                  <Badge bg="primary">C → S</Badge> :
+                  <Badge bg="success">S → C</Badge>
+                }
+              </td>
+              <td>
+                {msg.type === 1 ?
+                  <Badge bg="info">Text</Badge> :
+                  <Badge bg="secondary">Binary</Badge>
+                }
+              </td>
+              <td>
+                <div style={{
+                  maxWidth: '500px',
+                  wordBreak: 'break-all',
+                  whiteSpace: 'pre-wrap',
+                  fontSize: '12px'
+                }}>
+                  {decodeContent(msg.content)}
+                </div>
+              </td>
+              <td style={{ fontSize: '11px', color: '#666' }}>
+                {new Date(msg.timestamp).toLocaleTimeString()}
+              </td>
+            </tr>
+          ))}
+        </tbody>
+      </Table>
+    )
   }
 
   const detail = () => {
@@ -233,6 +313,7 @@ function ViewFlow({ flow, onClose, onReRenderFlows, onMessage }: Iprops) {
           <span className={flowTab === 'Preview' ? 'selected' : undefined} onClick={() => { setFlowTab('Preview') }}>Preview</span>
           <span className={flowTab === 'Response' ? 'selected' : undefined} onClick={() => { setFlowTab('Response') }}>Response</span>
           <span className={flowTab === 'Hexview' ? 'selected' : undefined} onClick={() => { setFlowTab('Hexview') }}>Hexview</span>
+          {flow.isWebSocket && <span className={flowTab === 'WebSocket' ? 'selected' : undefined} onClick={() => { setFlowTab('WebSocket') }}>WebSocket</span>}
         </div>
       </div>
 
@@ -351,6 +432,11 @@ function ViewFlow({ flow, onClose, onReRenderFlows, onMessage }: Iprops) {
         {
           !(flowTab === 'Preview') ? null :
             <div>{preview()}</div>
+        }
+
+        {
+          !(flowTab === 'WebSocket') ? null :
+            <div>{websocketView()}</div>
         }
 
         {

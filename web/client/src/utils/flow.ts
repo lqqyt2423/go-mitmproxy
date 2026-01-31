@@ -1,5 +1,5 @@
 import type { ConnectionManager, IConnection } from './connection'
-import { IMessage, MessageType } from './message'
+import { IMessage, MessageType, IWebSocketMessage, IWebSocketMessageData } from './message'
 import { arrayBufferToBase64, bufHexView, getHeader, getSize, hasHeader, isTextBody } from './utils'
 import { FlowFilter } from './filter'
 
@@ -76,6 +76,10 @@ export class Flow {
   private _previewResponseBody: IPreviewBody | null = null
   private _hexviewResponseBody: string | null = null
 
+  // WebSocket 相关字段
+  public webSocketMessages: IWebSocketMessage[] = []
+  public isWebSocket = false
+
   private connMgr: ConnectionManager
   private conn: IConnection | undefined
 
@@ -103,7 +107,26 @@ export class Flow {
 
     let rawUrl = this.request.url
     if (rawUrl.startsWith('//')) rawUrl = 'http:' + rawUrl
-    this.url = new URL(rawUrl)
+
+    // 处理 WebSocket URL（可能是相对路径，如 "/ws"）
+    if (rawUrl.startsWith('/')) {
+      // 尝试从 Host header 获取主机名
+      let host = 'localhost'
+      if (this.request.header && this.request.header['Host']) {
+        host = this.request.header['Host'][0]
+      }
+      // 对于 WebSocket，使用 ws:// 协议
+      rawUrl = 'ws://' + host + rawUrl
+    }
+
+    try {
+      this.url = new URL(rawUrl)
+    } catch (e) {
+      // 如果仍然失败，使用一个默认 URL
+      console.error('Failed to parse URL:', rawUrl, e)
+      this.url = new URL('http://localhost/')
+    }
+
     this.path = this.url.pathname + this.url.search
 
     return this
@@ -281,6 +304,19 @@ export class Flow {
 
     this._hexviewResponseBody = bufHexView(this.response.body)
     return this._hexviewResponseBody
+  }
+
+  // WebSocket 相关方法
+  public addWebSocketMessage(msg: IMessage): Flow {
+    const wsMsgData = msg.content as IWebSocketMessageData
+    this.isWebSocket = true
+    this.webSocketMessages.push(wsMsgData.message)
+    return this
+  }
+
+  public setWebSocketStart(): Flow {
+    this.isWebSocket = true
+    return this
   }
 
   public getConn(): IConnection | undefined {

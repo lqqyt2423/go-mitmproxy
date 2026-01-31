@@ -179,6 +179,14 @@ class App extends React.Component<IProps, IState> {
         // WebSocket 连接建立
         const wsStart = msg.content as IWebSocketStart
         console.log('[WebSocket Start]', { id: msg.id, connId: wsStart.connId, request: wsStart.request })
+        let flow = this.flowMgr.get(msg.id)
+        if (!flow) {
+          flow = new Flow(msg, this.connMgr)
+          flow.getConn()
+          this.flowMgr.add(flow)
+          this.setState({ flows: this.flowMgr.showList() })
+        }
+        flow.setWebSocketStart()
       }
       else if (msg.type === MessageType.WEBSOCKET_MESSAGE) {
         // WebSocket 消息
@@ -189,11 +197,17 @@ class App extends React.Component<IProps, IState> {
           msgIndex: wsMsg.msgIndex,
           message: wsMsg.message
         })
+        const flow = this.flowMgr.get(msg.id)
+        if (flow) {
+          flow.addWebSocketMessage(msg)
+          this.setState({ flows: this.state.flows })
+        }
       }
       else if (msg.type === MessageType.WEBSOCKET_END) {
         // WebSocket 连接结束
         const wsEnd = msg.content as IWebSocketEnd
         console.log('[WebSocket End]', { id: msg.id, connId: wsEnd.connId, messageCount: wsEnd.messageCount })
+        this.setState({ flows: this.state.flows })
       }
     }
   }
