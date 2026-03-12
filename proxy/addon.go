@@ -48,6 +48,12 @@ type Addon interface {
 	WebSocketStart(*Flow)
 	WebSocketMessage(*Flow)
 	WebSocketEnd(*Flow)
+
+	// HTTP request failed with error
+	RequestError(*Flow, error)
+
+	// HTTP CONNECT request failed with error
+	HTTPConnectError(*Flow, error)
 }
 
 // BaseAddon do nothing
@@ -68,6 +74,8 @@ func (addon *BaseAddon) AccessProxyServer(req *http.Request, res http.ResponseWr
 func (addon *BaseAddon) WebSocketStart(*Flow)                                         {}
 func (addon *BaseAddon) WebSocketMessage(*Flow)                                       {}
 func (addon *BaseAddon) WebSocketEnd(*Flow)                                           {}
+func (addon *BaseAddon) RequestError(*Flow, error)                                    {}
+func (addon *BaseAddon) HTTPConnectError(*Flow, error)                                {}
 
 // LogAddon log connection and flow
 type LogAddon struct {
@@ -92,19 +100,30 @@ func (addon *LogAddon) ServerDisconnected(connCtx *ConnContext) {
 
 func (addon *LogAddon) Requestheaders(f *Flow) {
 	log.Debugf("%v Requestheaders %v %v\n", f.ConnContext.ClientConn.Conn.RemoteAddr(), f.Request.Method, f.Request.URL.String())
-	start := time.Now()
-	go func() {
-		<-f.Done()
-		var StatusCode int
-		if f.Response != nil {
-			StatusCode = f.Response.StatusCode
-		}
-		var contentLen int
-		if f.Response != nil && f.Response.Body != nil {
-			contentLen = len(f.Response.Body)
-		}
-		log.Infof("%v %v %v %v %v - %v ms\n", f.ConnContext.ClientConn.Conn.RemoteAddr(), f.Request.Method, f.Request.URL.String(), StatusCode, contentLen, time.Since(start).Milliseconds())
-	}()
+}
+
+func (addon *LogAddon) Response(f *Flow) {
+	var StatusCode int
+	if f.Response != nil {
+		StatusCode = f.Response.StatusCode
+	}
+	var contentLen int
+	if f.Response != nil && f.Response.Body != nil {
+		contentLen = len(f.Response.Body)
+	}
+	log.Infof("%v %v %v %v %v - %v ms\n", f.ConnContext.ClientConn.Conn.RemoteAddr(), f.Request.Method, f.Request.URL.String(), StatusCode, contentLen, time.Since(f.StartTime).Milliseconds())
+}
+
+func (addon *LogAddon) RequestError(f *Flow, err error) {
+	var StatusCode int
+	if f.Response != nil {
+		StatusCode = f.Response.StatusCode
+	}
+	log.Errorf("%v %v %v %v - ERROR: %v - %v ms\n", f.ConnContext.ClientConn.Conn.RemoteAddr(), f.Request.Method, f.Request.URL.String(), StatusCode, err, time.Since(f.StartTime).Milliseconds())
+}
+
+func (addon *LogAddon) HTTPConnectError(f *Flow, err error) {
+	log.Errorf("%v CONNECT ERROR %v - %v\n", f.ConnContext.ClientConn.Conn.RemoteAddr(), f.Request.URL.Host, err)
 }
 
 // WebSocketStart 记录 WebSocket 连接建立

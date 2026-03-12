@@ -58,37 +58,12 @@ func (addon *InstanceLogAddon) ServerDisconnected(connCtx *ConnContext) {
 }
 
 func (addon *InstanceLogAddon) Requestheaders(f *Flow) {
-	start := time.Now()
-
 	addon.logger.WithFields(map[string]interface{}{
 		"client_addr": f.ConnContext.ClientConn.Conn.RemoteAddr().String(),
 		"method":      f.Request.Method,
 		"url":         f.Request.URL.String(),
 		"event":       "request_headers",
 	}).Debug("Request headers received")
-
-	// Log completion asynchronously
-	go func() {
-		<-f.Done()
-		var statusCode int
-		if f.Response != nil {
-			statusCode = f.Response.StatusCode
-		}
-		var contentLen int
-		if f.Response != nil && f.Response.Body != nil {
-			contentLen = len(f.Response.Body)
-		}
-
-		addon.logger.WithFields(map[string]interface{}{
-			"client_addr": f.ConnContext.ClientConn.Conn.RemoteAddr().String(),
-			"method":      f.Request.Method,
-			"url":         f.Request.URL.String(),
-			"status_code": statusCode,
-			"content_len": contentLen,
-			"duration_ms": time.Since(start).Milliseconds(),
-			"event":       "request_completed",
-		}).Info("Request completed")
-	}()
 }
 
 func (addon *InstanceLogAddon) TlsEstablishedServer(connCtx *ConnContext) {
@@ -128,4 +103,41 @@ func (addon *InstanceLogAddon) Response(f *Flow) {
 		"body_len":    bodyLen,
 		"event":       "response_body",
 	}).Debug("Full response received")
+
+	// Log request completion
+	addon.logger.WithFields(map[string]interface{}{
+		"client_addr": f.ConnContext.ClientConn.Conn.RemoteAddr().String(),
+		"method":      f.Request.Method,
+		"url":         f.Request.URL.String(),
+		"status_code": f.Response.StatusCode,
+		"content_len": bodyLen,
+		"duration_ms": time.Since(f.StartTime).Milliseconds(),
+		"event":       "request_completed",
+	}).Info("Request completed")
+}
+
+func (addon *InstanceLogAddon) RequestError(f *Flow, err error) {
+	var statusCode int
+	if f.Response != nil {
+		statusCode = f.Response.StatusCode
+	}
+
+	addon.logger.WithFields(map[string]interface{}{
+		"client_addr": f.ConnContext.ClientConn.Conn.RemoteAddr().String(),
+		"method":      f.Request.Method,
+		"url":         f.Request.URL.String(),
+		"status_code": statusCode,
+		"error":       err.Error(),
+		"duration_ms": time.Since(f.StartTime).Milliseconds(),
+		"event":       "request_error",
+	}).Error("Request failed")
+}
+
+func (addon *InstanceLogAddon) HTTPConnectError(f *Flow, err error) {
+	addon.logger.WithFields(map[string]interface{}{
+		"client_addr": f.ConnContext.ClientConn.Conn.RemoteAddr().String(),
+		"host":        f.Request.URL.Host,
+		"error":       err.Error(),
+		"event":       "connect_error",
+	}).Error("HTTP CONNECT failed")
 }

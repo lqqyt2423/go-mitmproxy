@@ -255,12 +255,18 @@ func (e *entry) handleConnect(res http.ResponseWriter, req *http.Request) {
 func (e *entry) establishConnection(res http.ResponseWriter, f *Flow) (net.Conn, error) {
 	cconn, _, err := res.(http.Hijacker).Hijack()
 	if err != nil {
+		for _, addon := range e.proxy.Addons {
+			addon.HTTPConnectError(f, err)
+		}
 		res.WriteHeader(502)
 		return nil, err
 	}
 	_, err = io.WriteString(cconn, "HTTP/1.1 200 Connection Established\r\n\r\n")
 	if err != nil {
 		cconn.Close()
+		for _, addon := range e.proxy.Addons {
+			addon.HTTPConnectError(f, err)
+		}
 		return nil, err
 	}
 
@@ -286,7 +292,9 @@ func (e *entry) directTransfer(res http.ResponseWriter, req *http.Request, f *Fl
 
 	conn, err := proxy.getUpstreamConn(req.Context(), req)
 	if err != nil {
-		log.Error(err)
+		for _, addon := range proxy.Addons {
+			addon.HTTPConnectError(f, err)
+		}
 		res.WriteHeader(502)
 		return
 	}
@@ -294,7 +302,6 @@ func (e *entry) directTransfer(res http.ResponseWriter, req *http.Request, f *Fl
 
 	cconn, err := e.establishConnection(res, f)
 	if err != nil {
-		log.Error(err)
 		return
 	}
 	defer cconn.Close()
@@ -311,7 +318,9 @@ func (e *entry) httpsDialFirstAttack(res http.ResponseWriter, req *http.Request,
 
 	conn, err := proxy.attacker.httpsDial(req.Context(), req)
 	if err != nil {
-		log.Error(err)
+		for _, addon := range proxy.Addons {
+			addon.HTTPConnectError(f, err)
+		}
 		res.WriteHeader(502)
 		return
 	}
@@ -319,7 +328,6 @@ func (e *entry) httpsDialFirstAttack(res http.ResponseWriter, req *http.Request,
 	cconn, err := e.establishConnection(res, f)
 	if err != nil {
 		conn.Close()
-		log.Error(err)
 		return
 	}
 

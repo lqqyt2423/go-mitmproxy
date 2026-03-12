@@ -116,13 +116,15 @@ type Flow struct {
 	// 如果为 true，则不缓冲 Request.Body 和 Response.Body，且不进入之后的 Addon.Request 和 Addon.Response
 	Stream            bool
 	UseSeparateClient bool // use separate http client to send http request
+	StartTime         time.Time
 	done              chan struct{}
 }
 
 func newFlow() *Flow {
 	return &Flow{
-		Id:   uuid.NewV4(),
-		done: make(chan struct{}),
+		Id:        uuid.NewV4(),
+		StartTime: time.Now(),
+		done:      make(chan struct{}),
 	}
 }
 
