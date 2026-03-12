@@ -294,27 +294,6 @@ func (h *webSocketHandler) handleWSS(res http.ResponseWriter, req *http.Request)
 	wsData := newWebSocketData()
 	f := newFlow()
 	f.Request = newRequest(req)
-
-	// 修复 WebSocket URL，确保包含完整的 scheme 和 host
-	if f.Request.URL != nil && f.Request.URL.Host == "" {
-		// URL 只有路径，从 Host header 构造完整 URL
-		host := req.Host
-		if host == "" {
-			host = req.Header.Get("Host")
-		}
-		// 保存原始 URL 路径
-		originalPath := f.Request.URL.String()
-		// 构造完整的 URL
-		scheme := "ws"
-		if req.TLS != nil {
-			scheme = "wss"
-		}
-		fullURL := scheme + "://" + host + originalPath
-		if parsedURL, err := url.Parse(fullURL); err == nil {
-			f.Request.URL = parsedURL
-		}
-	}
-
 	f.ConnContext = connCtx
 	f.WebScoket = wsData
 	defer f.finish()
