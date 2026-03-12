@@ -138,15 +138,6 @@ func (web *WebAddon) Requestheaders(f *proxy.Flow) {
 	web.flowMessageState[f] = messageType(0)
 	web.flowMu.Unlock()
 
-	go func() {
-		<-f.Done()
-		web.sendMessageUntil(f, messageTypeResponseBody)
-
-		web.flowMu.Lock()
-		delete(web.flowMessageState, f)
-		web.flowMu.Unlock()
-	}()
-
 	if f.ConnContext.ClientConn.Tls {
 		web.forEachConn(func(c *concurrentConn) {
 			c.trySendConnMessage(f)
@@ -176,6 +167,8 @@ func (web *WebAddon) Responseheaders(f *proxy.Flow) {
 }
 
 func (web *WebAddon) Response(f *proxy.Flow) {
+	web.sendMessageUntil(f, messageTypeResponseBody)
+
 	if web.isIntercpt(f, messageTypeResponseBody) {
 		web.sendFlowMayWait(f, func() (*messageFlow, error) {
 			return newMessageFlow(messageTypeResponse, f)
@@ -184,6 +177,10 @@ func (web *WebAddon) Response(f *proxy.Flow) {
 			return newMessageFlow(messageTypeResponseBody, f)
 		})
 	}
+
+	web.flowMu.Lock()
+	delete(web.flowMessageState, f)
+	web.flowMu.Unlock()
 }
 
 func (web *WebAddon) ServerDisconnected(connCtx *proxy.ConnContext) {
@@ -211,6 +208,12 @@ func (web *WebAddon) WebSocketEnd(f *proxy.Flow) {
 	web.sendFlow(func() (*messageFlow, error) {
 		return newMessageFlow(messageTypeWebSocketEnd, f)
 	})
+}
+
+func (web *WebAddon) RequestError(f *proxy.Flow, err error) {
+	web.flowMu.Lock()
+	delete(web.flowMessageState, f)
+	web.flowMu.Unlock()
 }
 
 func (web *WebAddon) isIntercpt(f *proxy.Flow, mType messageType) bool {
