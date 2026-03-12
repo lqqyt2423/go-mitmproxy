@@ -21,12 +21,12 @@
 - HTTPS 证书相关逻辑与 [mitmproxy](https://mitmproxy.org/) 兼容，并保存在 `~/.mitmproxy` 文件夹中。如果之前已经用过 `mitmproxy` 并安装信任了根证书，则 `go-mitmproxy` 可以直接使用。
 - 支持 Map Remote 和 Map Local。
 - 支持 HTTP/2
+- 支持 WebSocket 协议解析。
 - 更多功能请参考[配置文档](#更多参数)。
 
 ## 暂未实现的功能
 
 - 只支持客户端显示设置代理，不支持透明代理模式。
-- 暂不支持 websocket 协议解析。
 
 > 如需了解显示设置代理和透明代理模式的区别，请参考 Python 版本的 mitmproxy 文档：[How mitmproxy works](https://docs.mitmproxy.org/stable/concepts-howmitmproxyworks/)。`go-mitmproxy` 目前支持文中提到的『Explicit HTTP』和『Explicit HTTPS』。
 
@@ -158,6 +158,21 @@ type Addon interface {
 
 	// 流式响应体修改器
 	StreamResponseModifier(*Flow, io.Reader) io.Reader
+
+	// WebSocket 连接建立
+	WebSocketStart(*Flow)
+
+	// WebSocket 消息接收
+	WebSocketMessage(*Flow)
+
+	// WebSocket 连接关闭
+	WebSocketEnd(*Flow)
+
+	// HTTP 请求失败
+	RequestError(*Flow, error)
+
+	// HTTP CONNECT 请求失败
+	HTTPConnectError(*Flow, error)
 }
 ```
 

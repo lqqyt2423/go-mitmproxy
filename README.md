@@ -21,12 +21,12 @@
 - HTTPS certificate handling is compatible with [mitmproxy](https://mitmproxy.org/) and stored in the `~/.mitmproxy` folder. If the root certificate is already trusted from a previous use of `mitmproxy`, `go-mitmproxy` can use it directly.
 - Map Remote and Map Local support.
 - HTTP/2 support.
+- WebSocket support.
 - Refer to the [configuration documentation](#additional-parameters) for more features.
 
 ## Unsupported features
 
 - Only supports setting the proxy manually in the client, not transparent proxy mode.
-- Currently does not support WebSocket protocol parsing.
 
 > For more information on the difference between manually setting a proxy and transparent proxy mode, please refer to the mitmproxy documentation for the Python version: [How mitmproxy works](https://docs.mitmproxy.org/stable/concepts-howmitmproxyworks/). go-mitmproxy currently supports "Explicit HTTP" and "Explicit HTTPS" as mentioned in the article.
 
@@ -158,6 +158,21 @@ type Addon interface {
 
 	// Stream response body modifier
 	StreamResponseModifier(*Flow, io.Reader) io.Reader
+
+	// WebSocket connection established
+	WebSocketStart(*Flow)
+
+	// WebSocket message received
+	WebSocketMessage(*Flow)
+
+	// WebSocket connection closed
+	WebSocketEnd(*Flow)
+
+	// HTTP request failed with error
+	RequestError(*Flow, error)
+
+	// HTTP CONNECT request failed with error
+	HTTPConnectError(*Flow, error)
 }
 ```
 
