@@ -49,6 +49,8 @@ var portMap = map[string]string{
 	"http":   "80",
 	"https":  "443",
 	"socks5": "1080",
+	"ws":     "80",
+	"wss":    "443",
 }
 
 // CanonicalAddr returns url.Host but always with a ":port" suffix.

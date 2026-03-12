@@ -223,16 +223,47 @@ func (h *webSocketHandler) forwardMessages(clientWS, serverWS *websocket.Conn, f
 }
 
 func (h *webSocketHandler) handleWSS(res http.ResponseWriter, req *http.Request) error {
+	// 修复 WebSocket URL，确保包含完整的 scheme 和 host
+	serverURL := "wss://" + req.Host + req.URL.RequestURI()
+	log.Debugf("Connecting to WSS server: %s", serverURL)
+	if parsedURL, err := url.Parse(serverURL); err == nil {
+		req.URL = parsedURL
+	}
+
+	connCtx := req.Context().Value(connContextKey).(*ConnContext)
+
+	// 步骤 1: 获取上游连接
+	plainConn, err := h.proxy.getUpstreamConn(req.Context(), req)
+	if err != nil {
+		log.Errorf("Failed to get upstream connection: %v", err)
+		return err
+	}
+
+	// 步骤 2: 创建并初始化 ServerConn
+	serverConn := newServerConn()
+	serverConn.Address = req.Host
+	serverConn.Conn = &wrapServerConn{
+		Conn:    plainConn,
+		proxy:   h.proxy,
+		connCtx: connCtx,
+	}
+	connCtx.ServerConn = serverConn
+
+	// 步骤 3: 调用 addon 的 ServerConnected 回调
+	for _, addon := range connCtx.proxy.Addons {
+		addon.ServerConnected(connCtx)
+	}
+
+	// 步骤 4: 创建 Dialer，使用自定义 NetDial
 	dialer := &websocket.Dialer{
-		Proxy: func(r *http.Request) (*url.URL, error) {
-			return h.proxy.getUpstreamProxyUrl(req)
+		NetDial: func(network, addr string) (net.Conn, error) {
+			return serverConn.Conn, nil
 		},
+		Proxy: http.ProxyFromEnvironment,
 		TLSClientConfig: &tls.Config{
 			InsecureSkipVerify: h.proxy.Opts.SslInsecure,
 		},
 	}
-	serverURL := "wss://" + req.Host + req.URL.RequestURI()
-	log.Debugf("Connecting to WSS server: %s", serverURL)
 
 	// Dialer 会自动添加所有必需的 WebSocket 握手头
 	// 我们不传递 req.Header，避免重复头的错误
@@ -284,7 +315,7 @@ func (h *webSocketHandler) handleWSS(res http.ResponseWriter, req *http.Request)
 		}
 	}
 
-	f.ConnContext = req.Context().Value(connContextKey).(*ConnContext)
+	f.ConnContext = connCtx
 	f.WebScoket = wsData
 	defer f.finish()
 
