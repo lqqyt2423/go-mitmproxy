@@ -111,6 +111,7 @@ type Flow struct {
 	Request     *Request
 	Response    *Response
 	WebScoket   *WebSocketData
+	SSE         *SSEData // Server-Sent Events data
 
 	// https://docs.mitmproxy.org/stable/overview-features/#streaming
 	// 如果为 true，则不缓冲 Request.Body 和 Response.Body，且不进入之后的 Addon.Request 和 Addon.Response
@@ -193,3 +194,33 @@ func (wsData *WebSocketData) addMessage(msgType int, content []byte, fromClient 
 	defer wsData.mu.Unlock()
 	wsData.Messages = append(wsData.Messages, msg)
 }
+
+// SSEEvent represents a single Server-Sent Event
+type SSEEvent struct {
+	ID      string    `json:"id,omitempty"`      // event id
+	Event   string    `json:"event,omitempty"`   // event type (default: "message")
+	Data    string    `json:"data"`              // event data
+	Retry   int       `json:"retry,omitempty"`   // retry interval in milliseconds
+	Raw     string    `json:"raw"`               // raw event text
+	Time    time.Time `json:"timestamp"`         // when this event was received
+}
+
+// SSEData holds all SSE events for a flow
+type SSEData struct {
+	Events []*SSEEvent
+
+	mu sync.Mutex
+}
+
+func newSSEData() *SSEData {
+	return &SSEData{
+		Events: make([]*SSEEvent, 0),
+	}
+}
+
+func (sseData *SSEData) addEvent(event *SSEEvent) {
+	sseData.mu.Lock()
+	defer sseData.mu.Unlock()
+	sseData.Events = append(sseData.Events, event)
+}
+

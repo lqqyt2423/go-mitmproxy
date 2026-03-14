@@ -49,6 +49,14 @@ type Addon interface {
 	WebSocketMessage(*Flow)
 	WebSocketEnd(*Flow)
 
+	// Server-Sent Events hooks
+	// SSE stream started (detected text/event-stream content type)
+	SSEStart(*Flow)
+	// Each SSE event received (access via f.SSE.Events[len(f.SSE.Events)-1])
+	SSEMessage(*Flow)
+	// SSE stream ended
+	SSEEnd(*Flow)
+
 	// HTTP request failed with error
 	RequestError(*Flow, error)
 
@@ -74,6 +82,9 @@ func (addon *BaseAddon) AccessProxyServer(req *http.Request, res http.ResponseWr
 func (addon *BaseAddon) WebSocketStart(*Flow)                                         {}
 func (addon *BaseAddon) WebSocketMessage(*Flow)                                       {}
 func (addon *BaseAddon) WebSocketEnd(*Flow)                                           {}
+func (addon *BaseAddon) SSEStart(*Flow)    {}
+func (addon *BaseAddon) SSEMessage(*Flow)  {}
+func (addon *BaseAddon) SSEEnd(*Flow)      {}
 func (addon *BaseAddon) RequestError(*Flow, error)                                    {}
 func (addon *BaseAddon) HTTPConnectError(*Flow, error)                                {}
 
@@ -166,6 +177,44 @@ func (addon *LogAddon) WebSocketEnd(f *Flow) {
 		f.ConnContext.ClientConn.Conn.RemoteAddr(),
 		f.Request.URL.String(),
 		len(f.WebScoket.Messages))
+}
+
+// SSEStart 记录 SSE 流开始
+func (addon *LogAddon) SSEStart(f *Flow) {
+	log.Infof("%v SSE START %s - %s\n",
+		f.ConnContext.ClientConn.Conn.RemoteAddr(),
+		f.Request.URL.String(),
+		f.ConnContext.ServerConn.Address)
+}
+
+// SSEMessage 记录 SSE 事件
+func (addon *LogAddon) SSEMessage(f *Flow) {
+	// 获取最新的 SSE 事件
+	events := f.SSE.Events
+	if len(events) == 0 {
+		return
+	}
+	event := events[len(events)-1]
+
+	// 记录事件内容
+	data := event.Data
+	if len(data) > 100 {
+		data = data[:100] + "..."
+	}
+	log.Infof("%v SSE EVENT %s [%s] id=%s data=%s\n",
+		f.ConnContext.ClientConn.Conn.RemoteAddr(),
+		f.Request.URL.String(),
+		event.Event,
+		event.ID,
+		data)
+}
+
+// SSEEnd 记录 SSE 流结束
+func (addon *LogAddon) SSEEnd(f *Flow) {
+	log.Infof("%v SSE END %s - %d events\n",
+		f.ConnContext.ClientConn.Conn.RemoteAddr(),
+		f.Request.URL.String(),
+		len(f.SSE.Events))
 }
 
 
