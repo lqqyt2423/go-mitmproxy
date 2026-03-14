@@ -211,10 +211,23 @@ func (addon *LogAddon) SSEMessage(f *Flow) {
 
 // SSEEnd 记录 SSE 流结束
 func (addon *LogAddon) SSEEnd(f *Flow) {
-	log.Infof("%v SSE END %s - %d events\n",
+	var StatusCode int
+	if f.Response != nil {
+		StatusCode = f.Response.StatusCode
+	}
+	eventCount := 0
+	if f.SSE != nil {
+		eventCount = len(f.SSE.Events)
+	}
+
+	// 记录格式与 Response 保持一致，但标注为 SSE
+	log.Infof("%v %v %v %v %d [SSE] - %v ms\n",
 		f.ConnContext.ClientConn.Conn.RemoteAddr(),
+		f.Request.Method,
 		f.Request.URL.String(),
-		len(f.SSE.Events))
+		StatusCode,
+		eventCount,
+		time.Since(f.StartTime).Milliseconds())
 }
 
 
