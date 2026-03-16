@@ -14,6 +14,9 @@ export enum MessageType {
   WEBSOCKET_START = 6,
   WEBSOCKET_MESSAGE = 7,
   WEBSOCKET_END = 8,
+  SSE_START = 30,
+  SSE_MESSAGE = 31,
+  SSE_END = 32,
 }
 
 const allMessageBytes = [
@@ -26,6 +29,9 @@ const allMessageBytes = [
   MessageType.WEBSOCKET_START,
   MessageType.WEBSOCKET_MESSAGE,
   MessageType.WEBSOCKET_END,
+  MessageType.SSE_START,
+  MessageType.SSE_MESSAGE,
+  MessageType.SSE_END,
 ]
 
 // WebSocket 消息结构
@@ -55,12 +61,42 @@ export interface IWebSocketEnd {
   messageCount: number
 }
 
+// SSE 事件结构
+export interface ISSEEvent {
+  id?: string
+  event?: string
+  data: string
+  retry?: number
+  raw: string
+  timestamp: string
+}
+
+// SSE Start 消息内容
+export interface ISSEStart {
+  connId: string
+  request?: IRequest
+}
+
+// SSE Message 消息内容
+export interface ISSEMessageData {
+  connId: string
+  event: ISSEEvent
+  eventIndex: number
+}
+
+// SSE End 消息内容
+export interface ISSEEnd {
+  connId: string
+  eventCount: number
+}
+
 export interface IMessage {
   type: MessageType
   id: string
   waitIntercept: boolean
   content?: ArrayBuffer | IFlowRequest | IResponse | IConnection | number |
-    IWebSocketStart | IWebSocketMessageData | IWebSocketEnd
+    IWebSocketStart | IWebSocketMessageData | IWebSocketEnd |
+    ISSEStart | ISSEMessageData | ISSEEnd
 }
 
 // type: 0/1/2/3/4

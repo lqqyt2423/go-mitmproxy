@@ -1,5 +1,5 @@
 import type { ConnectionManager, IConnection } from './connection'
-import { IMessage, MessageType, IWebSocketMessage, IWebSocketMessageData } from './message'
+import { IMessage, MessageType, IWebSocketMessage, IWebSocketMessageData, ISSEEvent, ISSEMessageData } from './message'
 import { arrayBufferToBase64, bufHexView, getHeader, getSize, hasHeader, isTextBody } from './utils'
 import { FlowFilter } from './filter'
 
@@ -79,6 +79,10 @@ export class Flow {
   // WebSocket 相关字段
   public webSocketMessages: IWebSocketMessage[] = []
   public isWebSocket = false
+
+  // SSE 相关字段
+  public sseEvents: ISSEEvent[] = []
+  public isSSE = false
 
   private connMgr: ConnectionManager
   private conn: IConnection | undefined
@@ -316,6 +320,19 @@ export class Flow {
 
   public setWebSocketStart(): Flow {
     this.isWebSocket = true
+    return this
+  }
+
+  // SSE 相关方法
+  public addSSEMessage(msg: IMessage): Flow {
+    const sseMsgData = msg.content as ISSEMessageData
+    this.isSSE = true
+    this.sseEvents.push(sseMsgData.event)
+    return this
+  }
+
+  public setSSEStart(): Flow {
+    this.isSSE = true
     return this
   }
 

@@ -46,6 +46,10 @@ const (
 	messageTypeDropResponse   messageType = 14
 
 	messageTypeChangeBreakPointRules messageType = 21
+
+	messageTypeSSEStart        messageType = 30
+	messageTypeSSEMessage      messageType = 31
+	messageTypeSSEEnd          messageType = 32
 )
 
 var allMessageTypes = []messageType{
@@ -58,6 +62,9 @@ var allMessageTypes = []messageType{
 	messageTypeWebSocketStart,
 	messageTypeWebSocketMessage,
 	messageTypeWebSocketEnd,
+	messageTypeSSEStart,
+	messageTypeSSEMessage,
+	messageTypeSSEEnd,
 	messageTypeChangeRequest,
 	messageTypeChangeResponse,
 	messageTypeDropRequest,
@@ -136,6 +143,31 @@ func newMessageFlow(mType messageType, f *proxy.Flow) (*messageFlow, error) {
 		m["connId"] = f.ConnContext.Id().String()
 		if f.WebScoket != nil {
 			m["messageCount"] = len(f.WebScoket.Messages)
+		}
+		content, err = json.Marshal(m)
+	case messageTypeSSEStart:
+		m := make(map[string]interface{})
+		m["connId"] = f.ConnContext.Id().String()
+		if f.Request != nil {
+			m["request"] = f.Request
+		}
+		content, err = json.Marshal(m)
+	case messageTypeSSEMessage:
+		if f.SSE == nil || len(f.SSE.Events) == 0 {
+			err = errors.New("no sse event")
+			break
+		}
+		lastEvent := f.SSE.Events[len(f.SSE.Events)-1]
+		m := make(map[string]interface{})
+		m["connId"] = f.ConnContext.Id().String()
+		m["event"] = lastEvent
+		m["eventIndex"] = len(f.SSE.Events) - 1
+		content, err = json.Marshal(m)
+	case messageTypeSSEEnd:
+		m := make(map[string]interface{})
+		m["connId"] = f.ConnContext.Id().String()
+		if f.SSE != nil {
+			m["eventCount"] = len(f.SSE.Events)
 		}
 		content, err = json.Marshal(m)
 	default:

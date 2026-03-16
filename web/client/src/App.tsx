@@ -13,7 +13,8 @@ import Resizer from './components/Resizer'
 
 import { Flow, FlowManager } from './utils/flow'
 import { parseMessage, SendMessageType, buildMessageMeta, MessageType,
-  IWebSocketStart, IWebSocketMessageData, IWebSocketEnd } from './utils/message'
+  IWebSocketStart, IWebSocketMessageData, IWebSocketEnd,
+  ISSEStart, ISSEMessageData, ISSEEnd } from './utils/message'
 import { isInViewPort } from './utils/utils'
 import { ConnectionManager, IConnection } from './utils/connection'
 
@@ -207,6 +208,40 @@ class App extends React.Component<IProps, IState> {
         // WebSocket 连接结束
         const wsEnd = msg.content as IWebSocketEnd
         console.log('[WebSocket End]', { id: msg.id, connId: wsEnd.connId, messageCount: wsEnd.messageCount })
+        this.setState({ flows: this.state.flows })
+      }
+      else if (msg.type === MessageType.SSE_START) {
+        // SSE 连接建立
+        const sseStart = msg.content as ISSEStart
+        console.log('[SSE Start]', { id: msg.id, connId: sseStart.connId, request: sseStart.request })
+        let flow = this.flowMgr.get(msg.id)
+        if (!flow) {
+          flow = new Flow(msg, this.connMgr)
+          flow.getConn()
+          this.flowMgr.add(flow)
+          this.setState({ flows: this.flowMgr.showList() })
+        }
+        flow.setSSEStart()
+      }
+      else if (msg.type === MessageType.SSE_MESSAGE) {
+        // SSE 消息
+        const sseMsg = msg.content as ISSEMessageData
+        console.log('[SSE Message]', {
+          id: msg.id,
+          connId: sseMsg.connId,
+          eventIndex: sseMsg.eventIndex,
+          event: sseMsg.event
+        })
+        const flow = this.flowMgr.get(msg.id)
+        if (flow) {
+          flow.addSSEMessage(msg)
+          this.setState({ flows: this.state.flows })
+        }
+      }
+      else if (msg.type === MessageType.SSE_END) {
+        // SSE 连接结束
+        const sseEnd = msg.content as ISSEEnd
+        console.log('[SSE End]', { id: msg.id, connId: sseEnd.connId, eventCount: sseEnd.eventCount })
         this.setState({ flows: this.state.flows })
       }
     }

@@ -37,6 +37,9 @@ function ViewFlow({ flow, onClose, onReRenderFlows, onMessage }: Iprops) {
     if (flow && flowTab === 'WebSocket' && !flow.isWebSocket) {
       setFlowTab('Detail')
     }
+    if (flow && flowTab === 'SSE' && !flow.isSSE) {
+      setFlowTab('Detail')
+    }
   }, [flow, flowTab, setFlowTab])
 
   const copyAsCurl = () => {
@@ -193,6 +196,63 @@ function ViewFlow({ flow, onClose, onReRenderFlows, onMessage }: Iprops) {
     )
   }
 
+  const sseView = () => {
+    if (!flow) return null
+    if (!flow.isSSE) {
+      return <div style={{ color: 'gray' }}>Not a SSE connection</div>
+    }
+
+    if (flow.sseEvents.length === 0) {
+      return <div style={{ color: 'gray' }}>No SSE events yet</div>
+    }
+
+    return (
+      <Table striped bordered hover size="sm">
+        <thead>
+          <tr>
+            <th style={{ width: '60px' }}>Index</th>
+            <th style={{ width: '80px' }}>Event</th>
+            <th style={{ width: '60px' }}>ID</th>
+            <th>Data</th>
+            <th style={{ width: '180px' }}>Time</th>
+          </tr>
+        </thead>
+        <tbody>
+          {flow.sseEvents.map((event, index) => (
+            <tr key={index}>
+              <td>{index}</td>
+              <td>
+                {event.event ?
+                  <Badge bg="info">{event.event}</Badge> :
+                  <Badge bg="secondary">message</Badge>
+                }
+              </td>
+              <td>
+                {event.id ?
+                  <Badge bg="primary">{event.id}</Badge> :
+                  <span style={{ color: '#999' }}>N/A</span>
+                }
+              </td>
+              <td>
+                <div style={{
+                  maxWidth: '500px',
+                  wordBreak: 'break-all',
+                  whiteSpace: 'pre-wrap',
+                  fontSize: '12px'
+                }}>
+                  {event.data}
+                </div>
+              </td>
+              <td style={{ fontSize: '11px', color: '#666' }}>
+                {new Date(event.timestamp).toLocaleTimeString()}
+              </td>
+            </tr>
+          ))}
+        </tbody>
+      </Table>
+    )
+  }
+
   const detail = () => {
     if (!flow) return null
 
@@ -314,6 +374,7 @@ function ViewFlow({ flow, onClose, onReRenderFlows, onMessage }: Iprops) {
           <span className={flowTab === 'Response' ? 'selected' : undefined} onClick={() => { setFlowTab('Response') }}>Response</span>
           <span className={flowTab === 'Hexview' ? 'selected' : undefined} onClick={() => { setFlowTab('Hexview') }}>Hexview</span>
           {flow.isWebSocket && <span className={flowTab === 'WebSocket' ? 'selected' : undefined} onClick={() => { setFlowTab('WebSocket') }}>WebSocket</span>}
+          {flow.isSSE && <span className={flowTab === 'SSE' ? 'selected' : undefined} onClick={() => { setFlowTab('SSE') }}>SSE</span>}
         </div>
       </div>
 
@@ -437,6 +498,11 @@ function ViewFlow({ flow, onClose, onReRenderFlows, onMessage }: Iprops) {
         {
           !(flowTab === 'WebSocket') ? null :
             <div>{websocketView()}</div>
+        }
+
+        {
+          !(flowTab === 'SSE') ? null :
+            <div>{sseView()}</div>
         }
 
         {

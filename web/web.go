@@ -210,6 +210,27 @@ func (web *WebAddon) WebSocketEnd(f *proxy.Flow) {
 	})
 }
 
+// SSEStart 发送 SSE 连接建立消息
+func (web *WebAddon) SSEStart(f *proxy.Flow) {
+	web.sendFlow(func() (*messageFlow, error) {
+		return newMessageFlow(messageTypeSSEStart, f)
+	})
+}
+
+// SSEMessage 发送 SSE 消息
+func (web *WebAddon) SSEMessage(f *proxy.Flow) {
+	web.sendFlow(func() (*messageFlow, error) {
+		return newMessageFlow(messageTypeSSEMessage, f)
+	})
+}
+
+// SSEEnd 发送 SSE 连接结束消息
+func (web *WebAddon) SSEEnd(f *proxy.Flow) {
+	web.sendFlow(func() (*messageFlow, error) {
+		return newMessageFlow(messageTypeSSEEnd, f)
+	})
+}
+
 func (web *WebAddon) RequestError(f *proxy.Flow, err error) {
 	web.flowMu.Lock()
 	delete(web.flowMessageState, f)
