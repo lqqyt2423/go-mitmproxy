@@ -22,6 +22,7 @@
 - Map Remote and Map Local support.
 - HTTP/2 support.
 - WebSocket support.
+- Server-Sent Events (SSE) support.
 - Refer to the [configuration documentation](#additional-parameters) for more features.
 
 ## Unsupported features
@@ -167,6 +168,15 @@ type Addon interface {
 
 	// WebSocket connection closed
 	WebSocketEnd(*Flow)
+
+	// SSE connection established
+	SSEStart(*Flow)
+
+	// SSE message received
+	SSEMessage(*Flow)
+
+	// SSE connection closed
+	SSEEnd(*Flow)
 
 	// HTTP request failed with error
 	RequestError(*Flow, error)

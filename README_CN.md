@@ -22,6 +22,7 @@
 - 支持 Map Remote 和 Map Local。
 - 支持 HTTP/2
 - 支持 WebSocket 协议解析。
+- 支持 Server-Sent Events (SSE) 协议解析。
 - 更多功能请参考[配置文档](#更多参数)。
 
 ## 暂未实现的功能
@@ -167,6 +168,15 @@ type Addon interface {
 
 	// WebSocket 连接关闭
 	WebSocketEnd(*Flow)
+
+	// SSE 连接建立
+	SSEStart(*Flow)
+
+	// SSE 消息接收
+	SSEMessage(*Flow)
+
+	// SSE 连接关闭
+	SSEEnd(*Flow)
 
 	// HTTP 请求失败
 	RequestError(*Flow, error)
