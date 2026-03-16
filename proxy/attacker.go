@@ -427,23 +427,48 @@ func (a *attacker) attack(res http.ResponseWriter, req *http.Request) {
 			}
 		}
 		if response.close {
-			res.Header().Add("Connection", "close")
+			res.Header().Set("Connection", "close")
 		}
 		res.WriteHeader(response.StatusCode)
 
+		flusher, _ := res.(http.Flusher)
+
+		copyStream := func(r io.Reader) error {
+			if r == nil {
+				return nil
+			}
+
+			buf := make([]byte, 32*1024)
+			for {
+				n, err := r.Read(buf)
+				if n > 0 {
+					if _, werr := res.Write(buf[:n]); werr != nil {
+						return werr
+					}
+					flusher.Flush()
+				}
+				if err != nil {
+					if err == io.EOF {
+						return nil
+					}
+					return err
+				}
+			}
+		}
+
 		if body != nil {
-			_, err := io.Copy(res, body)
+			err := copyStream(body)
 			if err != nil {
 				logErr(log, err)
 			}
 		}
 		if response.BodyReader != nil {
-			_, err := io.Copy(res, response.BodyReader)
+			err := copyStream(response.BodyReader)
 			if err != nil {
 				logErr(log, err)
 			}
 		}
-		if response.Body != nil && len(response.Body) > 0 {
+		if len(response.Body) > 0 {
 			_, err := res.Write(response.Body)
 			if err != nil {
 				logErr(log, err)
