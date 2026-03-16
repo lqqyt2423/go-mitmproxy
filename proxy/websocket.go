@@ -259,7 +259,6 @@ func (h *webSocketHandler) handleWSS(res http.ResponseWriter, req *http.Request)
 		NetDial: func(network, addr string) (net.Conn, error) {
 			return serverConn.Conn, nil
 		},
-		Proxy: http.ProxyFromEnvironment,
 		TLSClientConfig: &tls.Config{
 			InsecureSkipVerify: h.proxy.Opts.SslInsecure,
 		},
