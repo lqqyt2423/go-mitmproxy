@@ -149,20 +149,13 @@ func (h *webSocketHandler) forwardMessages(clientWS, serverWS *websocket.Conn, f
 			if err != nil {
 				// 判断是否是正常的关闭
 				if websocket.IsCloseError(err, websocket.CloseNormalClosure, websocket.CloseGoingAway) {
-					log.Debugf("Client -> Server: Normal close: %v", err)
 					errChan <- nil // 正常关闭，不返回错误
 					return
-				}
-				if websocket.IsUnexpectedCloseError(err, websocket.CloseNormalClosure, websocket.CloseGoingAway) {
-					log.Debugf("Client -> Server: Unexpected close: %v", err)
-				} else {
-					log.Debugf("Client -> Server: Read error: %v", err)
 				}
 				errChan <- err
 				return
 			}
 
-			log.Debugf("Client -> Server: type=%d, len=%d, msg=%s", msgType, len(msg), string(msg))
 			f.WebScoket.addMessage(msgType, msg, true)
 			for _, addon := range h.proxy.Addons {
 				addon.WebSocketMessage(f)
@@ -189,20 +182,13 @@ func (h *webSocketHandler) forwardMessages(clientWS, serverWS *websocket.Conn, f
 			if err != nil {
 				// 判断是否是正常的关闭
 				if websocket.IsCloseError(err, websocket.CloseNormalClosure, websocket.CloseGoingAway) {
-					log.Debugf("Server -> Client: Normal close: %v", err)
 					errChan <- nil // 正常关闭，不返回错误
 					return
-				}
-				if websocket.IsUnexpectedCloseError(err, websocket.CloseNormalClosure, websocket.CloseGoingAway) {
-					log.Debugf("Server -> Client: Unexpected close: %v", err)
-				} else {
-					log.Debugf("Server -> Client: Read error: %v", err)
 				}
 				errChan <- err
 				return
 			}
 
-			log.Debugf("Server -> Client: type=%d, len=%d, msg=%s", msgType, len(msg), string(msg))
 			f.WebScoket.addMessage(msgType, msg, false)
 			for _, addon := range h.proxy.Addons {
 				addon.WebSocketMessage(f)

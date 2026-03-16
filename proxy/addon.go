@@ -157,18 +157,13 @@ func (addon *LogAddon) WebSocketMessage(f *Flow) {
 		msgType = "BINARY"
 	}
 
-	// 记录消息内容和方向
-	content := string(lastMsg.Content)
-	if len(content) > 100 {
-		content = content[:100] + "..."
-	}
-	log.Infof("%v WebSocket MSG %s %s [%s] len=%d %s\n",
+	// 只记录消息长度，不记录内容
+	log.Infof("%v WebSocket MSG %s %s [%s] len=%d\n",
 		f.ConnContext.ClientConn.Conn.RemoteAddr(),
 		f.Request.URL.String(),
 		direction,
 		msgType,
-		len(lastMsg.Content),
-		content)
+		len(lastMsg.Content))
 }
 
 // WebSocketEnd 记录 WebSocket 连接结束
@@ -196,17 +191,13 @@ func (addon *LogAddon) SSEMessage(f *Flow) {
 	}
 	event := events[len(events)-1]
 
-	// 记录事件内容
-	data := event.Data
-	if len(data) > 100 {
-		data = data[:100] + "..."
-	}
-	log.Infof("%v SSE EVENT %s [%s] id=%s data=%s\n",
+	// 只记录事件长度，不记录内容
+	log.Infof("%v SSE EVENT %s [%s] id=%s data_len=%d\n",
 		f.ConnContext.ClientConn.Conn.RemoteAddr(),
 		f.Request.URL.String(),
 		event.Event,
 		event.ID,
-		data)
+		len(event.Data))
 }
 
 // SSEEnd 记录 SSE 流结束
