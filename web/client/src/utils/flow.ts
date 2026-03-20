@@ -84,6 +84,9 @@ export class Flow {
   public sseEvents: ISSEEvent[] = []
   public isSSE = false
 
+  // AI API 类型 (null 表示不是 AI API)
+  public aiAPIType: 'anthropic' | 'openai' | null = null
+
   private connMgr: ConnectionManager
   private conn: IConnection | undefined
 
@@ -340,6 +343,61 @@ export class Flow {
     if (this.conn) return this.conn
     this.conn = this.connMgr.get(this.connId)
     return this.conn
+  }
+
+  public detectAIAPI(): void {
+    this.aiAPIType = null
+
+    const reqContentType = getHeader(this.request.header, 'Content-Type')?.[0]
+    const resContentType = this.response?.header && getHeader(this.response.header, 'Content-Type')?.[0]
+
+    if (!reqContentType?.includes('application/json') || !resContentType?.includes('text/event-stream')) {
+      return
+    }
+
+    try {
+      const reqBody = JSON.parse(this.requestBody())
+      if (!reqBody.model || typeof reqBody.model !== 'string' || !Array.isArray(reqBody.messages) || reqBody.stream !== true) {
+        return
+      }
+
+      // 检测 system role (OpenAI 格式)
+      if (reqBody.messages.some((msg: any) => msg.role === 'system')) {
+        this.aiAPIType = 'openai'
+        return
+      }
+
+      // 检测 system 字段 (Anthropic 格式)
+      if (reqBody.system) {
+        this.aiAPIType = 'anthropic'
+        return
+      }
+
+      // 通过 URL 检测
+      const url = this.request.url.toLowerCase()
+      if (url.includes('anthropic')) {
+        this.aiAPIType = 'anthropic'
+        return
+      }
+      if (url.includes('chat/completions')) {
+        this.aiAPIType = 'openai'
+        return
+      }
+
+      // 通过 Header 检测
+      if (Object.keys(this.request.header).some((key) => key.toLowerCase().includes('anthropic'))) {
+        this.aiAPIType = 'anthropic'
+        return
+      }
+
+      const userAgent = getHeader(this.request.header, 'User-Agent')?.[0]?.toLowerCase()
+      if (userAgent?.includes('openai')) {
+        this.aiAPIType = 'openai'
+        return
+      }
+    } catch {
+      // JSON 解析失败，忽略
+    }
   }
 }
 
