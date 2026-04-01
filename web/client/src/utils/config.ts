@@ -35,6 +35,14 @@ export const configViewFlowResponseBodyLineBreak = (() => {
   }
 })()
 
+export const configViewFlowRequestBodyPreviewLineBreak = (() => {
+  const key = 'go-mitm.configViewFlowRequestBodyPreviewLineBreak'
+  return {
+    get: () => (localStorage.getItem(key) || 'false') === 'true',
+    set: (value: boolean) => localStorage.setItem(key, value ? 'true' : 'false'),
+  }
+})()
+
 export const configViewFlowRequestBodyTab = (() => {
   type Value = 'Raw' | 'Preview'
   const key = 'go-mitm.configViewFlowRequestBodyTab'

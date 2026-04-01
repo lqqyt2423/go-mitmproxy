@@ -11,7 +11,7 @@ import type { Flow, IResponse } from '../utils/flow'
 import EditFlow from './EditFlow'
 import { useSize } from 'ahooks'
 import { ResizerItem } from '../components/ResizerItem'
-import { configViewFlowRequestBodyTab, configViewFlowResponseBodyLineBreak, configViewFlowTab, useConfig } from '../utils/config'
+import { configViewFlowRequestBodyTab, configViewFlowRequestBodyPreviewLineBreak, configViewFlowResponseBodyLineBreak, configViewFlowTab, useConfig } from '../utils/config'
 
 interface Iprops {
   flow: Flow | null
@@ -31,6 +31,7 @@ function ViewFlow({ flow, onClose, onReRenderFlows, onMessage }: Iprops) {
   const [copied, setCopied] = useState(false)
   const [requestBodyViewTab, setRequestBodyViewTab] = useConfig(configViewFlowRequestBodyTab)
   const [responseBodyLineBreak, setResponseBodyLineBreak] = useConfig(configViewFlowResponseBodyLineBreak)
+  const [requestBodyPreviewLineBreak, setRequestBodyPreviewLineBreak] = useConfig(configViewFlowRequestBodyPreviewLineBreak)
 
   // 当 Flow 不是 WebSocket 但当前 tab 是 WebSocket 时，自动切换到 Detail
   useEffect(() => {
@@ -86,14 +87,16 @@ function ViewFlow({ flow, onClose, onReRenderFlows, onMessage }: Iprops) {
     return <div style={{ color: 'gray' }}>Not support preview</div>
   }
 
-  const requestBodyPreview = () => {
+  const requestBodyPreview = (wrap = false) => {
+    const mainStyle = wrap ? 'white-space: pre-wrap;' : undefined
+
     if (!flow) return null
 
     const pv = flow.previewRequestBody()
     if (!pv) return <div style={{ color: 'gray' }}>Not support preview</div>
 
     if (pv.type === 'json') {
-      return <div><JSONPretty data={pv.data} keyStyle={'color: rgb(130,40,144);'} stringStyle={'color: rgb(153,68,60);'} valueStyle={'color: rgb(25,1,199);'} booleanStyle={'color: rgb(94,105,192);'} /></div>
+      return <div><JSONPretty data={pv.data} mainStyle={mainStyle} keyStyle={'color: rgb(130,40,144);'} stringStyle={'color: rgb(153,68,60);'} valueStyle={'color: rgb(25,1,199);'} booleanStyle={'color: rgb(94,105,192);'} /></div>
     }
     else if (pv.type === 'x-json-stream') {
       return <div>
@@ -101,13 +104,13 @@ function ViewFlow({ flow, onClose, onReRenderFlows, onMessage }: Iprops) {
           pv.data?.split('\n').map((line, index) => {
             if (!line) return null
 
-            return <JSONPretty key={flow.id + index} data={line} keyStyle={'color: rgb(130,40,144);'} stringStyle={'color: rgb(153,68,60);'} valueStyle={'color: rgb(25,1,199);'} booleanStyle={'color: rgb(94,105,192);'} />
+            return <JSONPretty key={flow.id + index} data={line} mainStyle={mainStyle} keyStyle={'color: rgb(130,40,144);'} stringStyle={'color: rgb(153,68,60);'} valueStyle={'color: rgb(25,1,199);'} booleanStyle={'color: rgb(94,105,192);'} />
           })
         }
       </div>
     }
     else if (pv.type === 'binary') {
-      return <div><pre>{pv.data}</pre></div>
+      return <div><pre style={wrap ? { whiteSpace: 'pre-wrap' } : undefined}>{pv.data}</pre></div>
     }
 
     return <div style={{ color: 'gray' }}>Not support preview</div>
@@ -459,7 +462,19 @@ function ViewFlow({ flow, onClose, onReRenderFlows, onMessage }: Iprops) {
 
                         {
                           !(requestBodyViewTab === 'Preview') ? null :
-                            <div>{requestBodyPreview()}</div>
+                            <div>
+                              <div style={{ marginBottom: '20px' }}>
+                                <FormCheck
+                                  inline
+                                  type="checkbox"
+                                  checked={requestBodyPreviewLineBreak}
+                                  onChange={e => {
+                                    setRequestBodyPreviewLineBreak(e.target.checked)
+                                  }}
+                                  label="Wrap"></FormCheck>
+                              </div>
+                              <div>{requestBodyPreview(requestBodyPreviewLineBreak)}</div>
+                            </div>
                         }
                       </div>
                     </div>
@@ -482,7 +497,7 @@ function ViewFlow({ flow, onClose, onReRenderFlows, onMessage }: Iprops) {
                       onChange={e => {
                         setResponseBodyLineBreak(e.target.checked)
                       }}
-                      label="自动换行"></FormCheck>
+                      label="Wrap"></FormCheck>
                   </div>
                   <div style={{ whiteSpace: responseBodyLineBreak ? 'pre-wrap' : 'pre' }}>
                     {flow.responseBody()}
