@@ -84,9 +84,14 @@ func (h *webSocketHandler) handle(serverConn, clientConn net.Conn, f *Flow) erro
 	serverURL := "ws://" + clientReq.Host + clientReq.URL.RequestURI()
 	log.Debugf("Connecting to server: %s", serverURL)
 
-	// Dialer 会自动添加所有必需的 WebSocket 握手头
-	// 我们不传递 clientReq.Header，避免重复头的错误
-	serverWS, _, err := dialer.Dial(serverURL, nil)
+	// 转发客户端的请求头（Cookie、Origin 等），但排除 WebSocket 握手专用头
+	// gorilla/websocket Dialer 会自动生成 Upgrade、Connection、Sec-WebSocket-* 等握手头
+	forwardHeaders := filterWebSocketHeaders(clientReq.Header)
+	if protocols := clientReq.Header.Get("Sec-WebSocket-Protocol"); protocols != "" {
+		dialer.Subprotocols = websocket.Subprotocols(clientReq)
+	}
+
+	serverWS, _, err := dialer.Dial(serverURL, forwardHeaders)
 	if err != nil {
 		log.Errorf("Failed to dial server: %v", err)
 		return err
@@ -250,9 +255,14 @@ func (h *webSocketHandler) handleWSS(res http.ResponseWriter, req *http.Request)
 		},
 	}
 
-	// Dialer 会自动添加所有必需的 WebSocket 握手头
-	// 我们不传递 req.Header，避免重复头的错误
-	serverWS, _, err := dialer.Dial(serverURL, nil)
+	// 转发客户端的请求头（Cookie、Origin 等），但排除 WebSocket 握手专用头
+	// gorilla/websocket Dialer 会自动生成 Upgrade、Connection、Sec-WebSocket-* 等握手头
+	forwardHeaders := filterWebSocketHeaders(req.Header)
+	if protocols := req.Header.Get("Sec-WebSocket-Protocol"); protocols != "" {
+		dialer.Subprotocols = websocket.Subprotocols(req)
+	}
+
+	serverWS, _, err := dialer.Dial(serverURL, forwardHeaders)
 	if err != nil {
 		log.Errorf("Failed to dial WSS server: %v", err)
 		return err
@@ -289,4 +299,24 @@ func (h *webSocketHandler) handleWSS(res http.ResponseWriter, req *http.Request)
 
 	// 双向转发消息
 	return h.forwardMessages(clientWS, serverWS, f)
+}
+
+// filterWebSocketHeaders 从客户端请求头中提取需要转发给上游服务器的头
+// 排除 WebSocket 握手专用头（gorilla/websocket Dialer 会自动生成这些头）
+func filterWebSocketHeaders(src http.Header) http.Header {
+	skipHeaders := map[string]bool{
+		"Upgrade":                  true,
+		"Connection":               true,
+		"Sec-Websocket-Key":        true,
+		"Sec-Websocket-Version":    true,
+		"Sec-Websocket-Extensions": true,
+		"Sec-Websocket-Protocol":   true,
+	}
+	dst := http.Header{}
+	for key, values := range src {
+		if !skipHeaders[http.CanonicalHeaderKey(key)] {
+			dst[key] = values
+		}
+	}
+	return dst
 }
