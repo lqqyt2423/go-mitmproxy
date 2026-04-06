@@ -51,14 +51,14 @@ targets:
     platform: iOS
     sources:
       - path: PacketTunnelExtension
+        excludes:
+          - Info.plist
     settings:
       base:
         PRODUCT_BUNDLE_IDENTIFIER: com.mitmproxy.ios.PacketTunnel
         PRODUCT_NAME: PacketTunnel
-        GENERATE_INFOPLIST_FILE: YES
-        INFOPLIST_KEY_NSExtension:
-          NSExtensionPointIdentifier: com.apple.networkextension.packet-tunnel
-          NSExtensionPrincipalClass: "$(PRODUCT_MODULE_NAME).PacketTunnelProvider"
+        GENERATE_INFOPLIST_FILE: NO
+        INFOPLIST_FILE: "$(SRCROOT)/PacketTunnelExtension/Info.plist"
         CODE_SIGN_ENTITLEMENTS: PacketTunnelExtension/PacketTunnelExtension.entitlements
     dependencies:
       - framework: ../GomitmproxyMobile.xcframework
