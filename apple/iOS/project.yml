@@ -1,0 +1,72 @@
+name: MITMProxyiOS
+options:
+  bundleIdPrefix: com.mitmproxy
+  deploymentTarget:
+    iOS: "16.0"
+  xcodeVersion: "15.0"
+
+settings:
+  base:
+    SWIFT_VERSION: "5.9"
+    IPHONEOS_DEPLOYMENT_TARGET: "16.0"
+
+targets:
+  MITMProxyiOS:
+    type: application
+    platform: iOS
+    sources:
+      - path: .
+        excludes:
+          - project.yml
+          - "*.xcodeproj"
+          - PacketTunnelExtension
+      - path: ../Shared/Sources
+        group: Shared
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: com.mitmproxy.ios
+        INFOPLIST_GENERATION_MODE: GeneratedFile
+        PRODUCT_NAME: go-mitmproxy
+        MARKETING_VERSION: "1.8.10"
+        CURRENT_PROJECT_VERSION: "1"
+        GENERATE_INFOPLIST_FILE: YES
+        INFOPLIST_KEY_CFBundleDisplayName: go-mitmproxy
+        INFOPLIST_KEY_UILaunchScreen_Generation: YES
+        INFOPLIST_KEY_UISupportedInterfaceOrientations: "UIInterfaceOrientationPortrait UIInterfaceOrientationLandscapeLeft UIInterfaceOrientationLandscapeRight"
+        CODE_SIGN_ENTITLEMENTS: MITMProxyiOS.entitlements
+    dependencies:
+      - framework: ../GomitmproxyMobile.xcframework
+        embed: true
+      - target: PacketTunnelExtension
+    entitlements:
+      path: MITMProxyiOS.entitlements
+      properties:
+        com.apple.developer.networking.networkextension:
+          - packet-tunnel-provider
+        com.apple.security.application-groups:
+          - group.com.mitmproxy.ios
+
+  PacketTunnelExtension:
+    type: app-extension
+    platform: iOS
+    sources:
+      - path: PacketTunnelExtension
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: com.mitmproxy.ios.PacketTunnel
+        PRODUCT_NAME: PacketTunnel
+        GENERATE_INFOPLIST_FILE: YES
+        INFOPLIST_KEY_NSExtension:
+          NSExtensionPointIdentifier: com.apple.networkextension.packet-tunnel
+          NSExtensionPrincipalClass: "$(PRODUCT_MODULE_NAME).PacketTunnelProvider"
+        CODE_SIGN_ENTITLEMENTS: PacketTunnelExtension/PacketTunnelExtension.entitlements
+    dependencies:
+      - framework: ../GomitmproxyMobile.xcframework
+        embed: true
+    entitlements:
+      path: PacketTunnelExtension/PacketTunnelExtension.entitlements
+      properties:
+        com.apple.developer.networking.networkextension:
+          - packet-tunnel-provider
+        com.apple.security.application-groups:
+          - group.com.mitmproxy.ios
