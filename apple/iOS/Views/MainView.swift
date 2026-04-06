@@ -18,7 +18,7 @@ struct MainView: View {
     }
 
     var body: some View {
-        NavigationStack {
+        NavigationView {
             VStack(spacing: 0) {
                 // VPN toggle bar
                 vpnBar
@@ -49,7 +49,7 @@ struct MainView: View {
                 }
             }
             .sheet(item: $selectedFlow) { flow in
-                NavigationStack {
+                NavigationView {
                     FlowDetailView(flow: flow)
                         .navigationTitle("Detail")
                         .navigationBarTitleDisplayMode(.inline)
@@ -59,9 +59,10 @@ struct MainView: View {
                             }
                         }
                 }
+                .navigationViewStyle(.stack)
             }
             .sheet(isPresented: $showSettings) {
-                NavigationStack {
+                NavigationView {
                     SettingsView()
                         .environmentObject(proxy)
                         .navigationTitle("Settings")
@@ -72,8 +73,10 @@ struct MainView: View {
                             }
                         }
                 }
+                .navigationViewStyle(.stack)
             }
         }
+        .navigationViewStyle(.stack)
     }
 
     private var vpnBar: some View {
@@ -93,7 +96,7 @@ struct MainView: View {
 
             Button(action: { vpn.toggle() }) {
                 Text(vpn.isConnected ? "Stop" : "Start")
-                    .font(.subheadline.bold())
+                    .font(.subheadline).fontWeight(.bold)
                     .foregroundStyle(.white)
                     .padding(.horizontal, 16)
                     .padding(.vertical, 6)
@@ -123,7 +126,8 @@ struct FlowRow: View {
     var body: some View {
         HStack(spacing: 8) {
             Text(flow.request.method)
-                .font(.system(.caption, design: .monospaced, weight: .bold))
+                .font(.system(.caption, design: .monospaced))
+                .fontWeight(.bold)
                 .foregroundStyle(.white)
                 .padding(.horizontal, 6)
                 .padding(.vertical, 2)

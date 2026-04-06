@@ -5,7 +5,7 @@ let package = Package(
     name: "MITMProxyKit",
     platforms: [
         .macOS(.v13),
-        .iOS(.v16)
+        .iOS(.v15)
     ],
     products: [
         .library(name: "MITMProxyKit", targets: ["MITMProxyKit"])

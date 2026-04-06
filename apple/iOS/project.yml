@@ -2,13 +2,13 @@ name: MITMProxyiOS
 options:
   bundleIdPrefix: com.mitmproxy
   deploymentTarget:
-    iOS: "16.0"
+    iOS: "15.0"
   xcodeVersion: "15.0"
 
 settings:
   base:
     SWIFT_VERSION: "5.9"
-    IPHONEOS_DEPLOYMENT_TARGET: "16.0"
+    IPHONEOS_DEPLOYMENT_TARGET: "15.0"
 
 targets:
   MITMProxyiOS:

@@ -63,7 +63,7 @@ struct FlowDetailView: View {
         Section("Headers") {
             ForEach(flow.request.headers.sorted(by: { $0.key < $1.key }), id: \.key) { key, value in
                 VStack(alignment: .leading) {
-                    Text(key).font(.system(.caption, design: .monospaced, weight: .bold))
+                    Text(key).font(.system(.caption, design: .monospaced)).fontWeight(.bold)
                     Text(value).font(.system(.caption, design: .monospaced))
                         .foregroundStyle(.secondary)
                 }
@@ -91,7 +91,7 @@ struct FlowDetailView: View {
             Section("Headers") {
                 ForEach(resp.headers.sorted(by: { $0.key < $1.key }), id: \.key) { key, value in
                     VStack(alignment: .leading) {
-                        Text(key).font(.system(.caption, design: .monospaced, weight: .bold))
+                        Text(key).font(.system(.caption, design: .monospaced)).fontWeight(.bold)
                         Text(value).font(.system(.caption, design: .monospaced))
                             .foregroundStyle(.secondary)
                     }
@@ -144,7 +144,7 @@ struct FlowDetailView: View {
                 VStack(alignment: .leading, spacing: 2) {
                     if let type = event.event {
                         Text("event: \(type)")
-                            .font(.system(.caption2, design: .monospaced, weight: .bold))
+                            .font(.system(.caption2, design: .monospaced)).fontWeight(.bold)
                     }
                     Text(event.data)
                         .font(.system(.caption, design: .monospaced))
