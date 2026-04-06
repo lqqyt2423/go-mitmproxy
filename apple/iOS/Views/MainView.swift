@@ -6,6 +6,7 @@ struct MainView: View {
     @State private var selectedFlow: FlowItem?
     @State private var searchText = ""
     @State private var showSettings = false
+    @AppStorage("proxyMode") private var proxyMode: String = "direct" // "direct" or "vpn"
 
     var filteredFlows: [FlowItem] {
         if searchText.isEmpty {
@@ -20,8 +21,8 @@ struct MainView: View {
     var body: some View {
         NavigationView {
             VStack(spacing: 0) {
-                // VPN toggle bar
-                vpnBar
+                // Proxy control bar
+                proxyBar
                     .padding(.horizontal)
                     .padding(.vertical, 8)
 
@@ -79,34 +80,59 @@ struct MainView: View {
         .navigationViewStyle(.stack)
     }
 
-    private var vpnBar: some View {
-        HStack {
-            Circle()
-                .fill(vpn.isConnected ? .green : .gray)
-                .frame(width: 10, height: 10)
+    // MARK: - Proxy Bar (supports both modes)
 
-            Text(vpnStatusText)
-                .font(.subheadline)
+    private var proxyBar: some View {
+        VStack(spacing: 8) {
+            // Mode selector
+            Picker("Mode", selection: $proxyMode) {
+                Text("Direct").tag("direct")
+                Text("VPN").tag("vpn")
+            }
+            .pickerStyle(.segmented)
+            .disabled(isActive)
 
-            Spacer()
+            HStack {
+                Circle()
+                    .fill(isActive ? .green : .gray)
+                    .frame(width: 10, height: 10)
 
-            Text("\(proxy.flows.count) flows")
-                .font(.caption)
-                .foregroundStyle(.secondary)
+                Text(statusText)
+                    .font(.subheadline)
 
-            Button(action: { vpn.toggle() }) {
-                Text(vpn.isConnected ? "Stop" : "Start")
-                    .font(.subheadline).fontWeight(.bold)
-                    .foregroundStyle(.white)
-                    .padding(.horizontal, 16)
-                    .padding(.vertical, 6)
-                    .background(vpn.isConnected ? Color.red : Color.green)
-                    .clipShape(Capsule())
+                Spacer()
+
+                Text("\(proxy.flows.count) flows")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+
+                Button(action: { toggleProxy() }) {
+                    Text(isActive ? "Stop" : "Start")
+                        .font(.subheadline).fontWeight(.bold)
+                        .foregroundStyle(.white)
+                        .padding(.horizontal, 16)
+                        .padding(.vertical, 6)
+                        .background(isActive ? Color.red : Color.green)
+                        .clipShape(Capsule())
+                }
+            }
+
+            if proxyMode == "direct" && proxy.isRunning {
+                Text("Set WiFi proxy to 127.0.0.1:9080")
+                    .font(.caption2)
+                    .foregroundStyle(.orange)
             }
         }
     }
 
-    private var vpnStatusText: String {
+    private var isActive: Bool {
+        proxyMode == "direct" ? proxy.isRunning : vpn.isConnected
+    }
+
+    private var statusText: String {
+        if proxyMode == "direct" {
+            return proxy.isRunning ? "Proxy Running (:9080)" : "Proxy Stopped"
+        }
         switch vpn.status {
         case .connected: return "VPN Connected"
         case .connecting: return "Connecting..."
@@ -115,6 +141,22 @@ struct MainView: View {
         case .reasserting: return "Reconnecting..."
         case .invalid: return "VPN Not Configured"
         @unknown default: return "Unknown"
+        }
+    }
+
+    private func toggleProxy() {
+        if proxyMode == "direct" {
+            if proxy.isRunning {
+                proxy.stop()
+            } else {
+                do {
+                    try proxy.start()
+                } catch {
+                    proxy.errorMessage = error.localizedDescription
+                }
+            }
+        } else {
+            vpn.toggle()
         }
     }
 }
