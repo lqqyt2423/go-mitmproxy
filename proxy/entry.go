@@ -155,9 +155,16 @@ func (e *entry) start() error {
 	if addr == "" {
 		addr = ":http"
 	}
-	ln, err := net.Listen("tcp", addr)
-	if err != nil {
-		return err
+
+	var ln net.Listener
+	var err error
+	if e.proxy.Opts.Listener != nil {
+		ln = e.proxy.Opts.Listener
+	} else {
+		ln, err = net.Listen("tcp", addr)
+		if err != nil {
+			return err
+		}
 	}
 
 	log.Infof("Proxy start listen at %v\n", e.server.Addr)

@@ -21,7 +21,8 @@ type Options struct {
 	CaRootPath        string
 	NewCaFunc         func() (cert.CA, error) //创建 Ca 的函数
 	Upstream          string
-	LogFilePath       string // Path to write logs to file
+	LogFilePath       string       // Path to write logs to file
+	Listener          net.Listener // Optional: provide custom listener instead of net.Listen
 }
 
 type Proxy struct {
