@@ -5,3 +5,8 @@
 /.idea
 dist/
 .vscode
+
+# gomobile
+*.xcframework
+apple/macOS/MITMProxyMac.xcodeproj
+apple/iOS/MITMProxyiOS.xcodeproj
