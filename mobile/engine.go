@@ -8,6 +8,9 @@ import (
 	"time"
 
 	"github.com/lqqyt2423/go-mitmproxy/cert"
+	// gomobile bind requires golang.org/x/mobile at build time;
+	// this blank import keeps it in go.mod after go mod tidy.
+	_ "golang.org/x/mobile/bind"
 	"github.com/lqqyt2423/go-mitmproxy/internal/helper"
 	"github.com/lqqyt2423/go-mitmproxy/proxy"
 	"github.com/lqqyt2423/go-mitmproxy/web"
