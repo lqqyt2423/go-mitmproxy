@@ -1,0 +1,44 @@
+name: MITMProxyMac
+options:
+  bundleIdPrefix: com.mitmproxy
+  deploymentTarget:
+    macOS: "13.0"
+  xcodeVersion: "15.0"
+
+settings:
+  base:
+    SWIFT_VERSION: "5.9"
+    MACOSX_DEPLOYMENT_TARGET: "13.0"
+
+targets:
+  MITMProxyMac:
+    type: application
+    platform: macOS
+    sources:
+      - path: .
+        excludes:
+          - project.yml
+          - "*.xcodeproj"
+      - path: ../Shared/Sources
+        group: Shared
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: com.mitmproxy.mac
+        INFOPLIST_GENERATION_MODE: GeneratedFile
+        PRODUCT_NAME: go-mitmproxy
+        MARKETING_VERSION: "1.8.10"
+        CURRENT_PROJECT_VERSION: "1"
+        GENERATE_INFOPLIST_FILE: YES
+        INFOPLIST_KEY_CFBundleDisplayName: go-mitmproxy
+        INFOPLIST_KEY_LSApplicationCategoryType: "public.app-category.developer-tools"
+        ENABLE_HARDENED_RUNTIME: YES
+    dependencies:
+      - framework: ../GomitmproxyMobile.xcframework
+        embed: true
+    entitlements:
+      path: MITMProxyMac.entitlements
+      properties:
+        com.apple.security.app-sandbox: true
+        com.apple.security.network.client: true
+        com.apple.security.network.server: true
+        com.apple.security.files.user-selected.read-write: true
