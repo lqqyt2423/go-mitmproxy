@@ -19,7 +19,7 @@ export function useConfig<S>(config: IConfig<S>): [S, Dispatch<SetStateAction<S>
 }
 
 export const configViewFlowTab = (() => {
-  type Value = 'Headers' | 'Preview' | 'Response' | 'WebSocket' | 'SSE' | 'Hexview' | 'Detail'
+  type Value = 'Headers' | 'Preview' | 'Response' | 'WebSocket' | 'SSE' | 'Hexview' | 'Detail' | 'Timing'
   const key = 'go-mitm.configViewFlowTab'
   return {
     get: () => (localStorage.getItem(key) || 'Detail') as Value,

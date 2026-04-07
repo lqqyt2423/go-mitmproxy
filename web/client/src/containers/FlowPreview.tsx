@@ -6,6 +6,7 @@ interface IProps {
   flow: IFlowPreview
   isSelected: boolean
   onShowDetail: () => void
+  style?: React.CSSProperties
 }
 
 class FlowPreview extends React.Component<IProps> {
@@ -30,6 +31,7 @@ class FlowPreview extends React.Component<IProps> {
 
     return (
       <tr className={classNames.length ? classNames.join(' ') : undefined}
+        style={this.props.style}
         onClick={() => {
           this.props.onShowDetail()
         }}

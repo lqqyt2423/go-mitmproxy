@@ -9,6 +9,9 @@ import Badge from 'react-bootstrap/Badge'
 import BreakPoint from './containers/BreakPoint'
 import FlowPreview from './containers/FlowPreview'
 import ViewFlow from './containers/ViewFlow'
+import Compose from './containers/Compose'
+import RepeatAdvanced from './containers/RepeatAdvanced'
+import Statistics from './containers/Statistics'
 import Resizer from './components/Resizer'
 
 import { Flow, FlowManager } from './utils/flow'
@@ -23,6 +26,9 @@ interface IState {
   flow: Flow | null
   wsStatus: 'open' | 'close' | 'connecting'
   filterInvalid: boolean
+  showCompose: boolean
+  showRepeatAdvanced: boolean
+  showStatistics: boolean
 }
 
 const wsReconnIntervals = [1, 1, 2, 2, 4, 4, 8, 8, 16, 16, 32, 32]
@@ -51,6 +57,9 @@ class App extends React.Component<IProps, IState> {
       flow: null,
       wsStatus: 'close',
       filterInvalid: false,
+      showCompose: false,
+      showRepeatAdvanced: false,
+      showStatistics: false,
     }
 
     this.ws = null
@@ -314,6 +323,27 @@ class App extends React.Component<IProps, IState> {
                 this.wsSend(msg)
               }} />
             </div>
+
+            <div style={{ marginRight: '10px' }}><Button size="sm" variant="outline-primary" onClick={() => {
+              this.setState({ showCompose: true })
+            }}>Compose</Button></div>
+
+            {this.state.flow && <div style={{ marginRight: '10px' }}><Button size="sm" variant="outline-secondary" onClick={() => {
+              const flow = this.state.flow
+              if (!flow) return
+              const MESSAGE_VERSION = 2
+              const idBytes = new TextEncoder().encode(flow.id)
+              const buf = new ArrayBuffer(38)
+              const u8 = new Uint8Array(buf)
+              u8[0] = MESSAGE_VERSION
+              u8[1] = SendMessageType.REPEAT_REQUEST
+              u8.set(idBytes, 2)
+              this.wsSend(buf)
+            }}>Repeat</Button></div>}
+
+            <div style={{ marginRight: '10px' }}><Button size="sm" variant={this.state.showStatistics ? 'info' : 'outline-info'} onClick={() => {
+              this.setState({ showStatistics: !this.state.showStatistics })
+            }}>Stats</Button></div>
           </div>
 
           <div style={{ display: 'flex', alignItems: 'center' }}>
@@ -342,6 +372,13 @@ class App extends React.Component<IProps, IState> {
               {
                 flows.map(f => {
                   const fp = f.preview()
+                  const annotationColor = f.annotation?.color
+                  const colorMap: Record<string, string> = {
+                    red: '#f8d7da', blue: '#cfe2ff', green: '#d1e7dd',
+                    yellow: '#fff3cd', purple: '#e2d9f3',
+                  }
+                  const rowStyle = annotationColor && colorMap[annotationColor]
+                    ? { backgroundColor: colorMap[annotationColor] } : undefined
 
                   return (
                     <FlowPreview
@@ -351,6 +388,7 @@ class App extends React.Component<IProps, IState> {
                       onShowDetail={() => {
                         this.setState({ flow: f })
                       }}
+                      style={rowStyle}
                     />
                   )
                 })
@@ -360,12 +398,29 @@ class App extends React.Component<IProps, IState> {
           <div ref={this.tableBottomRef} id="hidden-bottom" style={{ height: '0px', visibility: 'hidden', marginBottom: '1px' }}></div>
         </div>
 
+        {this.state.showStatistics && <Statistics flows={flows} />}
+
         <ViewFlow
           flow={this.state.flow}
           onClose={() => { this.setState({ flow: null }) }}
           onReRenderFlows={() => { this.setState({ flows: this.state.flows }) }}
           onMessage={msg => { this.wsSend(msg) }}
         />
+
+        <Compose
+          show={this.state.showCompose}
+          onClose={() => this.setState({ showCompose: false })}
+          onSend={msg => this.wsSend(msg)}
+        />
+
+        {this.state.flow && (
+          <RepeatAdvanced
+            show={this.state.showRepeatAdvanced}
+            flowId={this.state.flow.id}
+            onClose={() => this.setState({ showRepeatAdvanced: false })}
+            onSend={msg => this.wsSend(msg)}
+          />
+        )}
       </div>
     )
   }

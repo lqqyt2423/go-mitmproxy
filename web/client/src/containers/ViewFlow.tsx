@@ -9,6 +9,8 @@ import JSONPretty from 'react-json-pretty'
 import { flattenHeader, isTextBody } from '../utils/utils'
 import type { Flow, IResponse } from '../utils/flow'
 import EditFlow from './EditFlow'
+import AnnotationPanel from './AnnotationPanel'
+import Timing from './Timing'
 import { useSize } from 'ahooks'
 import { ResizerItem } from '../components/ResizerItem'
 import { configViewFlowRequestBodyTab, configViewFlowResponseBodyLineBreak, configViewFlowTab, useConfig } from '../utils/config'
@@ -373,6 +375,7 @@ function ViewFlow({ flow, onClose, onReRenderFlows, onMessage }: Iprops) {
           <span className={flowTab === 'Preview' ? 'selected' : undefined} onClick={() => { setFlowTab('Preview') }}>Preview</span>
           <span className={flowTab === 'Response' ? 'selected' : undefined} onClick={() => { setFlowTab('Response') }}>Response</span>
           <span className={flowTab === 'Hexview' ? 'selected' : undefined} onClick={() => { setFlowTab('Hexview') }}>Hexview</span>
+          {flow.timing && <span className={flowTab === 'Timing' ? 'selected' : undefined} onClick={() => { setFlowTab('Timing') }}>Timing</span>}
           {flow.isWebSocket && <span className={flowTab === 'WebSocket' ? 'selected' : undefined} onClick={() => { setFlowTab('WebSocket') }}>WebSocket</span>}
           {flow.isSSE && <span className={flowTab === 'SSE' ? 'selected' : undefined} onClick={() => { setFlowTab('SSE') }}>SSE</span>}
         </div>
@@ -511,8 +514,17 @@ function ViewFlow({ flow, onClose, onReRenderFlows, onMessage }: Iprops) {
         }
 
         {
+          !(flowTab === 'Timing') ? null :
+            flow.timing ? <Timing timing={flow.timing} /> :
+              <div style={{ color: 'gray' }}>No timing data available</div>
+        }
+
+        {
           !(flowTab === 'Detail') ? null :
-            <div>{detail()}</div>
+            <div>
+              {detail()}
+              <AnnotationPanel flow={flow} onSend={msg => onMessage(msg)} onUpdate={onReRenderFlows} />
+            </div>
         }
       </div>
 
