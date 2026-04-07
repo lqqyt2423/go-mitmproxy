@@ -36,6 +36,10 @@ type Config struct {
 
 	ProxyAuth string // Require proxy authentication
 
+	Rewrite   string // rewrite rules config filename
+	BlockList string // block list config filename
+	Throttle  string // throttle config filename
+	NoCaching bool   // strip cache headers
 }
 
 func main() {
@@ -100,14 +104,22 @@ func main() {
 	}
 
 	if config.LogFile != "" {
-		// Use instance logger with file output
 		p.AddAddon(proxy.NewInstanceLogAddonWithFile(config.Addr, "", config.LogFile))
 		log.Infof("Logging to file: %s", config.LogFile)
 	} else {
-		// Use default logger
 		p.AddAddon(&proxy.LogAddon{})
 	}
-	p.AddAddon(web.NewWebAddon(config.WebAddr))
+
+	// Addon registration order (per constitution: Block > Map > Rewrite > NoCaching > Throttle > Web > Dumper)
+
+	if config.BlockList != "" {
+		blockList, err := addon.NewBlockListFromFile(config.BlockList)
+		if err != nil {
+			log.Warnf("load block list error: %v", err)
+		} else {
+			p.AddAddon(blockList)
+		}
+	}
 
 	if config.MapRemote != "" {
 		mapRemote, err := addon.NewMapRemoteFromFile(config.MapRemote)
@@ -126,6 +138,30 @@ func main() {
 			p.AddAddon(mapLocal)
 		}
 	}
+
+	if config.Rewrite != "" {
+		rewrite, err := addon.NewRewriteFromFile(config.Rewrite)
+		if err != nil {
+			log.Warnf("load rewrite error: %v", err)
+		} else {
+			p.AddAddon(rewrite)
+		}
+	}
+
+	if config.NoCaching {
+		p.AddAddon(addon.NewNoCaching())
+	}
+
+	if config.Throttle != "" {
+		throttle, err := addon.NewThrottleFromFile(config.Throttle)
+		if err != nil {
+			log.Warnf("load throttle error: %v", err)
+		} else {
+			p.AddAddon(throttle)
+		}
+	}
+
+	p.AddAddon(web.NewWebAddon(config.WebAddr))
 
 	if config.Dump != "" {
 		dumper := addon.NewDumperWithFilename(config.Dump, config.DumpLevel)

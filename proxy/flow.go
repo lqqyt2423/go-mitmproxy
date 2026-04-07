@@ -104,6 +104,22 @@ type Response struct {
 	close bool // connection close
 }
 
+// FlowAnnotation holds user-defined highlight color and comment for a flow
+type FlowAnnotation struct {
+	Color   string `json:"color"`
+	Comment string `json:"comment"`
+}
+
+// TimingData holds per-phase timing breakdown for a flow
+type TimingData struct {
+	DnsMs     int64 `json:"dnsMs"`
+	ConnectMs int64 `json:"connectMs"`
+	TlsMs     int64 `json:"tlsMs"`
+	SendMs    int64 `json:"sendMs"`
+	WaitMs    int64 `json:"waitMs"`
+	ReceiveMs int64 `json:"receiveMs"`
+}
+
 // flow
 type Flow struct {
 	Id          uuid.UUID
@@ -112,6 +128,9 @@ type Flow struct {
 	Response    *Response
 	WebScoket   *WebSocketData
 	SSE         *SSEData // Server-Sent Events data
+
+	Annotation *FlowAnnotation
+	Timing     *TimingData
 
 	// https://docs.mitmproxy.org/stable/overview-features/#streaming
 	// 如果为 true，则不缓冲 Request.Body 和 Response.Body，且不进入之后的 Addon.Request 和 Addon.Response
@@ -142,6 +161,12 @@ func (f *Flow) MarshalJSON() ([]byte, error) {
 	j["id"] = f.Id
 	j["request"] = f.Request
 	j["response"] = f.Response
+	if f.Annotation != nil {
+		j["annotation"] = f.Annotation
+	}
+	if f.Timing != nil {
+		j["timing"] = f.Timing
+	}
 	return json.Marshal(j)
 }
 

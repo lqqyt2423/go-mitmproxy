@@ -50,6 +50,20 @@ const (
 	messageTypeSSEStart        messageType = 30
 	messageTypeSSEMessage      messageType = 31
 	messageTypeSSEEnd          messageType = 32
+
+	messageTypeRepeatRequest  messageType = 40
+	messageTypeComposeRequest messageType = 41
+	messageTypeRepeatAdvanced messageType = 42
+
+	messageTypeSaveSession messageType = 50
+	messageTypeLoadSession messageType = 51
+	messageTypeExportHAR   messageType = 52
+	messageTypeImportHAR   messageType = 53
+
+	messageTypeSetAnnotation messageType = 60
+
+	messageTypeStatistics messageType = 70
+	messageTypeTimingData messageType = 71
 )
 
 var allMessageTypes = []messageType{
@@ -70,6 +84,16 @@ var allMessageTypes = []messageType{
 	messageTypeDropRequest,
 	messageTypeDropResponse,
 	messageTypeChangeBreakPointRules,
+	messageTypeRepeatRequest,
+	messageTypeComposeRequest,
+	messageTypeRepeatAdvanced,
+	messageTypeSaveSession,
+	messageTypeLoadSession,
+	messageTypeExportHAR,
+	messageTypeImportHAR,
+	messageTypeSetAnnotation,
+	messageTypeStatistics,
+	messageTypeTimingData,
 }
 
 func validMessageType(t byte) bool {
@@ -346,6 +370,45 @@ func (m *messageMeta) bytes() []byte {
 	return buf.Bytes()
 }
 
+// messageAction handles new action message types (repeat, compose, session, annotation)
+type messageAction struct {
+	mType   messageType
+	id      uuid.UUID
+	content []byte
+}
+
+func parseMessageAction(data []byte) *messageAction {
+	mType := messageType(data[1])
+	msg := &messageAction{
+		mType: mType,
+	}
+
+	if len(data) > 38 {
+		id, err := uuid.FromString(string(data[2:38]))
+		if err == nil {
+			msg.id = id
+		}
+		if len(data) > 38 {
+			msg.content = data[38:]
+		}
+	} else if len(data) > 2 {
+		msg.content = data[2:]
+	}
+
+	return msg
+}
+
+func (m *messageAction) bytes() []byte {
+	buf := bytes.NewBuffer(make([]byte, 0))
+	buf.WriteByte(byte(messageVersion))
+	buf.WriteByte(byte(m.mType))
+	if m.id != uuid.Nil {
+		buf.WriteString(m.id.String())
+	}
+	buf.Write(m.content)
+	return buf.Bytes()
+}
+
 func parseMessage(data []byte) message {
 	if len(data) < 2 {
 		return nil
@@ -365,6 +428,11 @@ func parseMessage(data []byte) message {
 		return parseMessageEdit(data)
 	} else if mType == messageTypeChangeBreakPointRules {
 		return parseMessageMeta(data)
+	} else if mType == messageTypeRepeatRequest || mType == messageTypeComposeRequest ||
+		mType == messageTypeRepeatAdvanced || mType == messageTypeSaveSession ||
+		mType == messageTypeLoadSession || mType == messageTypeExportHAR ||
+		mType == messageTypeImportHAR || mType == messageTypeSetAnnotation {
+		return parseMessageAction(data)
 	} else {
 		log.Warnf("invalid message type %v", mType)
 		return nil

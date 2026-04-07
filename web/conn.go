@@ -26,6 +26,8 @@ type concurrentConn struct {
 	waitChansMu sync.Mutex
 
 	breakPointRules []*breakPointRule
+
+	onAction func(msg *messageAction) // callback for action messages
 }
 
 func newConn(c *websocket.Conn) *concurrentConn {
@@ -126,6 +128,10 @@ func (c *concurrentConn) readloop() {
 			}(msgEdit, ch)
 		} else if msgMeta, ok := msg.(*messageMeta); ok {
 			c.breakPointRules = msgMeta.breakPointRules
+		} else if msgAction, ok := msg.(*messageAction); ok {
+			if c.onAction != nil {
+				c.onAction(msgAction)
+			}
 		} else {
 			log.Warn("invalid message, skip")
 		}

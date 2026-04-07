@@ -29,6 +29,20 @@ export interface IPreviewBody {
   data: string | null
 }
 
+export interface IFlowAnnotation {
+  color: string
+  comment: string
+}
+
+export interface ITimingData {
+  dnsMs: number
+  connectMs: number
+  tlsMs: number
+  sendMs: number
+  waitMs: number
+  receiveMs: number
+}
+
 export interface IFlowPreview {
   no: number
   id: string
@@ -83,6 +97,11 @@ export class Flow {
   // SSE 相关字段
   public sseEvents: ISSEEvent[] = []
   public isSSE = false
+
+  // Annotation (highlight + comment)
+  public annotation: IFlowAnnotation | null = null
+  // Timing data
+  public timing: ITimingData | null = null
 
   // AI API 类型 (null 表示不是 AI API)
   public aiAPIType: 'anthropic' | 'openai' | null = null

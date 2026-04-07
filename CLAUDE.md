@@ -82,3 +82,10 @@ gomobile-compatible Go API for iOS/macOS apps. Key components:
 - Git commits: concise, single-line messages
 - Minimal comments — only where logic isn't self-evident
 - Do not predict next steps or proactively modify unrelated code
+
+## Active Technologies
+- Go 1.21+ (backend), TypeScript/React (frontend) + `tidwall/match` (glob patterns), `golang.org/x/time/rate` (optional), `gorilla/websocket` (existing) (001-charles-feature-parity)
+- JSON config files on disk, gzip-compressed session files (`.gmps`) (001-charles-feature-parity)
+
+## Recent Changes
+- 001-charles-feature-parity: Added Go 1.21+ (backend), TypeScript/React (frontend) + `tidwall/match` (glob patterns), `golang.org/x/time/rate` (optional), `gorilla/websocket` (existing)

@@ -37,6 +37,10 @@ func loadConfigFromCli() *Config {
 	flag.StringVar(&config.filename, "f", "", "read config from the filename")
 
 	flag.StringVar(&config.ProxyAuth, "proxyauth", "", `enable proxy authentication. Format: "username:pass", "user1:pass1|user2:pass2","any" to accept any user/pass combination`)
+	flag.StringVar(&config.Rewrite, "rewrite", "", "rewrite rules config filename")
+	flag.StringVar(&config.BlockList, "block_list", "", "block list config filename")
+	flag.StringVar(&config.Throttle, "throttle", "", "throttle config filename")
+	flag.BoolVar(&config.NoCaching, "no_caching", false, "strip cache headers from requests and responses")
 	flag.Parse()
 
 	return config
@@ -86,6 +90,18 @@ func mergeConfigs(fileConfig, cliConfig *Config) *Config {
 	}
 	if cliConfig.LogFile != "" {
 		config.LogFile = cliConfig.LogFile
+	}
+	if cliConfig.Rewrite != "" {
+		config.Rewrite = cliConfig.Rewrite
+	}
+	if cliConfig.BlockList != "" {
+		config.BlockList = cliConfig.BlockList
+	}
+	if cliConfig.Throttle != "" {
+		config.Throttle = cliConfig.Throttle
+	}
+	if cliConfig.NoCaching {
+		config.NoCaching = cliConfig.NoCaching
 	}
 	return config
 }
