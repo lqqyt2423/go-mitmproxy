@@ -140,19 +140,45 @@ func (a *attacker) serveConn(clientTlsConn *tls.Conn, connCtx *ConnContext) {
 }
 
 func (a *attacker) ServeHTTP(res http.ResponseWriter, req *http.Request) {
-	if strings.EqualFold(req.Header.Get("Connection"), "Upgrade") && strings.EqualFold(req.Header.Get("Upgrade"), "websocket") {
-		if err := a.proxy.webSocketHandler.handleWSS(res, req); err != nil {
-			log.Errorf("handleWSS error: %v", err)
-		}
-		return
-	}
-
 	if req.URL.Scheme == "" {
 		req.URL.Scheme = "https"
 	}
 	if req.URL.Host == "" {
 		req.URL.Host = req.Host
 	}
+
+	if strings.EqualFold(req.Header.Get("Connection"), "Upgrade") && strings.EqualFold(req.Header.Get("Upgrade"), "websocket") {
+		f := newFlow()
+		f.Request = newRequest(req)
+		f.ConnContext = req.Context().Value(connContextKey).(*ConnContext)
+		f.ConnContext.FlowCount.Add(1)
+
+		for _, addon := range a.proxy.Addons {
+			addon.Requestheaders(f)
+			if f.Response != nil {
+				if f.Response.Header != nil {
+					for key, vals := range f.Response.Header {
+						for _, v := range vals {
+							res.Header().Add(key, v)
+						}
+					}
+				}
+				res.WriteHeader(f.Response.StatusCode)
+				if len(f.Response.Body) > 0 {
+					_, _ = res.Write(f.Response.Body)
+				}
+				f.finish()
+				return
+			}
+		}
+		f.finish()
+
+		if err := a.proxy.webSocketHandler.handleWSS(res, req); err != nil {
+			log.Errorf("handleWSS error: %v", err)
+		}
+		return
+	}
+
 	a.attack(res, req)
 }
 
