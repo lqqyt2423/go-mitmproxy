@@ -124,6 +124,11 @@ func (a *attacker) serveConn(clientTlsConn *tls.Conn, connCtx *ConnContext) {
 			cancel()
 		}()
 		go func() {
+			defer func() {
+				if err := recover(); err != nil {
+					log.Errorf("http2 ServeConn panicked: %v", err)
+				}
+			}()
 			a.h2Server.ServeConn(clientTlsConn, &http2.ServeConnOpts{
 				Context:    ctx,
 				Handler:    a,
