@@ -77,7 +77,7 @@ class App extends React.Component<IProps, IState> {
     this.setState({ wsStatus: 'connecting' })
 
     let host
-    if (process.env.NODE_ENV === 'development') {
+    if (import.meta.env.DEV) {
       host = 'localhost:9081'
     } else {
       host = new URL(document.URL).host

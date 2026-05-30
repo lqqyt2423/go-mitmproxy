@@ -3,11 +3,6 @@
   "version": "0.1.0",
   "private": true,
   "dependencies": {
-    "@testing-library/jest-dom": "^5.15.1",
-    "@testing-library/react": "^12.1.2",
-    "@testing-library/user-event": "^14.4.3",
-    "@types/jest": "^29.2.4",
-    "@types/node": "^18.11.12",
     "@types/react": "^18.3.3",
     "@types/react-dom": "^18.3.0",
     "ahooks": "^3.8.0",
@@ -18,37 +13,19 @@
     "react-bootstrap": "^2.10.4",
     "react-dom": "^18.3.1",
     "react-json-pretty": "^2.2.0",
-    "react-scripts": "5.0.1",
     "typescript": "^4.5.2"
   },
   "scripts": {
-    "start": "react-scripts start",
-    "build": "react-scripts build",
-    "test": "react-scripts test",
-    "eject": "react-scripts eject"
-  },
-  "eslintConfig": {
-    "extends": [
-      "react-app",
-      "react-app/jest"
-    ]
-  },
-  "browserslist": {
-    "production": [
-      ">0.2%",
-      "not dead",
-      "not op_mini all"
-    ],
-    "development": [
-      "last 1 chrome version",
-      "last 1 firefox version",
-      "last 1 safari version"
-    ]
+    "dev": "vite",
+    "build": "tsc && vite build",
+    "preview": "vite preview"
   },
   "devDependencies": {
     "@typescript-eslint/eslint-plugin": "^5.46.0",
     "@typescript-eslint/parser": "^5.46.0",
+    "@vitejs/plugin-react": "^4.3.4",
     "eslint": "^8.29.0",
-    "eslint-plugin-react": "^7.27.1"
+    "eslint-plugin-react": "^7.27.1",
+    "vite": "^6.3.5"
   }
 }
