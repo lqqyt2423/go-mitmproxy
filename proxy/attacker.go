@@ -82,12 +82,6 @@ func newAttacker(proxy *Proxy) (*attacker, error) {
 
 	a.h2Server = &http2.Server{
 		MaxConcurrentStreams: 100, // todo: wait for remote server setting
-		NewWriteScheduler: func() http2.WriteScheduler {
-			return http2.NewPriorityWriteScheduler(&http2.PriorityWriteSchedulerConfig{
-				MaxClosedNodesInTree: 0,
-				MaxIdleNodesInTree:   10,
-			})
-		},
 	}
 
 	return a, nil
