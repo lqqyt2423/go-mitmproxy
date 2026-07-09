@@ -1,12 +1,21 @@
 package proxy
 
 import (
+	"bufio"
 	"context"
+	"crypto/rand"
+	"crypto/rsa"
 	"crypto/tls"
+	"crypto/x509"
+	"crypto/x509/pkix"
+	"encoding/pem"
 	"io"
+	"math/big"
 	"net"
 	"net/http"
 	"net/url"
+	"os"
+	"path/filepath"
 	"strconv"
 	"strings"
 	"sync"
@@ -41,8 +50,12 @@ func testSendRequest(t *testing.T, endpoint string, client *http.Client, bodyWan
 }
 
 type testProxyHelper struct {
-	server    *http.Server
-	proxyAddr string
+	server         *http.Server
+	proxyAddr      string
+	httpsProxyAddr string
+	withTLS        bool
+	httpsCertFile  string
+	httpsKeyFile   string
 
 	ln                     net.Listener
 	tlsPlainLn             net.Listener
@@ -52,6 +65,8 @@ type testProxyHelper struct {
 	testOrderAddonInstance *testOrderAddon
 	testProxy              *Proxy
 	getProxyClient         func() *http.Client
+	getHTTPSProxyClient    func() *http.Client
+	getWithTLSProxyClient  func() *http.Client
 }
 
 func (helper *testProxyHelper) init(t *testing.T) {
@@ -90,8 +105,12 @@ func (helper *testProxyHelper) init(t *testing.T) {
 
 	// start proxy
 	testProxy, err := NewProxy(&Options{
-		Addr:        helper.proxyAddr, // some random port
-		SslInsecure: true,
+		Addr:          helper.proxyAddr, // some random port
+		HTTPSAddr:     helper.httpsProxyAddr,
+		WithTLS:       helper.withTLS,
+		HTTPSCertFile: helper.httpsCertFile,
+		HTTPSKeyFile:  helper.httpsKeyFile,
+		SslInsecure:   true,
 	})
 	handleError(t, err)
 	testProxy.AddAddon(&interceptAddon{})
@@ -115,6 +134,75 @@ func (helper *testProxyHelper) init(t *testing.T) {
 		}
 	}
 	helper.getProxyClient = getProxyClient
+
+	getHTTPSProxyClient := func() *http.Client {
+		return &http.Client{
+			Transport: &http.Transport{
+				TLSClientConfig: &tls.Config{
+					InsecureSkipVerify: true,
+				},
+				Proxy: func(r *http.Request) (*url.URL, error) {
+					return url.Parse("https://127.0.0.1" + helper.httpsProxyAddr)
+				},
+			},
+		}
+	}
+	helper.getHTTPSProxyClient = getHTTPSProxyClient
+
+	getWithTLSProxyClient := func() *http.Client {
+		return &http.Client{
+			Transport: &http.Transport{
+				TLSClientConfig: &tls.Config{
+					InsecureSkipVerify: true,
+				},
+				Proxy: func(r *http.Request) (*url.URL, error) {
+					return url.Parse("https://127.0.0.1" + helper.proxyAddr)
+				},
+			},
+		}
+	}
+	helper.getWithTLSProxyClient = getWithTLSProxyClient
+}
+
+func writeTestTLSCert(t *testing.T) (string, string) {
+	t.Helper()
+
+	key, err := rsa.GenerateKey(rand.Reader, 2048)
+	handleError(t, err)
+	template := &x509.Certificate{
+		SerialNumber: big.NewInt(time.Now().UnixNano()),
+		Subject: pkix.Name{
+			CommonName: "127.0.0.1",
+		},
+		NotBefore:   time.Now().Add(-time.Hour),
+		NotAfter:    time.Now().Add(time.Hour),
+		KeyUsage:    x509.KeyUsageKeyEncipherment | x509.KeyUsageDigitalSignature,
+		ExtKeyUsage: []x509.ExtKeyUsage{x509.ExtKeyUsageServerAuth},
+		DNSNames:    []string{"localhost"},
+		IPAddresses: []net.IP{net.ParseIP("127.0.0.1")},
+	}
+	der, err := x509.CreateCertificate(rand.Reader, template, template, &key.PublicKey, key)
+	handleError(t, err)
+
+	dir := t.TempDir()
+	certFile := filepath.Join(dir, "server.crt")
+	keyFile := filepath.Join(dir, "server.key")
+
+	certOut, err := os.Create(certFile)
+	handleError(t, err)
+	err = pem.Encode(certOut, &pem.Block{Type: "CERTIFICATE", Bytes: der})
+	handleError(t, err)
+	handleError(t, certOut.Close())
+
+	keyBytes, err := x509.MarshalPKCS8PrivateKey(key)
+	handleError(t, err)
+	keyOut, err := os.Create(keyFile)
+	handleError(t, err)
+	err = pem.Encode(keyOut, &pem.Block{Type: "PRIVATE KEY", Bytes: keyBytes})
+	handleError(t, err)
+	handleError(t, keyOut.Close())
+
+	return certFile, keyFile
 }
 
 // addon for test intercept
@@ -421,6 +509,158 @@ func TestProxy(t *testing.T) {
 			testOrderAddonInstance.before(t, "ClientDisconnected", "ServerDisconnected")
 		})
 	})
+}
+
+func TestHTTPSProxyEntry(t *testing.T) {
+	certFile, keyFile := writeTestTLSCert(t)
+	helper := &testProxyHelper{
+		server:         &http.Server{},
+		proxyAddr:      ":29107",
+		httpsProxyAddr: ":29108",
+		httpsCertFile:  certFile,
+		httpsKeyFile:   keyFile,
+	}
+	helper.init(t)
+	defer helper.ln.Close()
+	go helper.server.Serve(helper.ln)
+	defer helper.tlsPlainLn.Close()
+	go helper.server.Serve(helper.tlsLn)
+	go helper.testProxy.Start()
+	defer helper.testProxy.Close()
+	time.Sleep(time.Millisecond * 10)
+
+	httpsProxyClient := helper.getHTTPSProxyClient()
+	t.Run("can proxy http over https proxy", func(t *testing.T) {
+		testSendRequest(t, helper.httpEndpoint, httpsProxyClient, "ok")
+	})
+
+	t.Run("can proxy https over https proxy", func(t *testing.T) {
+		testSendRequest(t, helper.httpsEndpoint, httpsProxyClient, "ok")
+	})
+
+	t.Run("force attempt http2 still proxies with http1 outer protocol", func(t *testing.T) {
+		client := helper.getHTTPSProxyClient()
+		client.Transport.(*http.Transport).ForceAttemptHTTP2 = true
+		testSendRequest(t, helper.httpEndpoint, client, "ok")
+
+		conn, err := tls.Dial("tcp", "127.0.0.1"+helper.httpsProxyAddr, &tls.Config{
+			InsecureSkipVerify: true,
+			NextProtos:         []string{"h2", "http/1.1"},
+		})
+		handleError(t, err)
+		defer conn.Close()
+		if conn.ConnectionState().NegotiatedProtocol == "h2" {
+			t.Fatal("https proxy entry negotiated h2")
+		}
+
+		req, err := http.NewRequest("GET", helper.httpEndpoint, nil)
+		handleError(t, err)
+		handleError(t, req.WriteProxy(conn))
+		resp, err := http.ReadResponse(bufio.NewReader(conn), req)
+		handleError(t, err)
+		defer resp.Body.Close()
+		body, err := io.ReadAll(resp.Body)
+		handleError(t, err)
+		if string(body) != "ok" {
+			t.Fatalf("expected ok, but got %s", body)
+		}
+	})
+}
+
+func TestHTTPSProxyEntryRequiresCertAndKey(t *testing.T) {
+	testProxy, err := NewProxy(&Options{
+		Addr:      "127.0.0.1:0",
+		HTTPSAddr: "127.0.0.1:0",
+		NewCaFunc: cert.NewSelfSignCAMemory,
+	})
+	handleError(t, err)
+	err = testProxy.Start()
+	if err == nil {
+		t.Fatal("expected error")
+	}
+	if !strings.Contains(err.Error(), "requires both cert and key") {
+		t.Fatalf("unexpected error: %v", err)
+	}
+}
+
+func TestWithTLSProxyEntry(t *testing.T) {
+	certFile, keyFile := writeTestTLSCert(t)
+	helper := &testProxyHelper{
+		server:        &http.Server{},
+		proxyAddr:     ":29109",
+		withTLS:       true,
+		httpsCertFile: certFile,
+		httpsKeyFile:  keyFile,
+	}
+	helper.init(t)
+	defer helper.ln.Close()
+	go helper.server.Serve(helper.ln)
+	defer helper.tlsPlainLn.Close()
+	go helper.server.Serve(helper.tlsLn)
+	go helper.testProxy.Start()
+	defer helper.testProxy.Close()
+	time.Sleep(time.Millisecond * 10)
+
+	withTLSProxyClient := helper.getWithTLSProxyClient()
+	t.Run("can proxy http over tls proxy channel", func(t *testing.T) {
+		testSendRequest(t, helper.httpEndpoint, withTLSProxyClient, "ok")
+	})
+
+	t.Run("can proxy https over tls proxy channel", func(t *testing.T) {
+		testSendRequest(t, helper.httpsEndpoint, withTLSProxyClient, "ok")
+	})
+
+	t.Run("plain http proxy connection fails against tls listener", func(t *testing.T) {
+		plainClient := helper.getProxyClient()
+		_, err := plainClient.Get(helper.httpEndpoint)
+		if err == nil {
+			t.Fatal("expected error when using plain proxy against tls listener")
+		}
+	})
+}
+
+func TestWithTLSCoexistsWithHTTPSAddr(t *testing.T) {
+	certFile, keyFile := writeTestTLSCert(t)
+	helper := &testProxyHelper{
+		server:         &http.Server{},
+		proxyAddr:      ":29110",
+		httpsProxyAddr: ":29111",
+		withTLS:        true,
+		httpsCertFile:  certFile,
+		httpsKeyFile:   keyFile,
+	}
+	helper.init(t)
+	defer helper.ln.Close()
+	go helper.server.Serve(helper.ln)
+	defer helper.tlsPlainLn.Close()
+	go helper.server.Serve(helper.tlsLn)
+	go helper.testProxy.Start()
+	defer helper.testProxy.Close()
+	time.Sleep(time.Millisecond * 10)
+
+	t.Run("main addr is tls", func(t *testing.T) {
+		testSendRequest(t, helper.httpEndpoint, helper.getWithTLSProxyClient(), "ok")
+	})
+
+	t.Run("https_addr port also works", func(t *testing.T) {
+		testSendRequest(t, helper.httpEndpoint, helper.getHTTPSProxyClient(), "ok")
+	})
+}
+
+func TestWithTLSRequiresCertAndKey(t *testing.T) {
+	testProxy, err := NewProxy(&Options{
+		Addr:      "127.0.0.1:0",
+		WithTLS:   true,
+		NewCaFunc: cert.NewSelfSignCAMemory,
+	})
+	handleError(t, err)
+	err = testProxy.Start()
+	if err == nil {
+		t.Fatal("expected error")
+	}
+	if !strings.Contains(err.Error(), "requires both cert and key") {
+		t.Fatalf("unexpected error: %v", err)
+	}
 }
 
 func TestProxyWhenServerNotKeepAlive(t *testing.T) {
