@@ -20,6 +20,10 @@ type Request struct {
 	Header http.Header
 	Body   []byte
 
+	// RawHeader is the HTTP/1.1 header block as received (original name casing/order).
+	// Nil for HTTP/2 or when capture was unavailable; then Header (canonical) is used.
+	RawHeader []RawHeaderField
+
 	raw *http.Request
 }
 

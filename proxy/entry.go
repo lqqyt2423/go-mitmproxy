@@ -42,6 +42,7 @@ type wrapClientConn struct {
 	r       *bufio.Reader
 	proxy   *Proxy
 	connCtx *ConnContext
+	splicer http1HeaderSplicer
 
 	closeMu   sync.Mutex
 	closed    bool
@@ -50,12 +51,21 @@ type wrapClientConn struct {
 }
 
 func newWrapClientConn(c net.Conn, proxy *Proxy) *wrapClientConn {
-	return &wrapClientConn{
+	wc := &wrapClientConn{
 		Conn:      c,
 		r:         bufio.NewReader(c),
 		proxy:     proxy,
 		closeChan: make(chan struct{}),
 	}
+	wc.splicer = http1HeaderSplicer{
+		br: wc.r,
+		onCapture: func(fields []RawHeaderField) {
+			if wc.connCtx != nil {
+				wc.connCtx.setRawRequestHeaders(fields)
+			}
+		},
+	}
+	return wc
 }
 
 func (c *wrapClientConn) Peek(n int) ([]byte, error) {
@@ -67,7 +77,7 @@ func (c *wrapClientConn) PeekBuffered() ([]byte, error) {
 }
 
 func (c *wrapClientConn) Read(data []byte) (int, error) {
-	return c.r.Read(data)
+	return c.splicer.Read(data)
 }
 
 func (c *wrapClientConn) Close() error {
@@ -229,6 +239,9 @@ func (e *entry) handleConnect(res http.ResponseWriter, req *http.Request) {
 	f := newFlow()
 	f.Request = newRequest(req)
 	f.ConnContext = req.Context().Value(connContextKey).(*ConnContext)
+	if f.ConnContext != nil {
+		f.Request.RawHeader = f.ConnContext.takeRawRequestHeaders()
+	}
 	f.ConnContext.Intercept = shouldIntercept
 	defer f.finish()
 

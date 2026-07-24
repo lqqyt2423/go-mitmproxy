@@ -133,7 +133,7 @@ func (a *attacker) serveConn(clientTlsConn *tls.Conn, connCtx *ConnContext) {
 	}
 
 	a.listener.accept(&attackerConn{
-		Conn:    clientTlsConn,
+		Conn:    wrapRawHeaderCapture(clientTlsConn, connCtx),
 		connCtx: connCtx,
 	})
 }
@@ -150,6 +150,9 @@ func (a *attacker) ServeHTTP(res http.ResponseWriter, req *http.Request) {
 		f := newFlow()
 		f.Request = newRequest(req)
 		f.ConnContext = req.Context().Value(connContextKey).(*ConnContext)
+		if f.ConnContext != nil {
+			f.Request.RawHeader = f.ConnContext.takeRawRequestHeaders()
+		}
 		f.ConnContext.FlowCount.Add(1)
 
 		for _, addon := range a.proxy.Addons {
@@ -511,6 +514,9 @@ func (a *attacker) attack(res http.ResponseWriter, req *http.Request) {
 	f := newFlow()
 	f.Request = newRequest(req)
 	f.ConnContext = req.Context().Value(connContextKey).(*ConnContext)
+	if f.ConnContext != nil {
+		f.Request.RawHeader = f.ConnContext.takeRawRequestHeaders()
+	}
 	defer f.finish()
 
 	f.ConnContext.FlowCount.Add(1)
@@ -596,7 +602,7 @@ func (a *attacker) attack(res http.ResponseWriter, req *http.Request) {
 			if host == "" {
 				host = req.Host
 			}
-			proxyRes, err = roundTripRawHTTP1(sc.tlsConn, f.Request.Method, reqURI, host, f.Request.Header, f.Request.Body)
+			proxyRes, err = roundTripRawHTTP1(sc.tlsConn, f.Request.Method, reqURI, host, f.Request.Header, f.Request.RawHeader, f.Request.Body)
 			usedRaw = true
 			f.ConnContext.closeAfterResponse = true
 		}

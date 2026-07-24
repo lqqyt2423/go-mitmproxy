@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"net"
 	"net/http"
+	"sync"
 
 	uuid "github.com/satori/go.uuid"
 	"go.uber.org/atomic"
@@ -84,6 +85,9 @@ type ConnContext struct {
 	proxy              *Proxy
 	closeAfterResponse bool                        // after http response, http server will close the connection
 	dialFn             func(context.Context) error // when begin request, if there no ServerConn, use this func to dial
+
+	rawHeadersMu       sync.Mutex
+	rawRequestHeaders  []RawHeaderField // last HTTP/1.1 request headers as on the wire
 }
 
 func newConnContext(c net.Conn, proxy *Proxy) *ConnContext {

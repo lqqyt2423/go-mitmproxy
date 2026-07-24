@@ -7,7 +7,6 @@ import (
 	"io"
 	"net"
 	"net/http"
-	"sort"
 	"strings"
 )
 
@@ -22,16 +21,6 @@ var hopByHopHeaders = map[string]bool{
 	"Transfer-Encoding":   true,
 	"Upgrade":             true,
 	"Proxy-Connection":    true,
-}
-
-// wireHeaderName emits curl-style lowercase for x-* headers.
-// Go's http.Header / Transport always use CanonicalMIMEHeaderKey (X-Token),
-// which breaks gateways that treat custom header names as case-sensitive.
-func wireHeaderName(canonicalKey string) string {
-	if strings.HasPrefix(strings.ToLower(canonicalKey), "x-") {
-		return strings.ToLower(canonicalKey)
-	}
-	return canonicalKey
 }
 
 func writeHeaderLine(buf *bytes.Buffer, key, value string) {
@@ -61,10 +50,12 @@ func upstreamNegotiatedHTTP11(sc *ServerConn) bool {
 	return p == "" || p == "http/1.1"
 }
 
-// roundTripRawHTTP1 writes an HTTP/1.1 request with case-preserving header names
-// directly to conn (typically the upstream TLS connection), then reads the response.
-// Call only when upstreamNegotiatedHTTP11 is true; HTTP/2 paths stay on http2.Transport.
-func roundTripRawHTTP1(conn net.Conn, method, requestURI, host string, header http.Header, body []byte) (*http.Response, error) {
+func isHopByHop(name string) bool {
+	return hopByHopHeaders[http.CanonicalHeaderKey(name)]
+}
+
+// roundTripRawHTTP1 writes an HTTP/1.1 request with original header names when available.
+func roundTripRawHTTP1(conn net.Conn, method, requestURI, host string, header http.Header, raw []RawHeaderField, body []byte) (*http.Response, error) {
 	if conn == nil {
 		return nil, fmt.Errorf("raw roundtrip: nil conn")
 	}
@@ -77,31 +68,36 @@ func roundTripRawHTTP1(conn net.Conn, method, requestURI, host string, header ht
 	fmt.Fprintf(&buf, "%s %s HTTP/1.1\r\n", method, requestURI)
 	writeHeaderLine(&buf, "Host", host)
 
-	keys := make([]string, 0, len(header))
-	for key := range header {
-		if hopByHopHeaders[key] || key == "Host" || key == "Content-Length" {
-			continue
+	wroteCL := false
+	if len(raw) > 0 {
+		for _, h := range raw {
+			if h.Name == "" || strings.EqualFold(h.Name, "Host") || isHopByHop(h.Name) {
+				continue
+			}
+			if strings.EqualFold(h.Name, "Content-Length") {
+				continue
+			}
+			writeHeaderLine(&buf, h.Name, h.Value)
 		}
-		keys = append(keys, key)
-	}
-	// Deterministic order only (not product-specific).
-	sort.Slice(keys, func(i, j int) bool {
-		return strings.ToLower(keys[i]) < strings.ToLower(keys[j])
-	})
-
-	for _, key := range keys {
-		name := wireHeaderName(key)
-		for _, v := range header.Values(key) {
-			writeHeaderLine(&buf, name, v)
+	} else {
+		for key, vals := range header {
+			if key == "Host" || isHopByHop(key) || key == "Content-Length" {
+				continue
+			}
+			for _, v := range vals {
+				writeHeaderLine(&buf, key, v)
+			}
 		}
 	}
 
-	// Content-Length from buffered body is authoritative.
 	if body != nil {
 		writeHeaderLine(&buf, "Content-Length", fmt.Sprintf("%d", len(body)))
+		wroteCL = true
 	} else if vals := header.Values("Content-Length"); len(vals) > 0 {
 		writeHeaderLine(&buf, "Content-Length", vals[0])
+		wroteCL = true
 	}
+	_ = wroteCL
 
 	writeHeaderLine(&buf, "Connection", "close")
 	buf.WriteString("\r\n")
