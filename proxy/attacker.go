@@ -562,22 +562,6 @@ func (a *attacker) attack(res http.ResponseWriter, req *http.Request) {
 		reqBody = addon.StreamRequestModifier(f, reqBody)
 	}
 
-	proxyReqCtx := context.WithValue(req.Context(), proxyReqCtxKey, req)
-	proxyReq, err := http.NewRequestWithContext(proxyReqCtx, f.Request.Method, f.Request.URL.String(), reqBody)
-	if err != nil {
-		for _, addon := range proxy.Addons {
-			addon.RequestError(f, err)
-		}
-		res.WriteHeader(502)
-		return
-	}
-
-	for key, value := range f.Request.Header {
-		for _, v := range value {
-			proxyReq.Header.Add(key, v)
-		}
-	}
-
 	useSeparateClient := f.UseSeparateClient
 	if !useSeparateClient {
 		if rawReqUrlHost != f.Request.URL.Host || rawReqUrlScheme != f.Request.URL.Scheme {
@@ -586,16 +570,18 @@ func (a *attacker) attack(res http.ResponseWriter, req *http.Request) {
 	}
 
 	var proxyRes *http.Response
-	if useSeparateClient {
-		proxyRes, err = a.client.Do(proxyReq)
-	} else {
+	var err error
+
+	// HTTP/1.1 only: write the request ourselves so x-* header names stay lowercase.
+	// Go's http.Transport always emits CanonicalMIMEHeaderKey (X-Token). HTTP/2 is unchanged.
+	usedRaw := false
+	if !f.Stream && !useSeparateClient {
 		if f.ConnContext.ServerConn == nil && f.ConnContext.dialFn != nil {
-			if err := f.ConnContext.dialFn(req.Context()); err != nil {
+			if dialErr := f.ConnContext.dialFn(req.Context()); dialErr != nil {
 				for _, addon := range proxy.Addons {
-					addon.RequestError(f, err)
+					addon.RequestError(f, dialErr)
 				}
-				// Check for authentication failure
-				if strings.Contains(err.Error(), "Proxy Authentication Required") {
+				if strings.Contains(dialErr.Error(), "Proxy Authentication Required") {
 					httpError(res, "", http.StatusProxyAuthRequired)
 					return
 				}
@@ -603,7 +589,55 @@ func (a *attacker) attack(res http.ResponseWriter, req *http.Request) {
 				return
 			}
 		}
-		proxyRes, err = f.ConnContext.ServerConn.client.Do(proxyReq)
+		sc := f.ConnContext.ServerConn
+		if sc != nil && sc.tlsConn != nil && f.Request.Body != nil && upstreamNegotiatedHTTP11(sc) {
+			reqURI := f.Request.URL.RequestURI()
+			host := f.Request.URL.Host
+			if host == "" {
+				host = req.Host
+			}
+			proxyRes, err = roundTripRawHTTP1(sc.tlsConn, f.Request.Method, reqURI, host, f.Request.Header, f.Request.Body)
+			usedRaw = true
+			f.ConnContext.closeAfterResponse = true
+		}
+	}
+
+	if !usedRaw {
+		proxyReqCtx := context.WithValue(req.Context(), proxyReqCtxKey, req)
+		var proxyReq *http.Request
+		proxyReq, err = http.NewRequestWithContext(proxyReqCtx, f.Request.Method, f.Request.URL.String(), reqBody)
+		if err != nil {
+			for _, addon := range proxy.Addons {
+				addon.RequestError(f, err)
+			}
+			res.WriteHeader(502)
+			return
+		}
+
+		for key, value := range f.Request.Header {
+			for _, v := range value {
+				proxyReq.Header.Add(key, v)
+			}
+		}
+
+		if useSeparateClient {
+			proxyRes, err = a.client.Do(proxyReq)
+		} else {
+			if f.ConnContext.ServerConn == nil && f.ConnContext.dialFn != nil {
+				if err = f.ConnContext.dialFn(req.Context()); err != nil {
+					for _, addon := range proxy.Addons {
+						addon.RequestError(f, err)
+					}
+					if strings.Contains(err.Error(), "Proxy Authentication Required") {
+						httpError(res, "", http.StatusProxyAuthRequired)
+						return
+					}
+					res.WriteHeader(502)
+					return
+				}
+			}
+			proxyRes, err = f.ConnContext.ServerConn.client.Do(proxyReq)
+		}
 	}
 	if err != nil {
 		logErr(log, err)
