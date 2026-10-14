@@ -1,6 +1,10 @@
 package helper
 
-import "testing"
+import (
+	"context"
+	"net/url"
+	"testing"
+)
 
 func TestMatchHost(t *testing.T) {
 	// Test case 1: Exact match
@@ -96,5 +100,18 @@ func TestMatchHost(t *testing.T) {
 	result = MatchHost(address, hosts)
 	if result != expected {
 		t.Errorf("Expected %t but got %t", expected, result)
+	}
+}
+
+func TestGetProxyConnSocks5DialFailure(t *testing.T) {
+	ctx := context.Background()
+	proxyUrl, err := url.Parse("socks5://127.0.0.1:1")
+	if err != nil {
+		t.Fatalf("Failed to parse proxy url: %v", err)
+	}
+	// Attempting to connect to an invalid port should fail without panicking
+	_, err = GetProxyConn(ctx, proxyUrl, "127.0.0.1:80", false)
+	if err == nil {
+		t.Error("Expected error when dialing through closed/invalid port, got nil")
 	}
 }
