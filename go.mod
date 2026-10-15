@@ -1,6 +1,6 @@
 module github.com/lqqyt2423/go-mitmproxy
 
-go 1.26
+go 1.26.0
 
 require (
 	github.com/andybalholm/brotli v1.2.1
@@ -11,10 +11,10 @@ require (
 	github.com/samber/lo v1.53.0
 	github.com/sirupsen/logrus v1.9.4
 	github.com/tidwall/match v1.2.0
-	golang.org/x/net v0.55.0
+	golang.org/x/net v0.61.0
 )
 
 require (
-	golang.org/x/sys v0.45.0 // indirect
-	golang.org/x/text v0.37.0 // indirect
+	golang.org/x/sys v0.49.0 // indirect
+	golang.org/x/text v0.43.0 // indirect
 )

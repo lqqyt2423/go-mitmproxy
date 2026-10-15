@@ -37,7 +37,6 @@ func GetProxyConn(ctx context.Context, proxyUrl *url.URL, address string, sslIns
 		})
 		conn, err = dc.DialContext(ctx, "tcp", address)
 		if err != nil {
-			conn.Close()
 			return nil, err
 		}
 		return conn, err
