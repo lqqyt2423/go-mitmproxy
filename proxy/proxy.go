@@ -41,7 +41,7 @@ type Proxy struct {
 var proxyReqCtxKey = new(struct{})
 
 // Version is the release version of the proxy library.
-var Version = "1.9.3"
+var Version = "1.9.4"
 
 func NewProxy(opts *Options) (*Proxy, error) {
 	if opts.StreamLargeBodies <= 0 {
