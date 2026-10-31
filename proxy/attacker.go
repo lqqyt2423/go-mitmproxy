@@ -89,6 +89,9 @@ func newAttacker(proxy *Proxy) (*attacker, error) {
 }
 
 func newCa(opts *Options) (cert.CA, error) {
+	if opts.CustomCA != nil {
+		return opts.CustomCA, nil
+	}
 	newCaFunc := opts.NewCaFunc
 	if newCaFunc != nil {
 		return newCaFunc()

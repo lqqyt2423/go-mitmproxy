@@ -22,6 +22,9 @@ type Options struct {
 	NewCaFunc         func() (cert.CA, error) //创建 Ca 的函数
 	Upstream          string
 	LogFilePath       string // Path to write logs to file
+	// CustomCA: if non-nil, use this CA instead of SelfSignCA.
+	// Enables loading an existing intermediate CA (RSA or EC) from PEM files.
+	CustomCA cert.CA
 }
 
 type Proxy struct {
